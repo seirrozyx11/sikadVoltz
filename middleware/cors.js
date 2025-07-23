@@ -13,4 +13,4 @@ const corsOptions = {
   credentials: true
 };
 
-module.exports = corsOptions;
+export default corsOptions;

@@ -23,37 +23,37 @@ const __dirname = dirname(__filename);
 const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const MONGODB_URI = process.env.MONGODB_URI;
-
+const IS_RENDER = process.env.RENDER; // Render environment detection
 
 if (!MONGODB_URI) {
   console.error('FATAL: MONGODB_URI not defined in environment variables');
   process.exit(1);
 }
 
-// Enhanced MongoDB connection with retry logic
-const connectWithRetry = async () => {
+// Render-optimized MongoDB connection
+const connectDB = async () => {
   try {
-    console.log('Attempting MongoDB connection...');
+    console.log('Connecting to MongoDB...');
     await mongoose.connect(MONGODB_URI, {
       useNewUrlParser: true,
       useUnifiedTopology: true,
-      serverSelectionTimeoutMS: 5000,
-      socketTimeoutMS: 45000,
+      serverSelectionTimeoutMS: IS_RENDER ? 3000 : 5000, // Faster timeout for Render
+      socketTimeoutMS: 30000
     });
     
-    console.log('MongoDB connected successfully');
     logger.info('MongoDB connected successfully');
-    
-    // Verify connection
-    await mongoose.connection.db.admin().ping();
     console.log('MongoDB connection verified');
+    return true;
   } catch (err) {
-    console.error('MongoDB connection failed:', err.message);
-    logger.error('MongoDB connection error:', err);
+    logger.error('MongoDB connection failed:', err);
+    console.error('MongoDB connection error:', err.message);
     
-    // Retry after 5 seconds
-    console.log('Retrying MongoDB connection in 5 seconds...');
-    setTimeout(connectWithRetry, 5000);
+    if (!IS_RENDER) {
+      console.log('Retrying in 5 seconds...');
+      setTimeout(connectDB, 5000); // Only retry in non-Render environments
+    } else {
+      process.exit(1); // Let Render handle restarts
+    }
   }
 };
 
@@ -62,9 +62,8 @@ const app = express();
 
 // Enhanced CORS configuration
 const allowedOrigins = [
-  ...process.env.ALLOWED_ORIGINS.split(',').map(o => o.trim()),
-  // Render health checks need this
-  'https://sikadvoltz-backend-t6cs.onrender.com' 
+  ...(process.env.ALLOWED_ORIGINS?.split(',') || []).map(o => o.trim()),
+  IS_RENDER ? 'https://sikadvoltz-backend-t6cs.onrender.com' : 'http://localhost:3000'
 ].filter(Boolean);
 
 app.use(cors({
@@ -79,7 +78,7 @@ app.use(cors({
   methods: ['GET', 'POST', 'PUT', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
   credentials: true,
-  optionsSuccessStatus: 200 // For legacy browsers
+  optionsSuccessStatus: 200
 }));
 
 // Middleware
@@ -114,15 +113,43 @@ app.use('/api/plans', planRoutes);
 app.use('/api/calories', calorieRoutes);
 app.use('/api/profile', profileRoutes);
 
-// Health check endpoint
+// Render-compatible health check (essential for deployment)
 app.get('/health', (req, res) => {
+  const dbHealthy = mongoose.connection.readyState === 1;
+  const status = dbHealthy ? 200 : 503;
+  
+  res.status(status).json({
+    status: dbHealthy ? 'healthy' : 'unhealthy',
+    database: dbHealthy ? 'connected' : 'disconnected',
+    timestamp: new Date().toISOString(),
+    environment: NODE_ENV
+  });
+});
+
+// Root endpoint
+app.get('/', (req, res) => {
   const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
   res.status(200).json({
-    status: 'ok',
-    dbStatus,
-    timestamp: new Date().toISOString(),
-    environment: NODE_ENV,
-    nodeVersion: process.version
+    success: true,
+    message: "SikadVoltz API is running. BOSHET",
+    deployment: IS_RENDER ? "Render" : "Local",
+    status: {
+      environment: NODE_ENV,
+      database: dbStatus,
+      uptime: process.uptime(),
+      timestamp: new Date().toISOString()
+    },
+    endpoints: {
+      auth: "/api/auth",
+      plans: "/api/plans",
+      calories: "/api/calories",
+      profile: "/api/profile",
+      health: "/health"
+    },
+    meta: {
+      version: process.env.npm_package_version || "1.0.0",
+      docs: "https://docs.your-api.com"
+    }
   });
 });
 
@@ -132,7 +159,11 @@ app.use((req, res) => {
   res.status(404).json({
     success: false,
     error: 'Not Found',
-    message: `Cannot ${req.method} ${req.originalUrl}`
+    message: `Cannot ${req.method} ${req.originalUrl}`,
+    suggested_endpoints: {
+      root: "/",
+      api_docs: "/api-docs"
+    }
   });
 });
 
@@ -150,7 +181,8 @@ app.use((err, req, res, next) => {
     success: false,
     error: 'Internal Server Error',
     message: NODE_ENV === 'development' ? err.message : 'Something went wrong',
-    ...(NODE_ENV === 'development' && { stack: err.stack })
+    ...(NODE_ENV === 'development' && { stack: err.stack }),
+    support: "contact@your-api.com"
   });
 });
 
@@ -193,25 +225,39 @@ process.on('uncaughtException', (error) => {
   process.exit(1);
 });
 
-// // Start server after DB connection
-// connectWithRetry().then(() => {
-//   server.listen(PORT, '0.0.0.0', () => {
-//     console.log(`Server running in ${NODE_ENV} mode on port ${PORT}`);
-//     console.log(`WebSocket server running on port ${PORT}`);
-//     console.log(`API available at http://localhost:${PORT}/api`);
-//   });
+// Render-optimized server startup
+const startServer = async () => {
+  try {
+    await connectDB();
+    
+    server.listen(PORT, () => {
+      const startupMessage = `
+      ============================================
+       🚀 ${IS_RENDER ? 'Render Production' : 'Local Development'} Server
+       🔗 URL: ${IS_RENDER ? process.env.RENDER_EXTERNAL_URL : `http://localhost:${PORT}`}
+       🌐 Environment: ${NODE_ENV}
+       🗄️  Database: ${mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected'}
+       ⏱️  Startup Time: ${process.uptime().toFixed(2)}s
+      ============================================
+      `;
+      
+      console.log(startupMessage);
+      logger.info(`Server started on port ${PORT}`);
+    });
 
-//   server.on('error', (error) => {
-//     if (error.syscall !== 'listen') throw error;
-//     switch (error.code) {
-//       case 'EACCES':
-//         console.error(`Port ${PORT} requires elevated privileges`);
-//         process.exit(1);
-//       case 'EADDRINUSE':
-//         console.error(`Port ${PORT} is already in use`);
-//         process.exit(1);
-//       default:
-//         throw error;
-//     }
-//   });
-// });
+    server.on('error', (error) => {
+      logger.error('Server error:', error);
+      if (error.code === 'EADDRINUSE') {
+        console.error(`Port ${PORT} in use. Try: kill -9 $(lsof -t -i:${PORT})`);
+      }
+      process.exit(1);
+    });
+
+  } catch (err) {
+    logger.error('Server startup failed:', err);
+    process.exit(1);
+  }
+};
+
+// Start the server
+startServer();
