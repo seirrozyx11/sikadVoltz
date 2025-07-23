@@ -1,3 +1,4 @@
+<<<<<<< HEAD
 # SikadVoltz Backend
 
 Backend service for the SikadVoltz cycling training application, built with Node.js, Express, and MongoDB.
@@ -99,3 +100,6 @@ In development mode, logs are also output to the console with colors.
 ## License
 
 MIT
+=======
+# sikadVoltz
+>>>>>>> 814a1b788c35fc4e960a13311c32f9e39e789a64
