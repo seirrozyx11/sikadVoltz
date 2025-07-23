@@ -122,7 +122,13 @@ app.get('/health', (req, res) => {
     status: dbHealthy ? 'healthy' : 'unhealthy',
     database: dbHealthy ? 'connected' : 'disconnected',
     timestamp: new Date().toISOString(),
-    environment: NODE_ENV
+    environment: NODE_ENV,
+    nodeVersion: process.version,
+    uptime: process.uptime(),
+    ...(IS_RENDER && { 
+      renderInstance: process.env.RENDER_INSTANCE_ID,
+      service: process.env.RENDER_SERVICE_NAME 
+    })
   });
 });
 
