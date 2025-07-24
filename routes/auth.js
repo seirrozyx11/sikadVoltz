@@ -3,10 +3,11 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import { validateRequest, authValidation } from '../middleware/validation.js';
-import TokenBlacklist from '../models/TokenBlacklist.js'; // Ensure this import
+import TokenBlacklist from '../models/TokenBlacklist.js'; // Ensure this exists
 
 const router = express.Router();
 
+// 🔐 Token creator
 const createToken = (user) => {
   return jwt.sign(
     { userId: user._id, email: user.email },
@@ -15,19 +16,23 @@ const createToken = (user) => {
   );
 };
 
-// Enhanced authenticateUser middleware
+// ✅ Unified middleware for protected routes
 const authenticateUser = async (req, res, next) => {
   const authHeader = req.headers.authorization;
-  if (!authHeader) return res.status(401).json({ success: false, error: 'No token provided' });
+  if (!authHeader) {
+    return res.status(401).json({ success: false, error: 'No token provided' });
+  }
 
   const token = authHeader.split(' ')[1];
   try {
     const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallbacksecret');
+
     // Check blacklist
     const isBlacklisted = await TokenBlacklist.exists({ token });
     if (isBlacklisted) {
       return res.status(401).json({ success: false, error: 'Token revoked' });
     }
+
     req.user = decoded;
     req.token = token;
     next();
@@ -36,7 +41,7 @@ const authenticateUser = async (req, res, next) => {
   }
 };
 
-// Register
+// 📝 Register
 router.post('/register', validateRequest(authValidation.register), async (req, res) => {
   try {
     const { email, password, firstName, lastName } = req.body;
@@ -69,15 +74,6 @@ router.post('/register', validateRequest(authValidation.register), async (req, r
     });
   } catch (error) {
     console.error('Registration error:', error);
-    if (error.code === 11000) {
-      return res.status(400).json({
-        success: false,
-        error: 'Duplicate email',
-        message: 'Email already exists',
-        field: 'email'
-      });
-    }
-
     res.status(500).json({
       success: false,
       error: 'Server error',
@@ -86,7 +82,7 @@ router.post('/register', validateRequest(authValidation.register), async (req, r
   }
 });
 
-// Login
+// 🔓 Login
 router.post('/login', validateRequest(authValidation.login), async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -135,7 +131,7 @@ router.post('/login', validateRequest(authValidation.login), async (req, res) =>
   }
 });
 
-// Logout route with token expiration tracking
+// 🚪 Logout with blacklist
 router.post('/logout', authenticateUser, async (req, res) => {
   try {
     const decoded = jwt.decode(req.token);
@@ -143,11 +139,20 @@ router.post('/logout', authenticateUser, async (req, res) => {
       token: req.token,
       expiresAt: new Date(decoded.exp * 1000)
     });
-    res.status(200).json({ success: true });
+    res.status(200).json({ success: true, message: "Logged out successfully" });
   } catch (err) {
     console.error('Logout error:', err);
     res.status(500).json({ success: false, error: "Logout failed" });
   }
+});
+
+// 👤 Profile
+router.get('/profile', authenticateUser, (req, res) => {
+  res.json({
+    success: true,
+    message: 'User profile fetched successfully',
+    user: req.user
+  });
 });
 
 export default router;
