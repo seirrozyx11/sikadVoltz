@@ -3,7 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import { validateRequest, authValidation } from '../middleware/validation.js';
-import TokenBlacklist from '../models/TokenBlacklist.js';
+import TokenBlacklist from '../models/TokenBlacklist.js'; // Ensure this import
 
 const router = express.Router();
 

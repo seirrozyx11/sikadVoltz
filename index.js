@@ -11,7 +11,7 @@ import { WebSocketServer } from 'ws';
 import logger from './utils/logger.js';
 
 // Import routes
-import authRoutes from './routes/auth.js';
+import authRouter from './routes/auth.js';
 import planRoutes from './routes/planRoutes.js';
 import profileRoutes from './routes/profileRoutes.js';
 import calorieRoutes from './routes/calorieRoutes.js';
@@ -108,7 +108,7 @@ app.use((req, res, next) => {
 });
 
 // API routes
-app.use('/api/auth', authRoutes);
+app.use('/api/auth', authRouter);
 app.use('/api/plans', planRoutes);
 app.use('/api/calories', calorieRoutes);
 app.use('/api/profile', profileRoutes);
