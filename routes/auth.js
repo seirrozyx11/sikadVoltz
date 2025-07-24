@@ -3,6 +3,7 @@ import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
 import User from '../models/User.js';
 import { validateRequest, authValidation } from '../middleware/validation.js';
+import TokenBlacklist from '../models/TokenBlacklist.js';
 
 const router = express.Router();
 
@@ -12,6 +13,27 @@ const createToken = (user) => {
     process.env.JWT_SECRET || 'fallbacksecret',
     { expiresIn: '24h' }
   );
+};
+
+// Enhanced authenticateUser middleware
+const authenticateUser = async (req, res, next) => {
+  const authHeader = req.headers.authorization;
+  if (!authHeader) return res.status(401).json({ success: false, error: 'No token provided' });
+
+  const token = authHeader.split(' ')[1];
+  try {
+    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallbacksecret');
+    // Check blacklist
+    const isBlacklisted = await TokenBlacklist.exists({ token });
+    if (isBlacklisted) {
+      return res.status(401).json({ success: false, error: 'Token revoked' });
+    }
+    req.user = decoded;
+    req.token = token;
+    next();
+  } catch (err) {
+    return res.status(401).json({ success: false, error: 'Invalid token' });
+  }
 };
 
 // Register
@@ -110,6 +132,21 @@ router.post('/login', validateRequest(authValidation.login), async (req, res) =>
       error: 'Server error',
       message: 'Login failed'
     });
+  }
+});
+
+// Logout route with token expiration tracking
+router.post('/logout', authenticateUser, async (req, res) => {
+  try {
+    const decoded = jwt.decode(req.token);
+    await TokenBlacklist.create({
+      token: req.token,
+      expiresAt: new Date(decoded.exp * 1000)
+    });
+    res.status(200).json({ success: true });
+  } catch (err) {
+    console.error('Logout error:', err);
+    res.status(500).json({ success: false, error: "Logout failed" });
   }
 });
 
