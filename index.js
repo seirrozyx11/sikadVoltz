@@ -63,7 +63,7 @@ const app = express();
 // Enhanced CORS configuration
 const allowedOrigins = [
   ...(process.env.ALLOWED_ORIGINS?.split(',') || []).map(o => o.trim()),
-  IS_RENDER ? 'https://sikadvoltz-backend-t6cs.onrender.com' : 'http://localhost:3000'
+  IS_RENDER ? 'https://sikadvoltz-backend.onrender.com' : 'http://localhost:3000'
 ].filter(Boolean);
 
 app.use(cors({
