@@ -239,11 +239,11 @@ const startServer = async () => {
     server.listen(PORT, () => {
       const startupMessage = `
       ============================================
-       🚀 ${IS_RENDER ? 'Render Production' : 'Local Development'} Server
-       🔗 URL: ${IS_RENDER ? process.env.RENDER_EXTERNAL_URL : `http://localhost:${PORT}`}
-       🌐 Environment: ${NODE_ENV}
-       🗄️  Database: ${mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected'}
-       ⏱️  Startup Time: ${process.uptime().toFixed(2)}s
+       ${IS_RENDER ? 'Render Production' : 'Local Development'} Server
+       URL: ${IS_RENDER ? process.env.RENDER_EXTERNAL_URL : `http://localhost:${PORT}`}
+       Environment: ${NODE_ENV}
+       Database: ${mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected'}
+       Startup Time: ${process.uptime().toFixed(2)}s
       ============================================
       `;
       
