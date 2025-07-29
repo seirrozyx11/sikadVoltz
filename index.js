@@ -15,6 +15,7 @@ import authRouter from './routes/auth.js';
 import planRoutes from './routes/planRoutes.js';
 import profileRoutes from './routes/profileRoutes.js';
 import calorieRoutes from './routes/calorieRoutes.js';
+import goalsRoutes from './routes/goalsRoutes.js';
 
 // Environment setup
 const __filename = fileURLToPath(import.meta.url);
@@ -112,6 +113,7 @@ app.use('/api/auth', authRouter);
 app.use('/api/plans', planRoutes);
 app.use('/api/calories', calorieRoutes);
 app.use('/api/profile', profileRoutes);
+app.use('/api/goals', goalsRoutes);
 
 // Render-compatible health check (essential for deployment)
 app.get('/health', (req, res) => {
@@ -150,6 +152,7 @@ app.get('/', (req, res) => {
       plans: "/api/plans",
       calories: "/api/calories",
       profile: "/api/profile",
+      goals: "/api/goals",
       health: "/health"
     },
     meta: {

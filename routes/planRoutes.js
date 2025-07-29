@@ -3,7 +3,10 @@ import {
   createPlan,
   recordSession,
   missedSession,
-  getCurrentPlan
+  getCurrentPlan,
+  allowEditPlan,
+  triggerEmergencyCatchUp,
+  remindMissedGoals
 } from '../controllers/planController.js';
 
 import auth from '../middleware/auth.js';
@@ -41,5 +44,14 @@ router.get(
   auth,
   getCurrentPlan
 );
+
+// Allow editing plan if missed 5 days
+router.get('/:id/allow-edit', auth, allowEditPlan);
+
+// Emergency catch-up
+router.post('/:id/emergency-catchup', auth, triggerEmergencyCatchUp);
+
+// Remind users for missed goals (admin/cron)
+router.post('/remind-missed', remindMissedGoals);
 
 export default router;

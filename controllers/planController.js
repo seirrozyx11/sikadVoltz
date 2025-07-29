@@ -1,7 +1,10 @@
 import {
   createCyclingPlan,
   recordSession as recordSessionService,
-  handleMissedSession as handleMissedSessionService
+  handleMissedSession as handleMissedSessionService,
+  allowPlanEditIfMissed,
+  emergencyCatchUp,
+  remindUsersForMissedGoals
 } from '../services/calorieCalculator.js';
 import CyclingPlan from '../models/CyclingPlan.js';
 
@@ -117,5 +120,37 @@ export const getCurrentPlan = async (req, res) => {
   } catch (error) {
     console.error('Error getting current plan:', error);
     errorResponse(res, 500, 'Failed to retrieve plan', error.message);
+  }
+};
+
+// Allow user to edit plan if missed 5 days
+export const allowEditPlan = async (req, res) => {
+  try {
+    const { id: planId } = req.params;
+    const allowed = await allowPlanEditIfMissed(planId);
+    res.json({ success: true, canEdit: allowed });
+  } catch (error) {
+    errorResponse(res, 500, 'Failed to check edit permission', error.message);
+  }
+};
+
+// Emergency catch-up endpoint
+export const triggerEmergencyCatchUp = async (req, res) => {
+  try {
+    const { id: planId } = req.params;
+    const plan = await emergencyCatchUp(planId);
+    res.json({ success: true, plan });
+  } catch (error) {
+    errorResponse(res, 500, 'Failed to trigger emergency catch-up', error.message);
+  }
+};
+
+// Reminder endpoint (for admin/cron)
+export const remindMissedGoals = async (req, res) => {
+  try {
+    await remindUsersForMissedGoals();
+    res.json({ success: true, message: 'Reminders sent' });
+  } catch (error) {
+    errorResponse(res, 500, 'Failed to send reminders', error.message);
   }
 };

@@ -16,7 +16,9 @@ const sessionSchema = new mongoose.Schema({
     user: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
     goal: { type: mongoose.Schema.Types.ObjectId, ref: 'Goal', required: true },
     totalDays: { type: Number, required: true },
-    dailySessions: [sessionSchema]
+    dailySessions: [sessionSchema],
+    missedCount: { type: Number, default: 0 }, // Track missed sessions
+    emergencyCatchUp: { type: Boolean, default: false } // Emergency catch-up flag
   }, { timestamps: true });
 
 const CyclingPlan = mongoose.model('CyclingPlan', cyclingPlanSchema);
