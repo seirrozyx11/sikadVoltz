@@ -110,3 +110,45 @@ export const getProfileStatus = async (req, res) => {
     return res.status(500).json({ success: false, error: "Server error" });
   }
 };
+
+export const getProfile = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ 
+        success: false, 
+        error: 'Unauthorized: User ID not found in token' 
+      });
+    }
+    
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'User not found' 
+      });
+    }
+    
+    if (!user.profile) {
+      // Changed from 404 to 200 for frontend compatibility
+      return res.status(200).json({ 
+        success: false, 
+        error: 'Profile not completed yet' 
+      });
+    }
+    
+    // Return profile data at root level for simpler parsing
+    res.status(200).json({
+      success: true,
+      ...user.profile.toObject() // Include all profile fields
+    });
+    
+  } catch (err) {
+    console.error("Error fetching profile:", err);
+    res.status(500).json({ 
+      success: false, 
+      error: "Server error",
+      details: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
