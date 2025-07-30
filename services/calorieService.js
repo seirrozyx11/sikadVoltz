@@ -241,22 +241,17 @@ export async function emergencyCatchUp(planId) {
         session.adjustedHours += additionalHours;
     });
     
+    // Auto-pause plan after 3 missed days (moved before save)
+    if (plan.missedCount >= 3) {
+        plan.isActive = false;
+    }
+    
     plan.emergencyCatchUp = true;
     plan.totalMissedHours = 0; // Reset after redistribution
     
     await plan.save();
     return plan;
 }
-        
-        // Auto-pause plan after 3 missed days
-        if (plan.missedCount >= 3) {
-            plan.isActive = false;
-        }
-    
-    
-    await plan.save();
-    return plan;
-
 
 // Handle emergency catch-up: distribute missed hours across remaining sessions
 export async function emergencyCatchUp(planId) {
