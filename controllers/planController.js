@@ -61,7 +61,22 @@ export const recordSession = async (req, res) => {
       return errorResponse(res, 400, 'Invalid date format');
     }
 
-    const updatedPlan = await recordSessionService(planId, sessionDate, parseFloat(hours));
+    // Get the plan to find the correct day index
+    const plan = await CyclingPlan.findById(planId);
+    if (!plan) {
+      return errorResponse(res, 404, 'Plan not found');
+    }
+
+    // Find the session index for the given date
+    const dayIndex = plan.dailySessions.findIndex(session => 
+      session.date.toDateString() === sessionDate.toDateString()
+    );
+
+    if (dayIndex === -1) {
+      return errorResponse(res, 404, 'Session not found for the specified date');
+    }
+
+    const updatedPlan = await recordSessionService(planId, dayIndex, parseFloat(hours));
 
     res.json({
       success: true,
