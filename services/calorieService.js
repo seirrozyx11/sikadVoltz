@@ -252,34 +252,3 @@ export async function emergencyCatchUp(planId) {
     await plan.save();
     return plan;
 }
-
-// Handle emergency catch-up: distribute missed hours across remaining sessions
-export async function emergencyCatchUp(planId) {
-    const CyclingPlan = (await import('../models/CyclingPlan.js')).default;
-    const plan = await CyclingPlan.findById(planId);
-    
-    if (!plan || plan.totalMissedHours === 0) {
-        return plan;
-    }
-    
-    // Find remaining pending sessions
-    const pendingSessions = plan.dailySessions.filter(s => s.status === 'pending');
-    
-    if (pendingSessions.length === 0) {
-        throw new Error('No pending sessions available for catch-up');
-    }
-    
-    // Distribute missed hours evenly
-    const hoursPerSession = plan.totalMissedHours / pendingSessions.length;
-    
-    pendingSessions.forEach(session => {
-        const additionalHours = Math.min(hoursPerSession, 4 - session.plannedHours);
-        session.adjustedHours += additionalHours;
-    });
-    
-    plan.emergencyCatchUp = true;
-    plan.totalMissedHours = 0; // Reset after redistribution
-    
-    await plan.save();
-    return plan;
-}
