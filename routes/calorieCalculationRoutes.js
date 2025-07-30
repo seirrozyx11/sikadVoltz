@@ -9,7 +9,7 @@ import {
     logSession,
     emergencyCatchUp
 } from '../services/calorieService.js';
-import auth from '../middleware/auth.js';
+import authenticateToken from '../middleware/authenticateToken.js';
 import User from '../models/User.js';
 import Goal from '../models/Goal.js';
 import CyclingPlan from '../models/CyclingPlan.js';
@@ -17,9 +17,9 @@ import CyclingPlan from '../models/CyclingPlan.js';
 const router = express.Router();
 
 // Calculate and preview plan without saving
-router.post('/calculate-plan', auth, async (req, res) => {
+router.post('/calculate-plan', authenticateToken, async (req, res) => {
     try {
-        const userId = req.user?.userId || req.user?._id;
+        const userId = req.user?.userId;
         const { currentWeight, targetWeight, planDuration, bodyGoal } = req.body;
         
         // Get user profile
@@ -126,9 +126,9 @@ router.post('/calculate-plan', auth, async (req, res) => {
 });
 
 // Create and save cycling plan
-router.post('/create-plan', auth, async (req, res) => {
+router.post('/create-plan', authenticateToken, async (req, res) => {
     try {
-        const userId = req.user?.userId || req.user?._id;
+        const userId = req.user?.userId;
         const { goalId } = req.body;
         
         if (!goalId) {
@@ -178,7 +178,7 @@ router.post('/create-plan', auth, async (req, res) => {
 });
 
 // Log session completion
-router.post('/log-session', auth, async (req, res) => {
+router.post('/log-session', authenticateToken, async (req, res) => {
     try {
         const { planId, dayIndex, hoursCompleted } = req.body;
         
@@ -208,7 +208,7 @@ router.post('/log-session', auth, async (req, res) => {
 });
 
 // Emergency catch-up
-router.post('/emergency-catchup', auth, async (req, res) => {
+router.post('/emergency-catchup', authenticateToken, async (req, res) => {
     try {
         const { planId } = req.body;
         
@@ -238,9 +238,9 @@ router.post('/emergency-catchup', auth, async (req, res) => {
 });
 
 // Get current user's active plan
-router.get('/current-plan', auth, async (req, res) => {
+router.get('/current-plan', authenticateToken, async (req, res) => {
     try {
-        const userId = req.user?.userId || req.user?._id;
+        const userId = req.user?.userId;
         
         const activePlan = await CyclingPlan.findOne({ 
             user: userId, 

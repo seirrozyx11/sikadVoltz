@@ -1,13 +1,13 @@
 import express from 'express';
 import Goal from '../models/Goal.js';
-import authenticate from '../middleware/auth.js';
+import authenticateToken from '../middleware/authenticateToken.js';
 
 const router = express.Router();
 
 // Create a new goal
-router.post('/', authenticate, async (req, res) => {
+router.post('/', authenticateToken, async (req, res) => {
   try {
-    const userId = req.user._id || req.user.userId;
+    const userId = req.user?.userId;
     const { currentWeight, targetWeight, goalType, targetDate } = req.body;
 
     if (!currentWeight || !targetWeight || !goalType || !targetDate) {

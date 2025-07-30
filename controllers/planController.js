@@ -18,7 +18,7 @@ const errorResponse = (res, status, message, details = null) => {
 export const createPlan = async (req, res) => {
   try {
     const { goalId } = req.body;
-    const userId = req.user?._id;
+    const userId = req.user?.userId; // Fixed: use userId instead of _id
 
     if (!goalId) {
       return errorResponse(res, 400, 'Missing required field: goalId');
@@ -153,7 +153,7 @@ export const missedSession = async (req, res) => {
 // Get user's current plan
 export const getCurrentPlan = async (req, res) => {
   try {
-    const userId = req.user?._id;
+    const userId = req.user?.userId; // Fixed: use userId instead of _id
 
     if (!userId) {
       return errorResponse(res, 401, 'Authentication required');

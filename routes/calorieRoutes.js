@@ -1,5 +1,5 @@
 import express from 'express';
-import authenticate from '../middleware/auth.js';
+import authenticateToken from '../middleware/authenticateToken.js';
 import { 
   calculateBMR, 
   calculateTDEE, 
@@ -10,9 +10,9 @@ import User from '../models/User.js';
 const router = express.Router();
 
 // Get user's daily calorie goal
-router.get('/goal', authenticate, async (req, res) => {
+router.get('/goal', authenticateToken, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id).select('profile');
+    const user = await User.findById(req.user.userId).select('profile');
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -42,7 +42,7 @@ router.get('/goal', authenticate, async (req, res) => {
 });
 
 // Log calories burned from cycling
-router.post('/log/cycling', authenticate, async (req, res) => {
+router.post('/log/cycling', authenticateToken, async (req, res) => {
   try {
     const { duration, intensity = 'moderate', distance, date = new Date() } = req.body;
     
@@ -50,7 +50,7 @@ router.post('/log/cycling', authenticate, async (req, res) => {
       return res.status(400).json({ message: 'Duration is required' });
     }
 
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user.userId);
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -90,11 +90,11 @@ router.post('/log/cycling', authenticate, async (req, res) => {
 });
 
 // Get calorie log for a specific date range
-router.get('/log', authenticate, async (req, res) => {
+router.get('/log', authenticateToken, async (req, res) => {
   try {
     const { startDate, endDate } = req.query;
     
-    const user = await User.findById(req.user.id).select('activityLog profile');
+    const user = await User.findById(req.user.userId).select('activityLog profile');
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -131,9 +131,9 @@ router.get('/log', authenticate, async (req, res) => {
 });
 
 // Calculate cycling plan based on user profile and goal
-router.post('/plan', authenticate, async (req, res) => {
+router.post('/plan', authenticateToken, async (req, res) => {
   try {
-    const user = await User.findById(req.user.id);
+    const user = await User.findById(req.user.userId);
     if (!user || !user.profile) {
       return res.status(404).json({ message: 'User profile not found' });
     }

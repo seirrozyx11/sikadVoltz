@@ -9,7 +9,7 @@ import {
   remindMissedGoals
 } from '../controllers/planController.js';
 
-import auth from '../middleware/auth.js';
+import authenticateToken from '../middleware/authenticateToken.js';
 import { validateRequest, planValidation } from '../middleware/validation.js';
 
 const router = express.Router();
@@ -17,7 +17,7 @@ const router = express.Router();
 // Create a new cycling plan
 router.post(
   '/',
-  auth,
+  authenticateToken,
   validateRequest(planValidation.createPlan),
   createPlan
 );
@@ -25,7 +25,7 @@ router.post(
 // Record a completed session
 router.post(
   '/:id/sessions',
-  auth,
+  authenticateToken,
   validateRequest(planValidation.recordSession),
   recordSession
 );
@@ -33,7 +33,7 @@ router.post(
 // Handle missed session
 router.post(
   '/:id/missed',
-  auth,
+  authenticateToken,
   validateRequest(planValidation.missedSession),
   missedSession
 );
@@ -41,15 +41,15 @@ router.post(
 // Get user's current plan
 router.get(
   '/current',
-  auth,
+  authenticateToken,
   getCurrentPlan
 );
 
 // Allow editing plan if missed 5 days
-router.get('/:id/allow-edit', auth, allowEditPlan);
+router.get('/:id/allow-edit', authenticateToken, allowEditPlan);
 
 // Emergency catch-up
-router.post('/:id/emergency-catchup', auth, triggerEmergencyCatchUp);
+router.post('/:id/emergency-catchup', authenticateToken, triggerEmergencyCatchUp);
 
 // Remind users for missed goals (admin/cron)
 router.post('/remind-missed', remindMissedGoals);
