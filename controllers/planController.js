@@ -1,11 +1,8 @@
 import {
-  createCyclingPlan,
-  recordSession as recordSessionService,
-  handleMissedSession as handleMissedSessionService,
-  allowPlanEditIfMissed,
-  emergencyCatchUp,
-  remindUsersForMissedGoals
-} from '../services/calorieCalculator.js';
+  generateCyclingPlan,
+  logSession as recordSessionService,
+  emergencyCatchUp
+} from '../services/calorieService.js';
 import CyclingPlan from '../models/CyclingPlan.js';
 
 // Helper function for consistent error responses
@@ -30,11 +27,18 @@ export const createPlan = async (req, res) => {
       return errorResponse(res, 401, 'Authentication required');
     }
 
-    const plan = await createCyclingPlan(userId, goalId);
+    const planData = await generateCyclingPlan(userId, goalId);
+    
+    const cyclingPlan = new CyclingPlan({
+      ...planData,
+      planSummary: planData.planSummary
+    });
+    
+    await cyclingPlan.save();
 
     res.status(201).json({
       success: true,
-      data: plan
+      data: cyclingPlan
     });
   } catch (error) {
     console.error('Error creating plan:', error);
@@ -84,11 +88,46 @@ export const missedSession = async (req, res) => {
       return errorResponse(res, 400, 'Invalid date format');
     }
 
-    const updatedPlan = await handleMissedSessionService(planId, missedDate);
+    // Find the plan and mark session as missed
+    const plan = await CyclingPlan.findById(planId);
+    if (!plan) {
+      return errorResponse(res, 404, 'Plan not found');
+    }
+
+    // Find the session for the missed date
+    const sessionIndex = plan.dailySessions.findIndex(session => 
+      session.date.toDateString() === missedDate.toDateString()
+    );
+
+    if (sessionIndex === -1) {
+      return errorResponse(res, 404, 'Session not found for the specified date');
+    }
+
+    const session = plan.dailySessions[sessionIndex];
+    session.status = 'missed';
+    session.missedHours = session.plannedHours;
+    plan.missedCount += 1;
+    plan.totalMissedHours += session.plannedHours;
+
+    // Carry over missed hours to next available session
+    for (let i = sessionIndex + 1; i < plan.dailySessions.length; i++) {
+      const nextSession = plan.dailySessions[i];
+      if (nextSession.status === 'pending') {
+        nextSession.adjustedHours += session.plannedHours;
+        break;
+      }
+    }
+
+    // Auto-pause plan after 3 missed days
+    if (plan.missedCount >= 3) {
+      plan.isActive = false;
+    }
+
+    await plan.save();
 
     res.json({
       success: true,
-      data: updatedPlan
+      data: plan
     });
   } catch (error) {
     console.error('Error handling missed session:', error);
@@ -127,8 +166,16 @@ export const getCurrentPlan = async (req, res) => {
 export const allowEditPlan = async (req, res) => {
   try {
     const { id: planId } = req.params;
-    const allowed = await allowPlanEditIfMissed(planId);
-    res.json({ success: true, canEdit: allowed });
+    
+    const plan = await CyclingPlan.findById(planId);
+    if (!plan) {
+      return errorResponse(res, 404, 'Plan not found');
+    }
+    
+    // Allow editing if user missed 5 or more days
+    const canEdit = plan.missedCount >= 5;
+    
+    res.json({ success: true, canEdit: canEdit });
   } catch (error) {
     errorResponse(res, 500, 'Failed to check edit permission', error.message);
   }
@@ -148,8 +195,21 @@ export const triggerEmergencyCatchUp = async (req, res) => {
 // Reminder endpoint (for admin/cron)
 export const remindMissedGoals = async (req, res) => {
   try {
-    await remindUsersForMissedGoals();
-    res.json({ success: true, message: 'Reminders sent' });
+    // Find all users with active plans that have missed sessions
+    const plansWithMissedSessions = await CyclingPlan.find({
+      isActive: true,
+      missedCount: { $gt: 0 }
+    }).populate('user');
+    
+    // In a real implementation, you would send emails/notifications here
+    // For now, just return the count of users that need reminders
+    const usersToRemind = plansWithMissedSessions.length;
+    
+    res.json({ 
+      success: true, 
+      message: `Reminders would be sent to ${usersToRemind} users`,
+      usersToRemind: usersToRemind
+    });
   } catch (error) {
     errorResponse(res, 500, 'Failed to send reminders', error.message);
   }

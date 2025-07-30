@@ -15,6 +15,7 @@ import authRouter from './routes/auth.js';
 import planRoutes from './routes/planRoutes.js';
 import profileRoutes from './routes/profileRoutes.js';
 import calorieRoutes from './routes/calorieRoutes.js';
+import calorieCalculationRoutes from './routes/calorieCalculationRoutes.js';
 import goalsRoutes from './routes/goalsRoutes.js';
 
 // Environment setup
@@ -112,6 +113,7 @@ app.use((req, res, next) => {
 app.use('/api/auth', authRouter);
 app.use('/api/plans', planRoutes);
 app.use('/api/calories', calorieRoutes);
+app.use('/api/calorie-calculation', calorieCalculationRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/goals', goalsRoutes);
 
@@ -151,6 +153,7 @@ app.get('/', (req, res) => {
       auth: "/api/auth",
       plans: "/api/plans",
       calories: "/api/calories",
+      "calorie-calculation": "/api/calorie-calculation",
       profile: "/api/profile",
       goals: "/api/goals",
       health: "/health"
