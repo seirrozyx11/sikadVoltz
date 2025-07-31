@@ -11,7 +11,7 @@ const router = express.Router();
 // Google OAuth2 client - you'll need to create a WEB client ID in Google Console
 const googleClient = new OAuth2Client(process.env.GOOGLE_WEB_CLIENT_ID);
 
-// 🔐 Token creator
+// Token creator
 const createToken = (user) => {
   return jwt.sign(
     { userId: user._id, email: user.email },
@@ -20,7 +20,7 @@ const createToken = (user) => {
   );
 };
 
-// ✅ Unified middleware for protected routes
+// Unified middleware for protected routes
 const authenticateUser = async (req, res, next) => {
   const authHeader = req.headers.authorization;
   if (!authHeader) {
@@ -45,7 +45,7 @@ const authenticateUser = async (req, res, next) => {
   }
 };
 
-// 📝 Register
+// Register
 router.post('/register', validateRequest(authValidation.register), async (req, res) => {
   try {
     const { email, password, firstName, lastName } = req.body;
@@ -86,7 +86,7 @@ router.post('/register', validateRequest(authValidation.register), async (req, r
   }
 });
 
-// 🔓 Login
+// Login
 router.post('/login', validateRequest(authValidation.login), async (req, res) => {
   try {
     const { email, password } = req.body;
@@ -135,7 +135,7 @@ router.post('/login', validateRequest(authValidation.login), async (req, res) =>
   }
 });
 
-// 🚪 Logout with blacklist
+// Logout with blacklist
 router.post('/logout', authenticateUser, async (req, res) => {
   try {
     const decoded = jwt.decode(req.token);
@@ -159,7 +159,7 @@ router.get('/profile', authenticateUser, (req, res) => {
   });
 });
 
-// 🔐 Google Sign-In Authentication
+// Google Sign-In Authentication
 router.post('/google', async (req, res) => {
   try {
     const { idToken } = req.body;
