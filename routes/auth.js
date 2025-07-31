@@ -177,7 +177,7 @@ router.post('/google', async (req, res) => {
     // Accept both Web and Android client IDs
     const audience = [
       process.env.GOOGLE_WEB_CLIENT_ID, // Web client
-      '388468876773-qpjpb0p8rq2t9ljs8lps20e304iunvln.apps.googleusercontent.com' // Android client
+      process.env.GOOGLE_ANDROID_CLIENT_ID // Android client
     ];
     
     const ticket = await googleClient.verifyIdToken({
