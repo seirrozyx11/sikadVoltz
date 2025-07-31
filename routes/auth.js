@@ -174,9 +174,15 @@ router.post('/google', async (req, res) => {
     console.log('Received Google ID token:', idToken?.substring(0, 50) + '...');
     
     // Verify the token with Google
+    // Accept both Web and Android client IDs
+    const audience = [
+      process.env.GOOGLE_WEB_CLIENT_ID, // Web client
+      '388468876773-qpjpb0p8rq2t9ljs8lps20e304iunvln.apps.googleusercontent.com' // Android client
+    ];
+    
     const ticket = await googleClient.verifyIdToken({
       idToken: idToken,
-      audience: process.env.GOOGLE_WEB_CLIENT_ID, // Use web client ID
+      audience: audience,
     });
     
     const payload = ticket.getPayload();
