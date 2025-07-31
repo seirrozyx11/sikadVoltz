@@ -1,11 +1,15 @@
 import express from 'express';
 import bcrypt from 'bcrypt';
 import jwt from 'jsonwebtoken';
+import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User.js';
 import { validateRequest, authValidation } from '../middleware/validation.js';
 import TokenBlacklist from '../models/TokenBlacklist.js'; // Ensure this exists
 
 const router = express.Router();
+
+// Google OAuth2 client - you'll need to create a WEB client ID in Google Console
+const googleClient = new OAuth2Client(process.env.GOOGLE_WEB_CLIENT_ID);
 
 // 🔐 Token creator
 const createToken = (user) => {
@@ -153,6 +157,100 @@ router.get('/profile', authenticateUser, (req, res) => {
     message: 'User profile fetched successfully',
     user: req.user
   });
+});
+
+// 🔐 Google Sign-In Authentication
+router.post('/google', async (req, res) => {
+  try {
+    const { idToken } = req.body;
+    
+    if (!idToken) {
+      return res.status(400).json({
+        success: false,
+        error: 'Google ID token is required'
+      });
+    }
+
+    console.log('Received Google ID token:', idToken?.substring(0, 50) + '...');
+    
+    // Verify the token with Google
+    const ticket = await googleClient.verifyIdToken({
+      idToken: idToken,
+      audience: process.env.GOOGLE_WEB_CLIENT_ID, // Use web client ID
+    });
+    
+    const payload = ticket.getPayload();
+    const { email, name, given_name, family_name, picture, email_verified } = payload;
+    
+    console.log('Google user info:', { email, name, given_name, family_name });
+    
+    if (!email_verified) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email not verified with Google'
+      });
+    }
+    
+    // Find or create user in database
+    let user = await User.findOne({ email });
+    
+    if (!user) {
+      // Create new user with Google info
+      user = new User({
+        email,
+        firstName: given_name || name?.split(' ')[0] || 'User',
+        lastName: family_name || name?.split(' ').slice(1).join(' ') || '',
+        profilePicture: picture,
+        authProvider: 'google',
+        isEmailVerified: true,
+        profileCompleted: false // They'll need to complete fitness profile
+      });
+      await user.save();
+      console.log('Created new Google user:', user.email);
+    } else {
+      // Update existing user info if needed
+      if (picture && !user.profilePicture) {
+        user.profilePicture = picture;
+        await user.save();
+      }
+      console.log('Found existing user:', user.email);
+    }
+    
+    // Generate JWT token
+    const token = createToken(user);
+    
+    res.json({
+      success: true,
+      data: {
+        token,
+        user: {
+          id: user._id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          profilePicture: user.profilePicture
+        },
+        profileCompleted: user.profileCompleted || false
+      },
+      message: 'Google sign-in successful'
+    });
+    
+  } catch (error) {
+    console.error('Google auth error:', error);
+    
+    // Handle specific Google auth errors
+    if (error.message?.includes('Token used too late')) {
+      return res.status(400).json({
+        success: false,
+        error: 'Google token expired. Please try again.'
+      });
+    }
+    
+    res.status(400).json({
+      success: false,
+      error: 'Invalid Google token or authentication failed'
+    });
+  }
 });
 
 export default router;

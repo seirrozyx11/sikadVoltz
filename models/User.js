@@ -38,7 +38,7 @@ const activityLogSchema = new mongoose.Schema({
 
 const userSchema = new mongoose.Schema({
   email: { type: String, required: true, unique: true },
-  password: { type: String, required: true, select: false },
+  password: { type: String, required: false, select: false }, // Optional for Google users
   firstName: { type: String, required: true },
   lastName: { type: String, required: true },
   profile: {
@@ -63,7 +63,16 @@ const userSchema = new mongoose.Schema({
     }
   },
   activityLog: [activityLogSchema],
-  profileCompleted: { type: Boolean, default: false }
+  profileCompleted: { type: Boolean, default: false },
+  
+  // Google Sign-In fields
+  profilePicture: { type: String },
+  authProvider: { 
+    type: String, 
+    enum: ['local', 'google'], 
+    default: 'local' 
+  },
+  isEmailVerified: { type: Boolean, default: false }
 }, { 
   timestamps: true,
   toJSON: { virtuals: true },
@@ -75,9 +84,9 @@ userSchema.virtual('fullName').get(function() {
   return `${this.firstName} ${this.lastName}`;
 });
 
-// Hash password if modified
+// Hash password if modified (skip for Google users)
 userSchema.pre('save', async function(next) {
-  if (!this.isModified('password')) return next();
+  if (!this.isModified('password') || !this.password) return next();
   try {
     const salt = await bcrypt.genSalt(10);
     this.password = await bcrypt.hash(this.password, salt);
