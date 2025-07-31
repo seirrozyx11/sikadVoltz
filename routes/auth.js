@@ -188,7 +188,34 @@ router.post('/google', async (req, res) => {
     const payload = ticket.getPayload();
     const { email, name, given_name, family_name, picture, email_verified } = payload;
     
-    console.log('Google user info:', { email, name, given_name, family_name });
+    // Also get user info from request body as fallback
+    const { userInfo } = req.body;
+    
+    console.log('Google user info from token:', { email, name, given_name, family_name });
+    console.log('Google user info from request:', userInfo);
+    
+    // Extract first and last names with multiple fallbacks
+    let firstName = given_name || '';
+    let lastName = family_name || '';
+    
+    // If no given_name/family_name, try to parse from full name
+    if (!firstName && !lastName && name) {
+      const nameParts = name.trim().split(' ');
+      firstName = nameParts[0] || '';
+      lastName = nameParts.slice(1).join(' ') || '';
+    }
+    
+    // If still no names, try from userInfo displayName
+    if (!firstName && !lastName && userInfo?.displayName) {
+      const nameParts = userInfo.displayName.trim().split(' ');
+      firstName = nameParts[0] || '';
+      lastName = nameParts.slice(1).join(' ') || '';
+    }
+    
+    // Final fallback
+    if (!firstName) firstName = 'User';
+    
+    console.log('Final extracted names:', { firstName, lastName });
     
     if (!email_verified) {
       return res.status(400).json({
@@ -204,9 +231,9 @@ router.post('/google', async (req, res) => {
       // Create new user with Google info
       user = new User({
         email,
-        firstName: given_name || name?.split(' ')[0] || 'User',
-        lastName: family_name || name?.split(' ').slice(1).join(' ') || '',
-        profilePicture: picture,
+        firstName: firstName,
+        lastName: lastName,
+        profilePicture: picture || userInfo?.photoUrl,
         authProvider: 'google',
         isEmailVerified: true,
         profileCompleted: false // They'll need to complete fitness profile
@@ -215,8 +242,16 @@ router.post('/google', async (req, res) => {
       console.log('Created new Google user:', user.email);
     } else {
       // Update existing user info if needed
-      if (picture && !user.profilePicture) {
-        user.profilePicture = picture;
+      if (!user.firstName && firstName) {
+        user.firstName = firstName;
+      }
+      if (!user.lastName && lastName) {
+        user.lastName = lastName;
+      }
+      if ((picture || userInfo?.photoUrl) && !user.profilePicture) {
+        user.profilePicture = picture || userInfo?.photoUrl;
+      }
+      if (user.isModified()) {
         await user.save();
       }
       console.log('Found existing user:', user.email);
@@ -224,6 +259,12 @@ router.post('/google', async (req, res) => {
     
     // Generate JWT token
     const token = createToken(user);
+    
+    console.log('Sending user data to frontend:', {
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email
+    });
     
     res.json({
       success: true,

@@ -1,4 +1,13 @@
 import User from '../models/User.js';
+import { v2 as cloudinary } from 'cloudinary';
+import { Readable } from 'stream';
+
+// Configure Cloudinary (you'll need to set these environment variables)
+cloudinary.config({
+  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+  api_key: process.env.CLOUDINARY_API_KEY,
+  api_secret: process.env.CLOUDINARY_API_SECRET,
+});
 
 export const completeProfile = async (req, res) => {
   try {
@@ -145,6 +154,99 @@ export const getProfile = async (req, res) => {
     
   } catch (err) {
     console.error("Error fetching profile:", err);
+    res.status(500).json({ 
+      success: false, 
+      error: "Server error",
+      details: process.env.NODE_ENV === 'development' ? err.message : undefined
+    });
+  }
+};
+
+export const uploadProfileImage = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ 
+        success: false, 
+        error: 'Unauthorized: User ID not found in token' 
+      });
+    }
+
+    // Check if file was uploaded
+    if (!req.file) {
+      return res.status(400).json({
+        success: false,
+        error: 'No image file provided'
+      });
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'User not found' 
+      });
+    }
+
+    // Upload to Cloudinary
+    const uploadStream = cloudinary.uploader.upload_stream(
+      {
+        folder: 'sikadvoltz/profiles',
+        public_id: `profile_${userId}`,
+        overwrite: true,
+        transformation: [
+          { width: 400, height: 400, crop: 'fill', gravity: 'face' },
+          { quality: 'auto', fetch_format: 'auto' }
+        ]
+      },
+      async (error, result) => {
+        if (error) {
+          console.error('Cloudinary upload error:', error);
+          return res.status(500).json({
+            success: false,
+            error: 'Failed to upload image to cloud storage'
+          });
+        }
+
+        try {
+          // Update user's profile picture URL
+          user.profilePicture = result.secure_url;
+          await user.save();
+
+          console.log(`Profile image updated for user ${userId}: ${result.secure_url}`);
+
+          res.json({
+            success: true,
+            data: {
+              imageUrl: result.secure_url,
+              user: {
+                id: user._id,
+                email: user.email,
+                firstName: user.firstName,
+                lastName: user.lastName,
+                profilePicture: user.profilePicture
+              }
+            },
+            message: 'Profile image uploaded successfully'
+          });
+        } catch (dbError) {
+          console.error('Database update error:', dbError);
+          res.status(500).json({
+            success: false,
+            error: 'Failed to update user profile in database'
+          });
+        }
+      }
+    );
+
+    // Convert buffer to stream and pipe to Cloudinary
+    const bufferStream = new Readable();
+    bufferStream.push(req.file.buffer);
+    bufferStream.push(null);
+    bufferStream.pipe(uploadStream);
+
+  } catch (err) {
+    console.error("Error uploading profile image:", err);
     res.status(500).json({ 
       success: false, 
       error: "Server error",
