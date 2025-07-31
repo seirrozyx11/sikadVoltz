@@ -229,3 +229,77 @@ export const remindMissedGoals = async (req, res) => {
     errorResponse(res, 500, 'Failed to send reminders', error.message);
   }
 };
+
+// Mark current day as complete
+export const markDayComplete = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    const { completedDate } = req.body;
+
+    if (!userId) {
+      return errorResponse(res, 401, 'Authentication required');
+    }
+
+    // Find the active plan for the user
+    const plan = await CyclingPlan.findOne({ 
+      user: userId, 
+      isActive: true 
+    });
+
+    if (!plan) {
+      return errorResponse(res, 404, 'No active plan found');
+    }
+
+    const targetDate = completedDate ? new Date(completedDate) : new Date();
+    
+    // Find today's session
+    const today = new Date(targetDate);
+    today.setHours(0, 0, 0, 0);
+
+    const sessionIndex = plan.dailySessions.findIndex(session => {
+      const sessionDate = new Date(session.date);
+      sessionDate.setHours(0, 0, 0, 0);
+      return sessionDate.getTime() === today.getTime();
+    });
+
+    if (sessionIndex === -1) {
+      return errorResponse(res, 404, 'No session found for today');
+    }
+
+    const session = plan.dailySessions[sessionIndex];
+    
+    if (session.status === 'completed') {
+      return res.json({
+        success: true,
+        message: 'Day already marked as complete',
+        data: plan
+      });
+    }
+
+    // Mark session as completed
+    session.status = 'completed';
+    session.completedHours = session.plannedHours + (session.adjustedHours || 0);
+    session.completedAt = new Date();
+
+    // Update plan statistics
+    plan.completedDays = (plan.completedDays || 0) + 1;
+    plan.completedHours = (plan.completedHours || 0) + session.completedHours;
+
+    await plan.save();
+
+    res.json({
+      success: true,
+      message: `Day ${plan.completedDays} completed successfully!`,
+      data: {
+        completedDays: plan.completedDays,
+        totalDays: plan.planSummary.totalPlanDays,
+        completedHours: plan.completedHours,
+        totalHours: plan.planSummary.totalCyclingHours
+      }
+    });
+
+  } catch (error) {
+    console.error('Error marking day as complete:', error);
+    errorResponse(res, 500, 'Failed to mark day as complete', error.message);
+  }
+};

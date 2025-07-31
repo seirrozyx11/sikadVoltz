@@ -6,7 +6,8 @@ import {
   getCurrentPlan,
   allowEditPlan,
   triggerEmergencyCatchUp,
-  remindMissedGoals
+  remindMissedGoals,
+  markDayComplete
 } from '../controllers/planController.js';
 
 import authenticateToken from '../middleware/authenticateToken.js';
@@ -53,5 +54,8 @@ router.post('/:id/emergency-catchup', authenticateToken, triggerEmergencyCatchUp
 
 // Remind users for missed goals (admin/cron)
 router.post('/remind-missed', remindMissedGoals);
+
+// Mark current day as complete
+router.post('/mark-day-complete', authenticateToken, markDayComplete);
 
 export default router;
