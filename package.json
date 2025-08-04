@@ -7,6 +7,7 @@
   "scripts": {
     "start": "node index.js",
     "dev": "nodemon --inspect index.js",
+    "ble-bridge": "node services/esp32_ble_bridge.js",
     "test": "echo \"Error: no test specified\" && exit 1",
     "lint": "eslint .",
     "format": "prettier --write ."
@@ -21,6 +22,7 @@
   "author": "SikadVoltz Team",
   "license": "MIT",
   "dependencies": {
+    "@abandonware/noble": "^1.9.2-15",
     "bcrypt": "^6.0.0",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
