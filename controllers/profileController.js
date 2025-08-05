@@ -1,13 +1,13 @@
 import User from '../models/User.js';
-import { v2 as cloudinary } from 'cloudinary';
+// import { v2 as cloudinary } from 'cloudinary';
 import { Readable } from 'stream';
 
 // Configure Cloudinary (you'll need to set these environment variables)
-cloudinary.config({
-  cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
-  api_key: process.env.CLOUDINARY_API_KEY,
-  api_secret: process.env.CLOUDINARY_API_SECRET,
-});
+// cloudinary.config({
+//   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
+//   api_key: process.env.CLOUDINARY_API_KEY,
+//   api_secret: process.env.CLOUDINARY_API_SECRET,
+// });
 
 export const completeProfile = async (req, res) => {
   try {
@@ -188,8 +188,8 @@ export const uploadProfileImage = async (req, res) => {
       });
     }
 
-    // Upload to Cloudinary
-    const uploadStream = cloudinary.uploader.upload_stream(
+    // Temporarily disabled - Upload to Cloudinary
+    /* const uploadStream = cloudinary.uploader.upload_stream(
       {
         folder: 'sikadvoltz/profiles',
         public_id: `profile_${userId}`,
@@ -243,7 +243,23 @@ export const uploadProfileImage = async (req, res) => {
     const bufferStream = new Readable();
     bufferStream.push(req.file.buffer);
     bufferStream.push(null);
-    bufferStream.pipe(uploadStream);
+    bufferStream.pipe(uploadStream); */
+
+    // Temporary response while cloudinary is disabled
+    res.json({
+      success: true,
+      data: {
+        imageUrl: '/default-profile.jpg', // placeholder
+        user: {
+          id: user._id,
+          email: user.email,
+          firstName: user.firstName,
+          lastName: user.lastName,
+          profilePicture: user.profilePicture
+        }
+      },
+      message: 'Profile image upload temporarily disabled'
+    });
 
   } catch (err) {
     console.error("Error uploading profile image:", err);

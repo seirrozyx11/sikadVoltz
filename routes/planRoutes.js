@@ -7,7 +7,18 @@ import {
   allowEditPlan,
   triggerEmergencyCatchUp,
   remindMissedGoals,
-  markDayComplete
+  markDayComplete,
+  getMissedSessions,
+  getDailySessionStatus,
+  getUpcomingSessions,
+  // 📅 NEW: Calendar Integration Functions
+  getCalendarData,
+  enableSessionReminders,
+  disableSessionReminders,
+  getReminderStatus,
+  getWeeklyAnalytics,
+  getMonthlyAnalytics,
+  rescheduleSession
 } from '../controllers/planController.js';
 
 import authenticateToken from '../middleware/authenticateToken.js';
@@ -57,5 +68,29 @@ router.post('/remind-missed', remindMissedGoals);
 
 // Mark current day as complete
 router.post('/mark-day-complete', authenticateToken, markDayComplete);
+
+// Get missed sessions data
+router.get('/missed-sessions', authenticateToken, getMissedSessions);
+
+// Check daily session status
+router.get('/daily-status', authenticateToken, getDailySessionStatus);
+
+// Get upcoming sessions
+router.get('/upcoming-sessions', authenticateToken, getUpcomingSessions);
+
+// 📅 NEW: Calendar Integration Endpoints
+router.get('/calendar/:year/:month', authenticateToken, getCalendarData);
+
+// 📅 NEW: Session Reminders
+router.post('/session-reminders/enable', authenticateToken, enableSessionReminders);
+router.post('/session-reminders/disable', authenticateToken, disableSessionReminders);
+router.get('/session-reminders/status', authenticateToken, getReminderStatus);
+
+// 📅 NEW: Session Analytics
+router.get('/analytics/weekly', authenticateToken, getWeeklyAnalytics);
+router.get('/analytics/monthly', authenticateToken, getMonthlyAnalytics);
+
+// 📅 NEW: Session Rescheduling
+router.post('/sessions/:sessionId/reschedule', authenticateToken, rescheduleSession);
 
 export default router;

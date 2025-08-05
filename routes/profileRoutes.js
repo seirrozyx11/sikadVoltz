@@ -1,30 +1,30 @@
 // routes/profileRoutes.js
 import express from 'express';
-import multer from 'multer';
-import { completeProfile, getProfileStatus, getProfile, uploadProfileImage } from '../controllers/profileController.js';
+// import multer from 'multer'; // Temporarily commented out
+import { completeProfile, getProfileStatus, getProfile } from '../controllers/profileController.js'; // Removed uploadProfileImage temporarily
 import authenticateToken from '../middleware/authenticateToken.js';
 
 const router = express.Router();
 
-// Multer configuration for image uploads
-const upload = multer({
-  storage: multer.memoryStorage(),
-  limits: {
-    fileSize: 5 * 1024 * 1024, // 5MB limit
-  },
-  fileFilter: (req, file, cb) => {
-    if (file.mimetype.startsWith('image/')) {
-      cb(null, true);
-    } else {
-      cb(new Error('Only image files are allowed'), false);
-    }
-  },
-});
+// Multer configuration for image uploads - TEMPORARILY DISABLED
+// const upload = multer({
+//   storage: multer.memoryStorage(),
+//   limits: {
+//     fileSize: 5 * 1024 * 1024, // 5MB limit
+//   },
+//   fileFilter: (req, file, cb) => {
+//     if (file.mimetype.startsWith('image/')) {
+//       cb(null, true);
+//     } else {
+//       cb(new Error('Only image files are allowed'), false);
+//     }
+//   },
+// });
 
 router.post('/complete', authenticateToken, completeProfile);
 router.get('/status', authenticateToken, getProfileStatus);
 router.get('/me', authenticateToken, getProfile);
-router.post('/upload-image', authenticateToken, upload.single('profileImage'), uploadProfileImage);
+// router.post('/upload-image', authenticateToken, upload.single('profileImage'), uploadProfileImage); // Temporarily disabled
 
 // Add this route to return the full profile object
 router.get('/', authenticateToken, async (req, res) => {
