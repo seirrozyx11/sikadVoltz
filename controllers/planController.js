@@ -3,6 +3,11 @@ import {
   logSession as recordSessionService,
   emergencyCatchUp
 } from '../services/calorieService.js';
+import { 
+  checkAndAdjustPlan, 
+  suggestPlanReset, 
+  dailyPlanCheck 
+} from '../services/smartPlanAdjustment.js';
 import CyclingPlan from '../models/CyclingPlan.js';
 
 // Helper function for consistent error responses
@@ -978,6 +983,127 @@ export const rescheduleSession = async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to reschedule session'
+    });
+  }
+};
+
+// 🎯 NEW FEATURE: Smart Plan Adjustment
+export const checkPlanAdjustment = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return errorResponse(res, 401, 'Authentication required');
+    }
+
+    const adjustmentResult = await checkAndAdjustPlan(userId);
+
+    res.json({
+      success: true,
+      data: adjustmentResult
+    });
+
+  } catch (error) {
+    console.error('Plan adjustment check error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to check plan adjustment',
+      details: error.message
+    });
+  }
+};
+
+// 🔄 NEW FEATURE: Suggest Plan Reset
+export const suggestNewPlan = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return errorResponse(res, 401, 'Authentication required');
+    }
+
+    const suggestion = await suggestPlanReset(userId);
+
+    res.json({
+      success: true,
+      data: suggestion
+    });
+
+  } catch (error) {
+    console.error('Plan reset suggestion error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to suggest plan reset',
+      details: error.message
+    });
+  }
+};
+
+// ⏰ NEW FEATURE: Daily Plan Health Check
+export const performDailyCheck = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return errorResponse(res, 401, 'Authentication required');
+    }
+
+    const checkResult = await dailyPlanCheck(userId);
+
+    res.json({
+      success: true,
+      data: checkResult
+    });
+
+  } catch (error) {
+    console.error('Daily plan check error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to perform daily check',
+      details: error.message
+    });
+  }
+};
+
+// 📊 NEW FEATURE: Get Plan Adjustment History
+export const getPlanAdjustmentHistory = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return errorResponse(res, 401, 'Authentication required');
+    }
+
+    const plan = await CyclingPlan.findOne({ 
+      user: userId, 
+      isActive: true 
+    });
+
+    if (!plan) {
+      return res.status(404).json({
+        success: false,
+        error: 'No active cycling plan found'
+      });
+    }
+
+    const adjustmentHistory = plan.adjustmentHistory || [];
+
+    res.json({
+      success: true,
+      data: {
+        adjustmentHistory,
+        originalPlan: plan.originalPlan,
+        totalAdjustments: adjustmentHistory.length,
+        autoAdjustmentSettings: plan.autoAdjustmentSettings
+      }
+    });
+
+  } catch (error) {
+    console.error('Get adjustment history error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get adjustment history',
+      details: error.message
     });
   }
 };

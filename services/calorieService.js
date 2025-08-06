@@ -141,6 +141,22 @@ export async function generateCyclingPlan(userId, goalId) {
         goal: goalId,
         totalDays: totalDays,
         dailySessions: sessions,
+        
+        // NEW: Store original plan data for smart adjustments
+        originalPlan: {
+            durationWeeks: Math.ceil(totalDays / 7),
+            targetHours: totalCyclingHours,
+            startDate: goal.startDate,
+            endDate: goal.targetDate,
+            dailyHours: dailyCyclingHours
+        },
+        autoAdjustmentSettings: {
+            enabled: true,
+            maxDailyHours: 3,
+            gracePeriodDays: 2,
+            weeklyResetThreshold: 7
+        },
+        
         // Plan summary metrics
         planSummary: {
             totalCaloriesToBurn: caloriesNeeded,

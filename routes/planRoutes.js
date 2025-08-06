@@ -11,14 +11,19 @@ import {
   getMissedSessions,
   getDailySessionStatus,
   getUpcomingSessions,
-  // 📅 NEW: Calendar Integration Functions
+  // 📅 Calendar Integration Functions
   getCalendarData,
   enableSessionReminders,
   disableSessionReminders,
   getReminderStatus,
   getWeeklyAnalytics,
   getMonthlyAnalytics,
-  rescheduleSession
+  rescheduleSession,
+  // 🎯 NEW: Smart Plan Adjustment Functions
+  checkPlanAdjustment,
+  suggestNewPlan,
+  performDailyCheck,
+  getPlanAdjustmentHistory
 } from '../controllers/planController.js';
 
 import authenticateToken from '../middleware/authenticateToken.js';
@@ -78,19 +83,25 @@ router.get('/daily-status', authenticateToken, getDailySessionStatus);
 // Get upcoming sessions
 router.get('/upcoming-sessions', authenticateToken, getUpcomingSessions);
 
-// 📅 NEW: Calendar Integration Endpoints
+// 📅 Calendar Integration Endpoints
 router.get('/calendar/:year/:month', authenticateToken, getCalendarData);
 
-// 📅 NEW: Session Reminders
+// 📅 Session Reminders
 router.post('/session-reminders/enable', authenticateToken, enableSessionReminders);
 router.post('/session-reminders/disable', authenticateToken, disableSessionReminders);
 router.get('/session-reminders/status', authenticateToken, getReminderStatus);
 
-// 📅 NEW: Session Analytics
+// 📅 Session Analytics
 router.get('/analytics/weekly', authenticateToken, getWeeklyAnalytics);
 router.get('/analytics/monthly', authenticateToken, getMonthlyAnalytics);
 
-// 📅 NEW: Session Rescheduling
+// 📅 Session Rescheduling
 router.post('/sessions/:sessionId/reschedule', authenticateToken, rescheduleSession);
+
+// 🎯 NEW: Smart Plan Adjustment Endpoints
+router.get('/check-adjustment', authenticateToken, checkPlanAdjustment);
+router.get('/suggest-reset', authenticateToken, suggestNewPlan);
+router.post('/daily-check', authenticateToken, performDailyCheck);
+router.get('/adjustment-history', authenticateToken, getPlanAdjustmentHistory);
 
 export default router;
