@@ -8,6 +8,11 @@ import {
   suggestPlanReset, 
   dailyPlanCheck 
 } from '../services/smartPlanAdjustment.js';
+import {
+  detectAndMarkMissedSessions,
+  realtimeMissedSessionCheck,
+  getMissedSessionSummary
+} from '../services/missedSessionDetector.js';
 import CyclingPlan from '../models/CyclingPlan.js';
 
 // Helper function for consistent error responses
@@ -324,8 +329,19 @@ export const getMissedSessions = async (req, res) => {
       isActive: true 
     });
 
+    // NEW: Handle case when user has no active plan yet
     if (!plan) {
-      return errorResponse(res, 404, 'No active plan found');
+      return res.json({
+        success: true,
+        data: {
+          missedSessions: [],
+          todaySession: null,
+          totalMissedCount: 0,
+          totalMissedHours: 0,
+          hasActivePlan: false,
+          message: 'No active cycling plan found. Create a plan to start tracking sessions.'
+        }
+      });
     }
 
     const today = new Date();
@@ -352,9 +368,15 @@ export const getMissedSessions = async (req, res) => {
       data: {
         missedSessions: missedSessions.map(session => ({
           date: session.date,
+          dateFormatted: new Date(session.date).toLocaleDateString('en-US', {
+            weekday: 'short',
+            month: 'short', 
+            day: 'numeric'
+          }),
           plannedHours: session.plannedHours,
           status: session.status,
-          dayNumber: plan.dailySessions.indexOf(session) + 1
+          dayNumber: plan.dailySessions.indexOf(session) + 1,
+          planName: plan.planName || 'Cycling Session'
         })),
         todaySession: todaySession ? {
           date: todaySession.date,
@@ -363,14 +385,17 @@ export const getMissedSessions = async (req, res) => {
           status: todaySession.status,
           dayNumber: plan.dailySessions.indexOf(todaySession) + 1
         } : null,
-        totalMissedCount: plan.missedCount,
-        totalMissedHours: plan.totalMissedHours
+        totalMissedCount: plan.missedCount || 0,
+        totalMissedHours: plan.totalMissedHours || 0,
+        hasActivePlan: true,
+        planStartDate: plan.dailySessions.length > 0 ? plan.dailySessions[0].date : null,
+        planName: plan.planName
       }
     });
 
   } catch (error) {
     console.error('Error getting missed sessions:', error);
-    errorResponse(res, 500, 'Failed to get missed sessions', error.message);
+    return errorResponse(res, 500, 'Failed to get missed sessions', error.message);
   }
 };
 
@@ -1103,6 +1128,124 @@ export const getPlanAdjustmentHistory = async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to get adjustment history',
+      details: error.message
+    });
+  }
+};
+
+// 🎯 NEW: Automatic Missed Session Detection Controllers
+
+/**
+ * Real-time missed session check with automatic detection
+ * Compares user's day 1 to current date and marks missed sessions
+ */
+export const autoDetectMissedSessions = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return errorResponse(res, 401, 'Authentication required');
+    }
+
+    const result = await realtimeMissedSessionCheck(userId);
+
+    if (!result.success) {
+      return errorResponse(res, 404, result.error);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        autoDetected: result.autoDetected,
+        alerts: result.alerts,
+        stats: result.stats,
+        missedSessions: result.missedSessions,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('Auto detect missed sessions error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to detect missed sessions',
+      details: error.message
+    });
+  }
+};
+
+/**
+ * Get missed session summary with day 1 status
+ */
+export const getMissedSessionStatus = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return errorResponse(res, 401, 'Authentication required');
+    }
+
+    const result = await getMissedSessionSummary(userId);
+
+    if (!result.success) {
+      return errorResponse(res, 404, result.error);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        missedSessions: result.missedSessions,
+        summary: result.summary,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('Get missed session status error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get missed session status',
+      details: error.message
+    });
+  }
+};
+
+/**
+ * Force detection and marking of missed sessions
+ */
+export const forceMissedSessionDetection = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return errorResponse(res, 401, 'Authentication required');
+    }
+
+    const result = await detectAndMarkMissedSessions(userId);
+
+    if (!result.success) {
+      return errorResponse(res, 404, result.error);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        detected: result.missedSessions,
+        newMissedCount: result.newMissedCount,
+        newMissedHours: result.newMissedHours,
+        totalMissedCount: result.totalMissedCount,
+        totalMissedHours: result.totalMissedHours,
+        currentStats: result.currentStats,
+        needsAdjustment: result.needsAdjustment,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('Force missed session detection error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to force detection',
       details: error.message
     });
   }
