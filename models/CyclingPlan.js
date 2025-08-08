@@ -23,6 +23,37 @@ const sessionSchema = new mongoose.Schema({
     totalMissedHours: { type: Number, default: 0 }, // Track total accumulated missed hours
     emergencyCatchUp: { type: Boolean, default: false }, // Emergency catch-up flag
     isActive: { type: Boolean, default: true }, // Plan status
+    
+    // NEW: Smart Plan Adjustment features
+    originalPlan: {
+      durationWeeks: Number,
+      targetHours: Number,
+      startDate: Date,
+      endDate: Date,
+      dailyHours: Number
+    },
+    adjustmentHistory: [{
+      date: { type: Date, default: Date.now },
+      missedHours: Number,
+      newDailyTarget: Number,
+      reason: { 
+        type: String, 
+        enum: ['missed_day', 'weekly_reset', 'manual_adjustment'],
+        default: 'missed_day'
+      },
+      redistributionMethod: {
+        type: String,
+        enum: ['distribute_remaining', 'extend_plan', 'increase_intensity'],
+        default: 'distribute_remaining'
+      }
+    }],
+    autoAdjustmentSettings: {
+      enabled: { type: Boolean, default: true },
+      maxDailyHours: { type: Number, default: 3 }, // Safety limit
+      gracePeriodDays: { type: Number, default: 2 }, // Buffer days
+      weeklyResetThreshold: { type: Number, default: 7 } // Days missed before suggesting reset
+    },
+    
     planSummary: {
       totalCaloriesToBurn: { type: Number },
       dailyCyclingHours: { type: Number },

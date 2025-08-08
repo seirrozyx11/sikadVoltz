@@ -19,6 +19,12 @@ import calorieRoutes from './routes/calorieRoutes.js';
 import calorieCalculationRoutes from './routes/calorieCalculationRoutes.js';
 import goalsRoutes from './routes/goalsRoutes.js';
 import esp32Routes from './routes/esp32Routes.js';
+<<<<<<< HEAD
+=======
+
+// Import services
+import RealTimeTelemetryService from './services/realTimeTelemetryService.js';
+>>>>>>> 3410dad17cf9e63a2af42968b7a6cf5a10666b70
 
 // Environment setup
 const __filename = fileURLToPath(import.meta.url);
@@ -28,6 +34,16 @@ const PORT = process.env.PORT || 3000;
 const NODE_ENV = process.env.NODE_ENV || 'development';
 const MONGODB_URI = process.env.MONGODB_URI;
 const IS_RENDER = process.env.RENDER; // Render environment detection
+
+// Base URL configuration for WebSocket and API
+const BASE_URL = IS_RENDER 
+  ? 'https://sikadvoltz-backend.onrender.com'
+  : `http://localhost:${PORT}`;
+
+// WebSocket URL configuration  
+const WS_BASE_URL = IS_RENDER
+  ? 'wss://sikadvoltz-backend.onrender.com'
+  : `ws://localhost:${PORT}`;
 
 if (!MONGODB_URI) {
   console.error('FATAL: MONGODB_URI not defined in environment variables');
@@ -67,7 +83,8 @@ const app = express();
 // Enhanced CORS configuration
 const allowedOrigins = [
   ...(process.env.ALLOWED_ORIGINS?.split(',') || []).map(o => o.trim()),
-  IS_RENDER ? 'https://sikadvoltz-backend.onrender.com' : 'http://localhost:3000'
+  BASE_URL, // Use dynamic base URL
+  WS_BASE_URL // Allow WebSocket connections
 ].filter(Boolean);
 
 app.use(cors({
@@ -139,6 +156,56 @@ app.get('/health', (req, res) => {
   });
 });
 
+// WebSocket connection info endpoint for Flutter app
+app.get('/ws-info', (req, res) => {
+  res.json({
+    success: true,
+    websocket: {
+      baseUrl: WS_BASE_URL,
+      endpoints: {
+        telemetry: `${WS_BASE_URL}/ws/telemetry`,
+        legacy: `${WS_BASE_URL}/ws/legacy`
+      }
+    },
+    api: {
+      baseUrl: BASE_URL,
+      endpoints: {
+        esp32: `${BASE_URL}/api/esp32`,
+        plans: `${BASE_URL}/api/plans`,
+        auth: `${BASE_URL}/api/auth`
+      }
+    }
+  });
+});
+
+// WebSocket health check endpoint
+app.get('/ws-health', (req, res) => {
+  const wsHealthy = telemetryService?.isInitialized || false;
+  const status = wsHealthy ? 200 : 503;
+  
+  res.status(status).json({
+    success: wsHealthy,
+    websocketService: {
+      status: wsHealthy ? 'healthy' : 'unhealthy',
+      initialized: wsHealthy,
+      endpoints: {
+        telemetry: `${WS_BASE_URL}/ws/telemetry`,
+        legacy: `${WS_BASE_URL}/ws/legacy`
+      }
+    },
+    urls: {
+      baseUrl: BASE_URL,
+      websocketBase: WS_BASE_URL
+    },
+    testInstructions: {
+      message: "To test WebSocket connection, use a WebSocket client to connect to the telemetry endpoint",
+      testUrl: `${WS_BASE_URL}/ws/telemetry`,
+      expectedResponse: "Connection established message with timestamp"
+    },
+    timestamp: new Date().toISOString()
+  });
+});
+
 // Root endpoint
 app.get('/', (req, res) => {
   const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
@@ -161,6 +228,14 @@ app.get('/', (req, res) => {
       goals: "/api/goals",
       esp32: "/api/esp32",
       health: "/health"
+    },
+    websockets: {
+      telemetry: `${WS_BASE_URL}/ws/telemetry`,
+      legacy: `${WS_BASE_URL}/ws/legacy`
+    },
+    urls: {
+      baseUrl: BASE_URL,
+      websocketBase: WS_BASE_URL
     },
     meta: {
       version: process.env.npm_package_version || "1.0.0",
@@ -198,36 +273,43 @@ app.use((err, req, res, next) => {
     error: 'Internal Server Error',
     message: NODE_ENV === 'development' ? err.message : 'Something went wrong',
     ...(NODE_ENV === 'development' && { stack: err.stack }),
-    support: "contact@your-api.com"
+    support: "sln32166@gmail.com"
   });
 });
 
 // Create HTTP + WebSocket server
 const server = http.createServer(app);
-const wss = new WebSocketServer({ server });
 
-// WebSocket connection
+// Initialize real-time telemetry service
+const telemetryService = new RealTimeTelemetryService();
+
+// WebSocket connection (legacy - keeping for backward compatibility)
+const wss = new WebSocketServer({ 
+  server,
+  path: '/ws/legacy' 
+});
+
 wss.on('connection', (ws, req) => {
   const clientIp = req.socket.remoteAddress;
-  logger.info(`WebSocket client connected: ${clientIp}`);
+  logger.info(`Legacy WebSocket client connected: ${clientIp}`);
 
   ws.on('message', (message) => {
-    logger.debug(`WebSocket message from ${clientIp}: ${message.toString()}`);
+    logger.debug(`Legacy WebSocket message from ${clientIp}: ${message.toString()}`);
     ws.send(`Server received: ${message}`);
   });
 
   ws.on('close', () => {
-    logger.info(`WebSocket disconnected: ${clientIp}`);
+    logger.info(`Legacy WebSocket disconnected: ${clientIp}`);
   });
 
   ws.on('error', (error) => {
-    logger.error(`WebSocket error from ${clientIp}`, { error });
+    logger.error(`Legacy WebSocket error from ${clientIp}`, { error });
   });
 
   ws.send(JSON.stringify({
     type: 'connection_established',
     timestamp: new Date().toISOString(),
-    message: 'Connected to WebSocket server'
+    message: 'Connected to legacy WebSocket server'
   }));
 });
 
@@ -246,13 +328,29 @@ const startServer = async () => {
   try {
     await connectDB();
     
+    // Initialize telemetry service after DB connection
+    await telemetryService.initialize(server);
+    
+    // Make telemetry service available to routes
+    app.locals.telemetryService = telemetryService;
+    
     server.listen(PORT, () => {
       const startupMessage = `
       ============================================
        ${IS_RENDER ? 'Render Production' : 'Local Development'} Server
-       URL: ${IS_RENDER ? process.env.RENDER_EXTERNAL_URL : `http://localhost:${PORT}`}
+       Base URL: ${BASE_URL}
+       WebSocket Base: ${WS_BASE_URL}
        Environment: ${NODE_ENV}
        Database: ${mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected'}
+       
+       🌐 API Endpoints:
+       - REST API: ${BASE_URL}/api/*
+       - Health Check: ${BASE_URL}/health
+       
+       📡 WebSocket Endpoints:
+       - Telemetry: ${WS_BASE_URL}/ws/telemetry
+       - Legacy: ${WS_BASE_URL}/ws/legacy
+       
        Startup Time: ${process.uptime().toFixed(2)}s
       ============================================
       `;
@@ -275,6 +373,25 @@ const startServer = async () => {
         console.error(`Port ${PORT} in use. Try: kill -9 $(lsof -t -i:${PORT})`);
       }
       process.exit(1);
+    });
+
+    // Graceful shutdown
+    process.on('SIGTERM', async () => {
+      logger.info('SIGTERM received, shutting down gracefully');
+      await telemetryService.shutdown();
+      server.close(() => {
+        mongoose.connection.close();
+        process.exit(0);
+      });
+    });
+
+    process.on('SIGINT', async () => {
+      logger.info('SIGINT received, shutting down gracefully');
+      await telemetryService.shutdown();
+      server.close(() => {
+        mongoose.connection.close();
+        process.exit(0);
+      });
     });
 
   } catch (err) {

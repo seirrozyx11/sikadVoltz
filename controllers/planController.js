@@ -3,6 +3,16 @@ import {
   logSession as recordSessionService,
   emergencyCatchUp
 } from '../services/calorieService.js';
+import { 
+  checkAndAdjustPlan, 
+  suggestPlanReset, 
+  dailyPlanCheck 
+} from '../services/smartPlanAdjustment.js';
+import {
+  detectAndMarkMissedSessions,
+  realtimeMissedSessionCheck,
+  getMissedSessionSummary
+} from '../services/missedSessionDetector.js';
 import CyclingPlan from '../models/CyclingPlan.js';
 
 // Helper function for consistent error responses
@@ -301,5 +311,942 @@ export const markDayComplete = async (req, res) => {
   } catch (error) {
     console.error('Error marking day as complete:', error);
     errorResponse(res, 500, 'Failed to mark day as complete', error.message);
+  }
+};
+
+// Get missed sessions for current user
+export const getMissedSessions = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return errorResponse(res, 401, 'Authentication required');
+    }
+
+    // Find the active plan for the user
+    const plan = await CyclingPlan.findOne({ 
+      user: userId, 
+      isActive: true 
+    });
+
+    // NEW: Handle case when user has no active plan yet
+    if (!plan) {
+      return res.json({
+        success: true,
+        data: {
+          missedSessions: [],
+          todaySession: null,
+          totalMissedCount: 0,
+          totalMissedHours: 0,
+          hasActivePlan: false,
+          message: 'No active cycling plan found. Create a plan to start tracking sessions.'
+        }
+      });
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Get missed sessions (past due dates with status 'missed' or 'pending')
+    const missedSessions = plan.dailySessions.filter(session => {
+      const sessionDate = new Date(session.date);
+      sessionDate.setHours(0, 0, 0, 0);
+      
+      return sessionDate < today && 
+             (session.status === 'missed' || session.status === 'pending');
+    });
+
+    // Get today's session
+    const todaySession = plan.dailySessions.find(session => {
+      const sessionDate = new Date(session.date);
+      sessionDate.setHours(0, 0, 0, 0);
+      return sessionDate.getTime() === today.getTime();
+    });
+
+    res.json({
+      success: true,
+      data: {
+        missedSessions: missedSessions.map(session => ({
+          date: session.date,
+          dateFormatted: new Date(session.date).toLocaleDateString('en-US', {
+            weekday: 'short',
+            month: 'short', 
+            day: 'numeric'
+          }),
+          plannedHours: session.plannedHours,
+          status: session.status,
+          dayNumber: plan.dailySessions.indexOf(session) + 1,
+          planName: plan.planName || 'Cycling Session'
+        })),
+        todaySession: todaySession ? {
+          date: todaySession.date,
+          plannedHours: todaySession.plannedHours,
+          completedHours: todaySession.completedHours,
+          status: todaySession.status,
+          dayNumber: plan.dailySessions.indexOf(todaySession) + 1
+        } : null,
+        totalMissedCount: plan.missedCount || 0,
+        totalMissedHours: plan.totalMissedHours || 0,
+        hasActivePlan: true,
+        planStartDate: plan.dailySessions.length > 0 ? plan.dailySessions[0].date : null,
+        planName: plan.planName
+      }
+    });
+
+  } catch (error) {
+    console.error('Error getting missed sessions:', error);
+    return errorResponse(res, 500, 'Failed to get missed sessions', error.message);
+  }
+};
+
+// Check daily session status
+export const getDailySessionStatus = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return errorResponse(res, 401, 'Authentication required');
+    }
+
+    // Find the active plan for the user
+    const plan = await CyclingPlan.findOne({ 
+      user: userId, 
+      isActive: true 
+    });
+
+    if (!plan) {
+      return res.json({
+        success: true,
+        data: {
+          hasActivePlan: false,
+          todaySession: null,
+          recommendation: 'Create a cycling plan to start tracking your progress!'
+        }
+      });
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Check missed sessions count for today
+    const missedCount = plan.dailySessions.filter(session => {
+      const sessionDate = new Date(session.date);
+      sessionDate.setHours(0, 0, 0, 0);
+      return sessionDate < today && 
+             (session.status === 'missed' || session.status === 'pending');
+    }).length;
+
+    // Get today's session
+    const todaySession = plan.dailySessions.find(session => {
+      const sessionDate = new Date(session.date);
+      sessionDate.setHours(0, 0, 0, 0);
+      return sessionDate.getTime() === today.getTime();
+    });
+
+    let recommendation = '';
+    if (todaySession) {
+      if (todaySession.status === 'completed') {
+        recommendation = 'Great job! You completed today\'s session. Keep up the good work!';
+      } else if (todaySession.status === 'pending') {
+        recommendation = `Time to cycle! You have ${todaySession.plannedHours} hours planned for today.`;
+      }
+    } else {
+      recommendation = 'No session planned for today. Rest day or catch up on missed sessions!';
+    }
+
+    if (missedCount > 0) {
+      recommendation += ` You have ${missedCount} missed session${missedCount > 1 ? 's' : ''} to catch up on.`;
+    }
+
+    res.json({
+      success: true,
+      data: {
+        hasActivePlan: true,
+        todaySession: todaySession ? {
+          date: todaySession.date,
+          plannedHours: todaySession.plannedHours,
+          completedHours: todaySession.completedHours,
+          status: todaySession.status,
+          dayNumber: plan.dailySessions.indexOf(todaySession) + 1
+        } : null,
+        missedCount,
+        totalMissedHours: plan.totalMissedHours,
+        recommendation,
+        streakData: {
+          currentStreak: calculateCurrentStreak(plan.dailySessions),
+          longestStreak: calculateLongestStreak(plan.dailySessions)
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Error checking daily session status:', error);
+    errorResponse(res, 500, 'Failed to check session status', error.message);
+  }
+};
+
+// Get upcoming sessions (next 7 days)
+export const getUpcomingSessions = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return errorResponse(res, 401, 'Authentication required');
+    }
+
+    // Find the active plan for the user
+    const plan = await CyclingPlan.findOne({ 
+      user: userId, 
+      isActive: true 
+    });
+
+    if (!plan) {
+      return res.json({
+        success: true,
+        data: {
+          upcomingSessions: [],
+          hasActivePlan: false
+        }
+      });
+    }
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const nextWeek = new Date(today);
+    nextWeek.setDate(today.getDate() + 7);
+
+    // Get sessions for the next 7 days
+    const upcomingSessions = plan.dailySessions.filter(session => {
+      const sessionDate = new Date(session.date);
+      sessionDate.setHours(0, 0, 0, 0);
+      
+      return sessionDate >= today && sessionDate < nextWeek;
+    }).map(session => ({
+      date: session.date,
+      plannedHours: session.plannedHours,
+      completedHours: session.completedHours,
+      status: session.status,
+      dayNumber: plan.dailySessions.indexOf(session) + 1,
+      isToday: session.date.toDateString() === today.toDateString()
+    }));
+
+    res.json({
+      success: true,
+      data: {
+        upcomingSessions,
+        hasActivePlan: true,
+        planSummary: plan.planSummary
+      }
+    });
+
+  } catch (error) {
+    console.error('Error getting upcoming sessions:', error);
+    errorResponse(res, 500, 'Failed to get upcoming sessions', error.message);
+  }
+};
+
+// Helper function to calculate current streak
+function calculateCurrentStreak(sessions) {
+  const today = new Date();
+  today.setHours(0, 0, 0, 0);
+  
+  let streak = 0;
+  const reversedSessions = [...sessions].reverse();
+  
+  for (const session of reversedSessions) {
+    const sessionDate = new Date(session.date);
+    sessionDate.setHours(0, 0, 0, 0);
+    
+    if (sessionDate >= today) continue; // Skip future sessions
+    
+    if (session.status === 'completed') {
+      streak++;
+    } else {
+      break;
+    }
+  }
+  
+  return streak;
+}
+
+// Helper function to calculate longest streak
+function calculateLongestStreak(sessions) {
+  let maxStreak = 0;
+  let currentStreak = 0;
+  
+  for (const session of sessions) {
+    if (session.status === 'completed') {
+      currentStreak++;
+      maxStreak = Math.max(maxStreak, currentStreak);
+    } else {
+      currentStreak = 0;
+    }
+  }
+  
+  return maxStreak;
+}
+
+// 📅 NEW FEATURE: Calendar Integration
+export const getCalendarData = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    const { year, month } = req.params;
+    
+    const targetYear = parseInt(year);
+    const targetMonth = parseInt(month) - 1; // JavaScript months are 0-indexed
+    
+    // Find active plan
+    const plan = await CyclingPlan.findOne({ 
+      user: userId, 
+      isActive: true 
+    });
+
+    if (!plan) {
+      return res.status(404).json({
+        success: false,
+        error: 'No active cycling plan found'
+      });
+    }
+
+    // Get sessions for the specific month
+    const startDate = new Date(targetYear, targetMonth, 1);
+    const endDate = new Date(targetYear, targetMonth + 1, 0);
+    
+    const monthSessions = plan.dailySessions.filter(session => {
+      const sessionDate = new Date(session.date);
+      return sessionDate >= startDate && sessionDate <= endDate;
+    });
+
+    // Format calendar data
+    const calendarData = monthSessions.map(session => ({
+      date: session.date.toISOString().split('T')[0],
+      plannedHours: session.plannedHours,
+      completedHours: session.completedHours,
+      status: session.status,
+      caloriesBurned: session.caloriesBurned,
+      missedHours: session.missedHours,
+      adjustedHours: session.adjustedHours,
+      isToday: new Date(session.date).toDateString() === new Date().toDateString()
+    }));
+
+    // Calculate month statistics
+    const monthStats = {
+      totalSessions: monthSessions.length,
+      completedSessions: monthSessions.filter(s => s.status === 'completed').length,
+      missedSessions: monthSessions.filter(s => s.status === 'missed').length,
+      totalPlannedHours: monthSessions.reduce((sum, s) => sum + s.plannedHours, 0),
+      totalCompletedHours: monthSessions.reduce((sum, s) => sum + s.completedHours, 0),
+      totalCaloriesBurned: monthSessions.reduce((sum, s) => sum + s.caloriesBurned, 0)
+    };
+
+    res.json({
+      success: true,
+      data: {
+        year: targetYear,
+        month: targetMonth + 1,
+        sessions: calendarData,
+        statistics: monthStats
+      }
+    });
+
+  } catch (error) {
+    console.error('Calendar data fetch error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch calendar data'
+    });
+  }
+};
+
+// 📅 NEW FEATURE: Enable Session Reminders
+export const enableSessionReminders = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    const { reminderTime, daysBeforeReminder = 1 } = req.body;
+
+    // Update user preferences for reminders (we'd need to add this to User model)
+    // For now, we'll store in the cycling plan
+    const plan = await CyclingPlan.findOne({ 
+      user: userId, 
+      isActive: true 
+    });
+
+    if (!plan) {
+      return res.status(404).json({
+        success: false,
+        error: 'No active cycling plan found'
+      });
+    }
+
+    // Add reminder settings to plan (would be better in User model)
+    plan.reminderSettings = {
+      enabled: true,
+      reminderTime: reminderTime || '18:00', // Default 6 PM
+      daysBeforeReminder: daysBeforeReminder,
+      lastUpdated: new Date()
+    };
+
+    await plan.save();
+
+    res.json({
+      success: true,
+      message: 'Session reminders enabled',
+      data: plan.reminderSettings
+    });
+
+  } catch (error) {
+    console.error('Enable reminders error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to enable session reminders'
+    });
+  }
+};
+
+// 📅 NEW FEATURE: Disable Session Reminders
+export const disableSessionReminders = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+
+    const plan = await CyclingPlan.findOne({ 
+      user: userId, 
+      isActive: true 
+    });
+
+    if (!plan) {
+      return res.status(404).json({
+        success: false,
+        error: 'No active cycling plan found'
+      });
+    }
+
+    if (plan.reminderSettings) {
+      plan.reminderSettings.enabled = false;
+      plan.reminderSettings.lastUpdated = new Date();
+      await plan.save();
+    }
+
+    res.json({
+      success: true,
+      message: 'Session reminders disabled'
+    });
+
+  } catch (error) {
+    console.error('Disable reminders error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to disable session reminders'
+    });
+  }
+};
+
+// 📅 NEW FEATURE: Get Reminder Status
+export const getReminderStatus = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+
+    const plan = await CyclingPlan.findOne({ 
+      user: userId, 
+      isActive: true 
+    });
+
+    if (!plan) {
+      return res.status(404).json({
+        success: false,
+        error: 'No active cycling plan found'
+      });
+    }
+
+    const reminderSettings = plan.reminderSettings || {
+      enabled: false,
+      reminderTime: '18:00',
+      daysBeforeReminder: 1
+    };
+
+    res.json({
+      success: true,
+      data: reminderSettings
+    });
+
+  } catch (error) {
+    console.error('Get reminder status error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get reminder status'
+    });
+  }
+};
+
+// 📅 NEW FEATURE: Weekly Analytics
+export const getWeeklyAnalytics = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    const { date } = req.query; // Optional date for specific week
+    
+    const plan = await CyclingPlan.findOne({ 
+      user: userId, 
+      isActive: true 
+    });
+
+    if (!plan) {
+      return res.status(404).json({
+        success: false,
+        error: 'No active cycling plan found'
+      });
+    }
+
+    // Calculate week boundaries
+    const targetDate = date ? new Date(date) : new Date();
+    const startOfWeek = new Date(targetDate);
+    startOfWeek.setDate(targetDate.getDate() - targetDate.getDay());
+    startOfWeek.setHours(0, 0, 0, 0);
+    
+    const endOfWeek = new Date(startOfWeek);
+    endOfWeek.setDate(startOfWeek.getDate() + 6);
+    endOfWeek.setHours(23, 59, 59, 999);
+
+    // Get week sessions
+    const weekSessions = plan.dailySessions.filter(session => {
+      const sessionDate = new Date(session.date);
+      return sessionDate >= startOfWeek && sessionDate <= endOfWeek;
+    });
+
+    // Calculate analytics
+    const analytics = {
+      weekPeriod: {
+        start: startOfWeek.toISOString().split('T')[0],
+        end: endOfWeek.toISOString().split('T')[0]
+      },
+      totalSessions: weekSessions.length,
+      completedSessions: weekSessions.filter(s => s.status === 'completed').length,
+      missedSessions: weekSessions.filter(s => s.status === 'missed').length,
+      pendingSessions: weekSessions.filter(s => s.status === 'pending').length,
+      totalPlannedHours: weekSessions.reduce((sum, s) => sum + s.plannedHours, 0),
+      totalCompletedHours: weekSessions.reduce((sum, s) => sum + s.completedHours, 0),
+      totalCaloriesBurned: weekSessions.reduce((sum, s) => sum + s.caloriesBurned, 0),
+      completionRate: weekSessions.length > 0 ? 
+        (weekSessions.filter(s => s.status === 'completed').length / weekSessions.length * 100).toFixed(1) : 0,
+      dailyBreakdown: weekSessions.map(session => ({
+        date: session.date.toISOString().split('T')[0],
+        dayOfWeek: new Date(session.date).toLocaleDateString('en-US', { weekday: 'long' }),
+        plannedHours: session.plannedHours,
+        completedHours: session.completedHours,
+        status: session.status,
+        caloriesBurned: session.caloriesBurned
+      }))
+    };
+
+    res.json({
+      success: true,
+      data: analytics
+    });
+
+  } catch (error) {
+    console.error('Weekly analytics error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get weekly analytics'
+    });
+  }
+};
+
+// 📅 NEW FEATURE: Monthly Analytics
+export const getMonthlyAnalytics = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    const { year, month } = req.query;
+    
+    const plan = await CyclingPlan.findOne({ 
+      user: userId, 
+      isActive: true 
+    });
+
+    if (!plan) {
+      return res.status(404).json({
+        success: false,
+        error: 'No active cycling plan found'
+      });
+    }
+
+    // Default to current month if not specified
+    const targetYear = year ? parseInt(year) : new Date().getFullYear();
+    const targetMonth = month ? parseInt(month) - 1 : new Date().getMonth();
+    
+    const startDate = new Date(targetYear, targetMonth, 1);
+    const endDate = new Date(targetYear, targetMonth + 1, 0);
+    
+    const monthSessions = plan.dailySessions.filter(session => {
+      const sessionDate = new Date(session.date);
+      return sessionDate >= startDate && sessionDate <= endDate;
+    });
+
+    // Calculate weekly breakdown for the month
+    const weeks = [];
+    let currentWeekStart = new Date(startDate);
+    currentWeekStart.setDate(currentWeekStart.getDate() - currentWeekStart.getDay());
+    
+    while (currentWeekStart <= endDate) {
+      const weekEnd = new Date(currentWeekStart);
+      weekEnd.setDate(currentWeekStart.getDate() + 6);
+      
+      const weekSessions = monthSessions.filter(session => {
+        const sessionDate = new Date(session.date);
+        return sessionDate >= currentWeekStart && sessionDate <= weekEnd;
+      });
+      
+      weeks.push({
+        weekNumber: weeks.length + 1,
+        startDate: currentWeekStart.toISOString().split('T')[0],
+        endDate: weekEnd.toISOString().split('T')[0],
+        completedSessions: weekSessions.filter(s => s.status === 'completed').length,
+        totalSessions: weekSessions.length,
+        completedHours: weekSessions.reduce((sum, s) => sum + s.completedHours, 0),
+        caloriesBurned: weekSessions.reduce((sum, s) => sum + s.caloriesBurned, 0)
+      });
+      
+      currentWeekStart.setDate(currentWeekStart.getDate() + 7);
+    }
+
+    const analytics = {
+      monthPeriod: {
+        year: targetYear,
+        month: targetMonth + 1,
+        monthName: startDate.toLocaleDateString('en-US', { month: 'long' })
+      },
+      totalSessions: monthSessions.length,
+      completedSessions: monthSessions.filter(s => s.status === 'completed').length,
+      missedSessions: monthSessions.filter(s => s.status === 'missed').length,
+      totalPlannedHours: monthSessions.reduce((sum, s) => sum + s.plannedHours, 0),
+      totalCompletedHours: monthSessions.reduce((sum, s) => sum + s.completedHours, 0),
+      totalCaloriesBurned: monthSessions.reduce((sum, s) => sum + s.caloriesBurned, 0),
+      completionRate: monthSessions.length > 0 ? 
+        (monthSessions.filter(s => s.status === 'completed').length / monthSessions.length * 100).toFixed(1) : 0,
+      weeklyBreakdown: weeks
+    };
+
+    res.json({
+      success: true,
+      data: analytics
+    });
+
+  } catch (error) {
+    console.error('Monthly analytics error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get monthly analytics'
+    });
+  }
+};
+
+// 📅 NEW FEATURE: Reschedule Session
+export const rescheduleSession = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    const { sessionId } = req.params;
+    const { newDate, reason } = req.body;
+
+    const plan = await CyclingPlan.findOne({ 
+      user: userId, 
+      isActive: true 
+    });
+
+    if (!plan) {
+      return res.status(404).json({
+        success: false,
+        error: 'No active cycling plan found'
+      });
+    }
+
+    // Find the session to reschedule
+    const sessionIndex = plan.dailySessions.findIndex(
+      session => session._id.toString() === sessionId
+    );
+
+    if (sessionIndex === -1) {
+      return res.status(404).json({
+        success: false,
+        error: 'Session not found'
+      });
+    }
+
+    const session = plan.dailySessions[sessionIndex];
+    
+    // Only allow rescheduling pending or missed sessions
+    if (session.status === 'completed') {
+      return res.status(400).json({
+        success: false,
+        error: 'Cannot reschedule completed sessions'
+      });
+    }
+
+    // Update session
+    const oldDate = session.date;
+    session.date = new Date(newDate);
+    session.status = 'rescheduled';
+    session.rescheduleInfo = {
+      originalDate: oldDate,
+      reason: reason || 'User requested reschedule',
+      rescheduledAt: new Date()
+    };
+
+    await plan.save();
+
+    res.json({
+      success: true,
+      message: 'Session rescheduled successfully',
+      data: {
+        sessionId: session._id,
+        oldDate: oldDate.toISOString().split('T')[0],
+        newDate: session.date.toISOString().split('T')[0],
+        status: session.status
+      }
+    });
+
+  } catch (error) {
+    console.error('Reschedule session error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to reschedule session'
+    });
+  }
+};
+
+// 🎯 NEW FEATURE: Smart Plan Adjustment
+export const checkPlanAdjustment = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return errorResponse(res, 401, 'Authentication required');
+    }
+
+    const adjustmentResult = await checkAndAdjustPlan(userId);
+
+    res.json({
+      success: true,
+      data: adjustmentResult
+    });
+
+  } catch (error) {
+    console.error('Plan adjustment check error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to check plan adjustment',
+      details: error.message
+    });
+  }
+};
+
+// 🔄 NEW FEATURE: Suggest Plan Reset
+export const suggestNewPlan = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return errorResponse(res, 401, 'Authentication required');
+    }
+
+    const suggestion = await suggestPlanReset(userId);
+
+    res.json({
+      success: true,
+      data: suggestion
+    });
+
+  } catch (error) {
+    console.error('Plan reset suggestion error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to suggest plan reset',
+      details: error.message
+    });
+  }
+};
+
+// ⏰ NEW FEATURE: Daily Plan Health Check
+export const performDailyCheck = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return errorResponse(res, 401, 'Authentication required');
+    }
+
+    const checkResult = await dailyPlanCheck(userId);
+
+    res.json({
+      success: true,
+      data: checkResult
+    });
+
+  } catch (error) {
+    console.error('Daily plan check error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to perform daily check',
+      details: error.message
+    });
+  }
+};
+
+// 📊 NEW FEATURE: Get Plan Adjustment History
+export const getPlanAdjustmentHistory = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return errorResponse(res, 401, 'Authentication required');
+    }
+
+    const plan = await CyclingPlan.findOne({ 
+      user: userId, 
+      isActive: true 
+    });
+
+    if (!plan) {
+      return res.status(404).json({
+        success: false,
+        error: 'No active cycling plan found'
+      });
+    }
+
+    const adjustmentHistory = plan.adjustmentHistory || [];
+
+    res.json({
+      success: true,
+      data: {
+        adjustmentHistory,
+        originalPlan: plan.originalPlan,
+        totalAdjustments: adjustmentHistory.length,
+        autoAdjustmentSettings: plan.autoAdjustmentSettings
+      }
+    });
+
+  } catch (error) {
+    console.error('Get adjustment history error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get adjustment history',
+      details: error.message
+    });
+  }
+};
+
+// 🎯 NEW: Automatic Missed Session Detection Controllers
+
+/**
+ * Real-time missed session check with automatic detection
+ * Compares user's day 1 to current date and marks missed sessions
+ */
+export const autoDetectMissedSessions = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return errorResponse(res, 401, 'Authentication required');
+    }
+
+    const result = await realtimeMissedSessionCheck(userId);
+
+    if (!result.success) {
+      return errorResponse(res, 404, result.error);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        autoDetected: result.autoDetected,
+        alerts: result.alerts,
+        stats: result.stats,
+        missedSessions: result.missedSessions,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('Auto detect missed sessions error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to detect missed sessions',
+      details: error.message
+    });
+  }
+};
+
+/**
+ * Get missed session summary with day 1 status
+ */
+export const getMissedSessionStatus = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return errorResponse(res, 401, 'Authentication required');
+    }
+
+    const result = await getMissedSessionSummary(userId);
+
+    if (!result.success) {
+      return errorResponse(res, 404, result.error);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        missedSessions: result.missedSessions,
+        summary: result.summary,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('Get missed session status error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to get missed session status',
+      details: error.message
+    });
+  }
+};
+
+/**
+ * Force detection and marking of missed sessions
+ */
+export const forceMissedSessionDetection = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return errorResponse(res, 401, 'Authentication required');
+    }
+
+    const result = await detectAndMarkMissedSessions(userId);
+
+    if (!result.success) {
+      return errorResponse(res, 404, result.error);
+    }
+
+    res.json({
+      success: true,
+      data: {
+        detected: result.missedSessions,
+        newMissedCount: result.newMissedCount,
+        newMissedHours: result.newMissedHours,
+        totalMissedCount: result.totalMissedCount,
+        totalMissedHours: result.totalMissedHours,
+        currentStats: result.currentStats,
+        needsAdjustment: result.needsAdjustment,
+        timestamp: new Date().toISOString()
+      }
+    });
+
+  } catch (error) {
+    console.error('Force missed session detection error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to force detection',
+      details: error.message
+    });
   }
 };
