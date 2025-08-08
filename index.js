@@ -9,6 +9,7 @@ import { dirname } from 'path';
 import http from 'http';
 import { WebSocketServer } from 'ws';
 import logger from './utils/logger.js';
+import esp32BLEBridge from './services/esp32_ble_bridge.js';
 
 // Import routes
 import authRouter from './routes/auth.js';
@@ -17,6 +18,7 @@ import profileRoutes from './routes/profileRoutes.js';
 import calorieRoutes from './routes/calorieRoutes.js';
 import calorieCalculationRoutes from './routes/calorieCalculationRoutes.js';
 import goalsRoutes from './routes/goalsRoutes.js';
+import esp32Routes from './routes/esp32Routes.js';
 
 // Environment setup
 const __filename = fileURLToPath(import.meta.url);
@@ -116,6 +118,7 @@ app.use('/api/calories', calorieRoutes);
 app.use('/api/calorie-calculation', calorieCalculationRoutes);
 app.use('/api/profile', profileRoutes);
 app.use('/api/goals', goalsRoutes);
+app.use('/api/esp32', esp32Routes);
 
 // Render-compatible health check (essential for deployment)
 app.get('/health', (req, res) => {
@@ -156,6 +159,7 @@ app.get('/', (req, res) => {
       "calorie-calculation": "/api/calorie-calculation",
       profile: "/api/profile",
       goals: "/api/goals",
+      esp32: "/api/esp32",
       health: "/health"
     },
     meta: {
@@ -255,6 +259,14 @@ const startServer = async () => {
       
       console.log(startupMessage);
       logger.info(`Server started on port ${PORT}`);
+      
+      // Initialize ESP32 BLE Bridge on a separate port
+      try {
+        esp32BLEBridge.initialize(server, PORT + 1);
+      } catch (error) {
+        logger.warn('ESP32 BLE Bridge failed to start:', error);
+        console.warn('⚠️  ESP32 BLE Bridge not available');
+      }
     });
 
     server.on('error', (error) => {
