@@ -19,12 +19,8 @@ import calorieRoutes from './routes/calorieRoutes.js';
 import calorieCalculationRoutes from './routes/calorieCalculationRoutes.js';
 import goalsRoutes from './routes/goalsRoutes.js';
 import esp32Routes from './routes/esp32Routes.js';
-<<<<<<< HEAD
-=======
-
 // Import services
 import RealTimeTelemetryService from './services/realTimeTelemetryService.js';
->>>>>>> 3410dad17cf9e63a2af42968b7a6cf5a10666b70
 
 // Environment setup
 const __filename = fileURLToPath(import.meta.url);
