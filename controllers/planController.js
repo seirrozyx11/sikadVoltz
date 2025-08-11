@@ -1,6 +1,6 @@
 import {
   calculateCyclingCalories
-} from '../services/calorieService';
+} from '../services/calorieService.js';
 import {
   generateCyclingPlan,
   logSession as recordSessionService,
