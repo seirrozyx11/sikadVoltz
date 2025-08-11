@@ -1,4 +1,7 @@
 import {
+  calculateCyclingCalories
+} from '../services/calorieService';
+import {
   generateCyclingPlan,
   logSession as recordSessionService,
   updateSessionProgressLegacy as updateSessionProgressService,
