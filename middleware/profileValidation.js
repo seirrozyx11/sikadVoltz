@@ -1,3 +1,4 @@
+import User from '../models/User.js';
 // In middleware/profileValidation.js
 export const requireCompleteProfile = async (req, res, next) => {
     try {
