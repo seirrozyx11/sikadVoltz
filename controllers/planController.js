@@ -16,6 +16,7 @@ import {
 } from '../services/missedSessionDetector.js';
 import CyclingPlan from '../models/CyclingPlan.js';
 import SessionTrackerService from '../services/session_tracker_service.js';
+import logger from '../utils/logger.js'; // 🚨 ADD: Logger import for real-time session updates
 
 // Helper function for consistent error responses
 const errorResponse = (res, status, message, details = null) => {
