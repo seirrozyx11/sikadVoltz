@@ -2,7 +2,8 @@ import express from 'express';
 import { 
     calculateBMR, 
     calculateTDEE, 
-    calculateCyclingCalories, 
+    calculateCyclingCalories,
+    calculateCyclingCaloriesDirect, 
     generateCyclingPlan,
     validateInputs,
     DURATION_MAP,
@@ -70,7 +71,7 @@ router.post('/calculate-plan', authenticateToken, async (req, res) => {
             });
         }
         
-        const caloriesPerHour = calculateCyclingCalories(user.profile.weight, 1, 'moderate');
+        const caloriesPerHour = calculateCyclingCaloriesDirect(user.profile.weight, 1, 'moderate');
         const dailyCyclingHours = dailyCalorieGoal / caloriesPerHour;
         
         if (dailyCyclingHours > 4) {
