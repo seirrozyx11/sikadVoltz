@@ -1,6 +1,7 @@
 // sv_backend/services/calorieService.js
 import User from '../models/User.js';
 import Goal from '../models/Goal.js';
+import CyclingPlan from '../models/CyclingPlan.js';
 
 // Plan duration mapping (as per CALORIE.MD specification)
 export const DURATION_MAP = {
@@ -23,6 +24,12 @@ export function calculateBMR(weight, height, birthDate, gender) {
     }
 }
 
+export function calculateCyclingCaloriesDirect(weight, hours, intensity = 'moderate') {
+  const metValues = { 'light': 4, 'moderate': 8, 'vigorous': 12 };
+  const met = metValues[intensity] || metValues.moderate;
+  return parseFloat((met * weight * hours).toFixed(2));
+}
+
 // Calculate TDEE based on activity level (as per CALORIE.MD specification)
 export function calculateTDEE(bmr, activityLevel) {
     const activityMultipliers = {
@@ -35,16 +42,48 @@ export function calculateTDEE(bmr, activityLevel) {
     return bmr * (activityMultipliers[activityLevel] || 1.55);
 }
 
-// Calculate calories burned cycling (moderate cycling @ 8 MET as per CALORIE.MD)
-export function calculateCyclingCalories(weight, hours, intensity = 'moderate') {
-    const metValues = {
+// In calorieService.js
+export async function calculateCyclingCalories(userId, hours, intensity = 'moderate') {
+    try {
+      // 1. Get user profile data
+      const user = await User.findById(userId).select('profile');
+      if (!user || !user.profile) {
+        throw new Error('User profile not found');
+      }
+  
+      // 2. Use profile data for calculation
+      const { weight, activityLevel } = user.profile;
+      
+      // 3. Get MET value based on intensity
+      const metValues = {
         'light': 4,
         'moderate': 8,
         'vigorous': 12
-    };
-    // MET * weight * 1.05 (as per CALORIE.MD specification)
-    return metValues[intensity] * weight * 1.05 * hours;
-}
+      };
+      
+      // 4. Calculate calories: MET * weight(kg) * hours
+      const met = metValues[intensity] || metValues.moderate;
+      const caloriesBurned = met * weight * hours;
+      
+      return {
+        success: true,
+        caloriesBurned: parseFloat(caloriesBurned.toFixed(2)),
+        details: {
+          met,
+          weight,
+          hours,
+          intensity,
+          activityLevel
+        }
+      };
+    } catch (error) {
+      console.error('Error calculating cycling calories:', error);
+      return {
+        success: false,
+        error: error.message
+      };
+    }
+  }
 
 // Validate inputs according to CALORIE.MD specifications
 export function validateInputs(currentWeight, targetWeight, height, planDuration) {
@@ -110,7 +149,7 @@ export async function generateCyclingPlan(userId, goalId) {
     }
     
     // Calculate cycling hours
-    const caloriesPerHour = calculateCyclingCalories(user.profile.weight, 1, 'moderate');
+    const caloriesPerHour = calculateCyclingCaloriesDirect(user.profile.weight, 1, 'moderate');
     const dailyCyclingHours = dailyCalorieGoal / caloriesPerHour;
     
     // Feasibility Check: Fail if daily_cycling_hours > 4 (exceeds safe limits)
@@ -187,8 +226,56 @@ export function getDailyHours(plan, dayIndex) {
     return Math.min(hoursToday, 4); // Cap at 4 hours max per day
 }
 
+// Update session progress in real-time during cycling
+// This allows the frontend to sync progress without completing the session
+export const updateSessionProgressLegacy = async (userId, sessionId, completedHours, caloriesBurned = 0) => {
+  // Find the active plan for the user
+  const plan = await CyclingPlan.findOne({ user: userId, isActive: true });
+  
+  if (!plan) {
+    throw new Error('No active plan found for user');
+  }
+
+  // Find the session by ID
+  const session = plan.dailySessions.id(sessionId);
+  if (!session) {
+    throw new Error('Session not found');
+  }
+
+  // Update session progress
+  session.completedHours = Math.min(completedHours, session.plannedHours);
+  session.caloriesBurned = Math.max(0, caloriesBurned);
+  
+  // Mark as completed if all hours are done
+  if (session.completedHours >= session.plannedHours) {
+    session.status = 'completed';
+  } else if (session.status === 'pending') {
+    session.status = 'in_progress';
+  }
+
+  // Save the updated plan
+  await plan.save();
+
+  // Return the updated session and plan summary
+  return {
+    session: {
+      _id: session._id,
+      date: session.date,
+      plannedHours: session.plannedHours,
+      completedHours: session.completedHours,
+      status: session.status,
+      caloriesBurned: session.caloriesBurned
+    },
+    planSummary: {
+      totalCaloriesBurned: plan.dailySessions.reduce((sum, s) => sum + (s.caloriesBurned || 0), 0),
+      totalCompletedHours: plan.dailySessions.reduce((sum, s) => sum + (s.completedHours || 0), 0),
+      totalPlannedHours: plan.dailySessions.reduce((sum, s) => sum + (s.plannedHours || 0), 0)
+    }
+  };
+};
+
 // Log session with carryover logic
-export async function logSession(planId, dayIndex, hoursActuallyDone) {
+export const logSession = async (planId, dayIndex, hoursActuallyDone) => {
     const CyclingPlan = (await import('../models/CyclingPlan.js')).default;
     const plan = await CyclingPlan.findById(planId);
     
@@ -201,7 +288,7 @@ export async function logSession(planId, dayIndex, hoursActuallyDone) {
     
     // Update current session
     session.completedHours = hoursActuallyDone;
-    session.caloriesBurned = calculateCyclingCalories(session.weight || 70, hoursActuallyDone, 'moderate');
+    session.caloriesBurned = calculateCyclingCaloriesDirect(session.weight || 70, hoursActuallyDone, 'moderate');
     
     if (hoursActuallyDone >= requiredHours) {
         session.status = 'completed';

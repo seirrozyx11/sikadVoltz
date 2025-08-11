@@ -6,6 +6,8 @@ import {
   calculateCyclingCalories 
 } from '../services/calorieService.js';
 import User from '../models/User.js';
+import CyclingPlan from '../models/CyclingPlan.js';
+import SessionTrackerService from '../services/session_tracker_service.js';
 
 const router = express.Router();
 
@@ -89,12 +91,163 @@ router.post('/log/cycling', authenticateToken, async (req, res) => {
   }
 });
 
+// Enhanced: Get real-time calorie tracking for today
+router.get('/today', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    
+    // Use the session tracker service for consistent data
+    const result = await SessionTrackerService.getTodayCalories(userId);
+    
+    if (result.success) {
+      // Get user profile for BMR/TDEE calculation
+      const user = await User.findById(userId).select('profile');
+      const activePlan = await CyclingPlan.findOne({ 
+        user: userId, 
+        isActive: true 
+      });
+
+      let dailyCalorieGoal = 500; // Default
+      
+      if (user?.profile) {
+        const bmr = calculateBMR(
+          user.profile.weight,
+          user.profile.height,
+          user.profile.birthDate,
+          user.profile.gender
+        );
+        const tdee = calculateTDEE(bmr, user.profile.activityLevel || 'moderate');
+        dailyCalorieGoal = activePlan?.planSummary?.dailyCalorieGoal || Math.round(tdee * 0.2);
+      }
+
+      const responseData = {
+        ...result.data,
+        dailyGoal: dailyCalorieGoal,
+        progress: Math.min((result.data.totalCalories / dailyCalorieGoal) * 100, 100),
+        date: new Date().toISOString().split('T')[0]
+      };
+
+      res.json({
+        success: true,
+        data: responseData
+      });
+    } else {
+      res.status(500).json({ 
+        success: false, 
+        message: result.error 
+      });
+    }
+
+  } catch (error) {
+    console.error('Error getting today\'s calories:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error' 
+    });
+  }
+});
+
+// Enhanced session update endpoint
+router.post('/session/update', authenticateToken, async (req, res) => {
+  try {
+    const { sessionId, calories, duration, power, distance, planId } = req.body;
+    const userId = req.user.userId;
+
+    if (!sessionId || calories === undefined) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'sessionId and calories are required' 
+      });
+    }
+
+    // Convert duration from minutes to hours for consistency
+    const hours = duration ? parseFloat(duration) / 60 : 0;
+
+    const result = await SessionTrackerService.updateSessionProgress(userId, {
+      sessionId,
+      completedHours: hours,
+      caloriesBurned: parseFloat(calories),
+      planId
+    });
+
+    if (result.success) {
+      res.json({
+        success: true,
+        message: 'Session calories updated',
+        data: {
+          sessionId,
+          calories: parseFloat(calories),
+          duration: parseFloat(duration || 0),
+          lastUpdate: new Date()
+        }
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: result.error
+      });
+    }
+
+  } catch (error) {
+    console.error('Error updating session calories:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error' 
+    });
+  }
+});
+
+// Enhanced session completion endpoint
+router.post('/session/complete', authenticateToken, async (req, res) => {
+  try {
+    const { sessionId, finalCalories, finalDuration } = req.body;
+    const userId = req.user.userId;
+
+    if (!sessionId) {
+      return res.status(400).json({ 
+        success: false, 
+        message: 'sessionId is required' 
+      });
+    }
+
+    // Convert duration to hours
+    const finalHours = finalDuration ? parseFloat(finalDuration) / 60 : 0;
+
+    const result = await SessionTrackerService.completeSession(userId, {
+      sessionId,
+      finalCalories: parseFloat(finalCalories || 0),
+      finalHours
+    });
+
+    if (result.success) {
+      res.json({
+        success: true,
+        message: 'Session completed and logged',
+        data: result.data.sessionSummary
+      });
+    } else {
+      res.status(400).json({
+        success: false,
+        message: result.error
+      });
+    }
+
+  } catch (error) {
+    console.error('Error completing session:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Server error' 
+    });
+  }
+});
+
 // Get calorie log for a specific date range
 router.get('/log', authenticateToken, async (req, res) => {
   try {
-    const { startDate, endDate } = req.query;
+    const { startDate, endDate, includeActiveSessions = true } = req.query;
+    const userId = req.user.userId;
     
-    const user = await User.findById(req.user.userId).select('activityLog profile');
+    const user = await User.findById(userId).select('activityLog profile');
     if (!user) {
       return res.status(404).json({ message: 'User not found' });
     }
@@ -109,20 +262,40 @@ router.get('/log', authenticateToken, async (req, res) => {
     
     if (endDate) {
       const end = new Date(endDate);
-      end.setHours(23, 59, 59, 999); // End of the day
+      end.setHours(23, 59, 59, 999);
       activities = activities.filter(activity => new Date(activity.date) <= end);
+    }
+
+    // Include active session data if requested
+    let activeSessionCalories = 0;
+    if (includeActiveSessions === 'true') {
+      const activePlan = await CyclingPlan.findOne({ 
+        user: userId, 
+        isActive: true 
+      });
+      
+      if (activePlan && activePlan.activeSessions) {
+        activeSessionCalories = activePlan.activeSessions
+          .filter(s => s.isActive)
+          .reduce((sum, s) => sum + s.caloriesBurned, 0);
+      }
     }
 
     // Sort by date (newest first)
     activities.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    // Calculate total calories burned
+    // Calculate totals
     const totalCalories = activities.reduce((sum, activity) => sum + (activity.calories || 0), 0);
 
     res.json({
-      activities,
-      totalCalories,
-      count: activities.length
+      success: true,
+      data: {
+        activities,
+        totalCalories: totalCalories + activeSessionCalories,
+        loggedCalories: totalCalories,
+        activeSessionCalories,
+        count: activities.length
+      }
     });
   } catch (error) {
     console.error('Error getting calorie log:', error);

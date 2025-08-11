@@ -1,6 +1,7 @@
 import {
   generateCyclingPlan,
   logSession as recordSessionService,
+  updateSessionProgressLegacy as updateSessionProgressService,
   emergencyCatchUp
 } from '../services/calorieService.js';
 import { 
@@ -14,6 +15,7 @@ import {
   getMissedSessionSummary
 } from '../services/missedSessionDetector.js';
 import CyclingPlan from '../models/CyclingPlan.js';
+import SessionTrackerService from '../services/session_tracker_service.js';
 
 // Helper function for consistent error responses
 const errorResponse = (res, status, message, details = null) => {
@@ -57,46 +59,129 @@ export const createPlan = async (req, res) => {
 };
 
 // Record a completed session
-export const recordSession = async (req, res) => {
+/**
+ * Update session progress in real-time during cycling
+ * Enhanced with better error handling and validation
+ */
+// In planController.js
+export const updateSessionProgress = async (req, res) => {
   try {
-    const { date, hours } = req.body;
-    const { id: planId } = req.params;
+    const { sessionId, completedHours, planId } = req.body;
+    const userId = req.user?.userId;
 
-    if (!planId || !date || hours === undefined) {
-      return errorResponse(res, 400, 'Missing required fields: planId, date, and hours');
+    if (!userId) {
+      return errorResponse(res, 401, 'Authentication required');
     }
 
-    const sessionDate = new Date(date);
-    if (isNaN(sessionDate.getTime())) {
-      return errorResponse(res, 400, 'Invalid date format');
+    // Get user to access profile data
+    const user = await User.findById(userId);
+    if (!user || !user.profile) {
+      return errorResponse(res, 400, 'User profile not complete');
     }
 
-    // Get the plan to find the correct day index
-    const plan = await CyclingPlan.findById(planId);
-    if (!plan) {
-      return errorResponse(res, 404, 'Plan not found');
-    }
-
-    // Find the session index for the given date
-    const dayIndex = plan.dailySessions.findIndex(session => 
-      session.date.toDateString() === sessionDate.toDateString()
+    // Calculate calories using profile data
+    const calcResult = await calculateCyclingCalories(
+      userId,
+      completedHours,
+      'moderate' // or get from request if intensity can vary
     );
 
-    if (dayIndex === -1) {
-      return errorResponse(res, 404, 'Session not found for the specified date');
+    if (!calcResult.success) {
+      return errorResponse(res, 400, calcResult.error);
     }
 
-    const updatedPlan = await recordSessionService(planId, dayIndex, parseFloat(hours));
-
-    res.json({
-      success: true,
-      data: updatedPlan
+    // Update session with calculated calories
+    const result = await SessionTrackerService.updateSessionProgress(userId, {
+      sessionId,
+      completedHours,
+      caloriesBurned: calcResult.caloriesBurned,
+      planId
     });
+
+    if (result.success) {
+      res.json({
+        success: true,
+        data: {
+          ...result.data,
+          calculationDetails: calcResult.details
+        }
+      });
+    } else {
+      errorResponse(res, 400, result.error);
+    }
   } catch (error) {
-    console.error('Error recording session:', error);
-    errorResponse(res, 500, 'Failed to record session', error.message);
+    console.error('Error updating session progress:', error);
+    errorResponse(res, 500, 'Failed to update session progress', error.message);
   }
 };
+
+/**
+ * Complete a session and finalize the progress
+ * Enhanced with better validation and error handling
+ */
+export const completeSession = async (req, res) => {
+  try {
+    const { sessionId, finalCalories, finalHours } = req.body;
+    const userId = req.user?.userId;
+
+    if (!userId) {
+      return errorResponse(res, 401, 'Authentication required');
+    }
+
+    const result = await SessionTrackerService.completeSession(userId, {
+      sessionId,
+      finalCalories,
+      finalHours
+    });
+
+    if (result.success) {
+      res.json({
+        success: true,
+        message: 'Session completed successfully',
+        data: result.data
+      });
+    } else {
+      return errorResponse(res, 400, result.error);
+    }
+
+  } catch (error) {
+    console.error('Error completing session:', error);
+    errorResponse(res, 500, 'Failed to complete session', error.message);
+  }
+};
+
+// Helper function to record calorie activity
+async function recordCalorieActivity(userId, activityData) {
+  try {
+    const User = (await import('../models/User.js')).default;
+    
+    const user = await User.findById(userId);
+    if (!user) return;
+
+    if (!user.activityLog) {
+      user.activityLog = [];
+    }
+
+    const activity = {
+      type: activityData.type || 'cycling',
+      duration: activityData.duration || 0,
+      calories: activityData.calories || 0,
+      sessionId: activityData.sessionId,
+      date: activityData.timestamp || new Date(),
+      metadata: {
+        source: 'session_tracker',
+        planId: activityData.planId
+      }
+    };
+
+    user.activityLog.push(activity);
+    await user.save();
+    
+    console.log(`Logged ${activity.calories} calories for user ${userId}`);
+  } catch (error) {
+    throw new Error(`Failed to record calorie activity: ${error.message}`);
+  }
+}
 
 // Handle missed session
 export const missedSession = async (req, res) => {
@@ -177,9 +262,44 @@ export const getCurrentPlan = async (req, res) => {
       return errorResponse(res, 404, 'No active plan found');
     }
 
+    // Calculate real-time totals including active sessions
+    const activeSessionCalories = plan.activeSessions
+      ?.filter(s => s.isActive)
+      ?.reduce((sum, s) => sum + s.caloriesBurned, 0) || 0;
+
+    const activeSessionHours = plan.activeSessions
+      ?.filter(s => s.isActive)
+      ?.reduce((sum, s) => sum + s.completedHours, 0) || 0;
+
+    // Get today's session with progress
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const todaySession = plan.dailySessions.find(session => {
+      const sessionDate = new Date(session.date);
+      sessionDate.setHours(0, 0, 0, 0);
+      return sessionDate.getTime() === today.getTime();
+    });
+
+    const responseData = {
+      ...plan.toObject(),
+      realtimeStats: {
+        totalCompletedHours: (plan.completedHours || 0) + activeSessionHours,
+        totalCaloriesBurned: activeSessionCalories,
+        activeSessionCount: plan.activeSessions?.filter(s => s.isActive)?.length || 0
+      },
+      todaySession: todaySession ? {
+        ...todaySession,
+        realtimeProgress: {
+          calories: todaySession.progressCalories || 0,
+          hours: todaySession.progressHours || 0
+        }
+      } : null
+    };
+
     res.json({
       success: true,
-      data: plan
+      data: responseData
     });
   } catch (error) {
     console.error('Error getting current plan:', error);
@@ -1250,3 +1370,6 @@ export const forceMissedSessionDetection = async (req, res) => {
     });
   }
 };
+
+
+

@@ -3,11 +3,11 @@ import authenticateToken from '../middleware/authenticateToken.js';
 import { body, validationResult } from 'express-validator';
 import logger from '../utils/logger.js';
 
-// Import models when available
-// import { Telemetry, RideSession, ESP32Device } from '../models/Telemetry.js';
-// import User from '../models/User.js';
-// import CyclingPlan from '../models/CyclingPlan.js';
-// import { calculateCyclingCalories } from '../services/calorieService.js';
+// Import models
+import { Telemetry, RideSession, ESP32Device } from '../models/Telemetry.js';
+import User from '../models/User.js';
+import CyclingPlan from '../models/CyclingPlan.js';
+import { calculateCyclingCalories } from '../services/calorieService.js';
 
 const router = express.Router();
 
