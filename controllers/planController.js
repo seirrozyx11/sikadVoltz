@@ -164,7 +164,17 @@ export const updateSessionProgressRealtime = async (req, res) => {
     
     // Calculate real-time calories
     const sessionTimeHours = (sessionTime || 0) / 3600; // Convert seconds to hours
-    const userWeight = 75; // Default weight, should get from user profile
+    
+    // Get user weight from profile if available, otherwise use default
+    let userWeight = 75; // Default weight
+    try {
+      const user = await User.findById(userId);
+      if (user?.profile?.weight) {
+        userWeight = user.profile.weight;
+      }
+    } catch (error) {
+      logger.warn(`Could not load user profile for calorie calculation, using default weight: ${error.message}`);
+    }
     
     // Calorie calculation: either from watts or speed-based estimation
     let caloriesPerHour;
@@ -182,7 +192,7 @@ export const updateSessionProgressRealtime = async (req, res) => {
     
     // Update session status
     if (sessionTime > 0) {
-      todaySession.status = 'in_progress';
+      todaySession.status = 'progress'; // ✅ FIXED: Match frontend calendar expectations
     }
     
     // Save the updated plan
@@ -846,16 +856,24 @@ export const getCalendarData = async (req, res) => {
     });
 
     // Format calendar data
-    const calendarData = monthSessions.map(session => ({
-      date: session.date.toISOString().split('T')[0],
-      plannedHours: session.plannedHours,
-      completedHours: session.completedHours,
-      status: session.status,
-      caloriesBurned: session.caloriesBurned,
-      missedHours: session.missedHours,
-      adjustedHours: session.adjustedHours,
-      isToday: new Date(session.date).toDateString() === new Date().toDateString()
-    }));
+    const calendarData = monthSessions.map(session => {
+      // ✅ FIXED: Map backend status to frontend calendar expectations
+      let calendarStatus = session.status;
+      if (calendarStatus === 'pending') {
+        calendarStatus = 'scheduled'; // Map 'pending' to 'scheduled' for frontend calendar
+      }
+      
+      return {
+        date: session.date.toISOString().split('T')[0],
+        plannedHours: session.plannedHours,
+        completedHours: session.completedHours,
+        status: calendarStatus, // Use mapped status
+        caloriesBurned: session.caloriesBurned,
+        missedHours: session.missedHours,
+        adjustedHours: session.adjustedHours,
+        isToday: new Date(session.date).toDateString() === new Date().toDateString()
+      };
+    });
 
     // Calculate month statistics
     const monthStats = {

@@ -60,6 +60,7 @@ router.post(
 router.post(
   '/update-session-progress-realtime',
   authenticateToken,
+  // NOTE: No requireCompleteProfile middleware for real-time updates during active sessions
   updateSessionProgressRealtime
 );
 
