@@ -12,6 +12,7 @@ import {
   getDailySessionStatus,
   getUpcomingSessions,
   updateSessionProgress,
+  updateSessionProgressRealtime, // 🚨 NEW: Add real-time update function
   completeSession,
   // 📅 Calendar Integration Functions
   getCalendarData,
@@ -53,6 +54,13 @@ router.post(
   authenticateToken,
   requireCompleteProfile,  // Add this line
   updateSessionProgress
+);
+
+// 🚨 NEW: Real-time session progress update for ESP32
+router.post(
+  '/update-session-progress-realtime',
+  authenticateToken,
+  updateSessionProgressRealtime
 );
 
 // Record a completed session

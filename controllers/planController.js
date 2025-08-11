@@ -115,6 +115,112 @@ export const updateSessionProgress = async (req, res) => {
   }
 };
 
+// 🚨 NEW: Real-time session progress update for ESP32 telemetry
+export const updateSessionProgressRealtime = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    const { distance, speed, sessionTime, watts, voltage } = req.body;
+    
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required'
+      });
+    }
+    
+    // Find user's active plan
+    const plan = await CyclingPlan.findOne({ 
+      user: userId, 
+      isActive: true 
+    });
+    
+    if (!plan) {
+      return res.status(404).json({
+        success: false,
+        error: 'No active cycling plan found'
+      });
+    }
+    
+    // Find today's session
+    const today = new Date().toISOString().split('T')[0];
+    const todaySession = plan.dailySessions.find(session => 
+      session.date.toISOString().split('T')[0] === today
+    );
+    
+    if (!todaySession) {
+      return res.status(404).json({
+        success: false,
+        error: 'No cycling session scheduled for today'
+      });
+    }
+    
+    // Update session with real-time data
+    todaySession.currentDistance = distance || 0;
+    todaySession.currentSpeed = speed || 0;
+    todaySession.sessionTime = sessionTime || 0;
+    todaySession.currentWatts = watts || 0;
+    todaySession.voltage = voltage || 0;
+    
+    // Calculate real-time calories
+    const sessionTimeHours = (sessionTime || 0) / 3600; // Convert seconds to hours
+    const userWeight = 75; // Default weight, should get from user profile
+    
+    // Calorie calculation: either from watts or speed-based estimation
+    let caloriesPerHour;
+    if (watts && watts > 0) {
+      // More accurate: based on power output
+      caloriesPerHour = watts * 3.6; // 1 watt = ~3.6 calories/hour
+    } else if (speed && speed > 0) {
+      // Estimation based on speed and weight
+      caloriesPerHour = userWeight * speed * 0.5; // Rough estimation
+    } else {
+      caloriesPerHour = 0;
+    }
+    
+    todaySession.caloriesBurned = sessionTimeHours * caloriesPerHour;
+    
+    // Update session status
+    if (sessionTime > 0) {
+      todaySession.status = 'in_progress';
+    }
+    
+    // Save the updated plan
+    await plan.save();
+    
+    logger.info(`✅ Real-time session update for user ${userId}`, {
+      distance,
+      speed,
+      sessionTime,
+      calories: todaySession.caloriesBurned,
+      status: todaySession.status
+    });
+    
+    res.json({
+      success: true,
+      message: 'Session progress updated successfully',
+      data: {
+        sessionId: todaySession._id,
+        distance: todaySession.currentDistance,
+        speed: todaySession.currentSpeed,
+        sessionTime: todaySession.sessionTime,
+        calories: Math.round(todaySession.caloriesBurned),
+        watts: todaySession.currentWatts,
+        voltage: todaySession.voltage,
+        status: todaySession.status,
+        dayNumber: plan.dailySessions.indexOf(todaySession) + 1
+      }
+    });
+    
+  } catch (error) {
+    logger.error('❌ Error updating real-time session progress:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update session progress',
+      details: error.message
+    });
+  }
+};
+
 /**
  * Complete a session and finalize the progress
  * Enhanced with better validation and error handling

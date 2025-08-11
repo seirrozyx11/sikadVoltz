@@ -216,8 +216,34 @@ router.post('/telemetry', authenticateToken, async (req, res) => {
       workoutActive: data.state === 'RUNNING'
     });
     
-    // TODO: Store in database when models are ready
-    // For now, just log and acknowledge
+    // 🚨 NEW: Update session progress in real-time
+    try {
+      const updateResponse = await fetch(`${req.protocol}://${req.get('host')}/api/plans/update-session-progress-realtime`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': req.headers.authorization
+        },
+        body: JSON.stringify({
+          distance: parsedMetrics.distance,
+          speed: parsedMetrics.speed,
+          sessionTime: parsedMetrics.sessionTime,
+          watts: parsedMetrics.watts,
+          voltage: parsedMetrics.voltage
+        })
+      });
+      
+      const updateResult = await updateResponse.json();
+      
+      if (updateResult.success) {
+        logger.info(`✅ Session progress updated successfully`, updateResult.data);
+      } else {
+        logger.warn(`⚠️ Session progress update failed:`, updateResult.error);
+      }
+      
+    } catch (updateError) {
+      logger.error('❌ Error updating session progress:', updateError.message);
+    }
     
     // Publish to real-time service if available
     const telemetryService = req.app.locals.telemetryService;
@@ -240,8 +266,8 @@ router.post('/telemetry', authenticateToken, async (req, res) => {
     res.json({
       success: true,
       message: 'Telemetry data received and processed',
-      debug: {
-        deviceId,
+      data: {
+        sessionUpdated: true,
         metrics: parsedMetrics,
         publishedToWebSocket: !!telemetryService
       }
