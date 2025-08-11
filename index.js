@@ -21,6 +21,7 @@ import goalsRoutes from './routes/goalsRoutes.js';
 import esp32Routes from './routes/esp32Routes.js';
 // Import services
 import RealTimeTelemetryService from './services/realTimeTelemetryService.js';
+import { initializeScheduledTasks } from './services/scheduledTasks.js';
 
 // Environment setup
 const __filename = fileURLToPath(import.meta.url);
@@ -353,6 +354,14 @@ const startServer = async () => {
       
       console.log(startupMessage);
       logger.info(`Server started on port ${PORT}`);
+      
+      // Initialize scheduled tasks for missed session detection
+      try {
+        initializeScheduledTasks();
+        logger.info('✅ Scheduled tasks initialized successfully');
+      } catch (taskError) {
+        logger.error('❌ Failed to initialize scheduled tasks:', taskError);
+      }
       
       // Initialize ESP32 BLE Bridge on a separate port
       try {

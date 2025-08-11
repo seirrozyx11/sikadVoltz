@@ -35,6 +35,8 @@ import {
 import authenticateToken from '../middleware/authenticateToken.js';
 import { validateRequest, planValidation } from '../middleware/validation.js';
 import { requireCompleteProfile } from '../middleware/profileValidation.js';
+import { realtimeMissedSessionCheck } from '../services/missedSessionDetector.js';
+import { manualMissedSessionDetection } from '../services/scheduledTasks.js';
 
 const router = express.Router();
 
@@ -122,5 +124,44 @@ router.get('/suggest-reset', authenticateToken, suggestNewPlan);
 // router.get('/auto-detect-missed', authenticateToken, autoDetectMissedSessions);
 // router.get('/missed-status', authenticateToken, getMissedSessionStatus);
 // router.post('/force-detect-missed', authenticateToken, forceMissedSessionDetection);
+
+// 🚨 NEW: Missed Session Detection & Alerts
+router.get('/check-missed-sessions', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    const result = await realtimeMissedSessionCheck(userId);
+    
+    res.json({
+      success: true,
+      data: result
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to check missed sessions',
+      details: error.message
+    });
+  }
+});
+
+// Manual trigger for missed session detection (for testing)
+router.post('/manual-detect-missed', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    const result = await manualMissedSessionDetection(userId);
+    
+    res.json({
+      success: true,
+      message: 'Manual missed session detection completed',
+      data: result
+    });
+  } catch (error) {
+    res.status(500).json({
+      success: false,
+      error: 'Failed to run manual detection',
+      details: error.message
+    });
+  }
+});
 
 export default router;
