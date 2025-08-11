@@ -68,7 +68,7 @@ export const createPlan = async (req, res) => {
 // In planController.js
 export const updateSessionProgress = async (req, res) => {
   try {
-    const { sessionId, completedHours, planId } = req.body;
+    const { sessionId, completedHours, planId, intensity = 'moderate' } = req.body;
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -85,7 +85,7 @@ export const updateSessionProgress = async (req, res) => {
     const calcResult = await calculateCyclingCalories(
       userId,
       completedHours,
-      'moderate' // or get from request if intensity can vary
+      intensity // Use intensity from request or default to 'moderate'
     );
 
     if (!calcResult.success) {
@@ -121,7 +121,7 @@ export const updateSessionProgress = async (req, res) => {
 export const updateSessionProgressRealtime = async (req, res) => {
   try {
     const userId = req.user?.userId;
-    const { distance, speed, sessionTime, watts, voltage, sessionActive = false } = req.body;
+    const { distance, speed, sessionTime, watts, voltage, intensity = 2, sessionActive = false } = req.body;
     
     if (!userId) {
       return res.status(401).json({
@@ -138,6 +138,7 @@ export const updateSessionProgressRealtime = async (req, res) => {
         data: {
           dataReceived: true,
           sessionActive: false,
+          intensity: intensity,
           message: 'Distance tracking only during active sessions'
         }
       });
@@ -180,8 +181,9 @@ export const updateSessionProgressRealtime = async (req, res) => {
       todaySession.sessionTime = sessionTime || 0;
       todaySession.currentWatts = watts || 0;
       todaySession.voltage = voltage || 0;
+      todaySession.intensity = intensity || 2; // Store current intensity level
       
-      // Calculate real-time calories
+      // Calculate real-time calories using intensity-based calculation
       const sessionTimeHours = (sessionTime || 0) / 3600; // Convert seconds to hours
       
       // Get user weight from profile if available, otherwise use default
@@ -195,16 +197,22 @@ export const updateSessionProgressRealtime = async (req, res) => {
         logger.warn(`Could not load user profile for calorie calculation, using default weight: ${error.message}`);
       }
       
-      // Calorie calculation: either from watts or speed-based estimation
+      // Enhanced calorie calculation: either from watts or intensity-based estimation
       let caloriesPerHour;
       if (watts && watts > 0) {
-        // More accurate: based on power output
-        caloriesPerHour = watts * 3.6; // 1 watt = ~3.6 calories/hour
-      } else if (speed && speed > 0) {
-        // Estimation based on speed and weight
-        caloriesPerHour = userWeight * speed * 0.5; // Rough estimation
+        // Power-based calculation (most accurate)
+        caloriesPerHour = (watts * 3.6) / 4.184; // Watts to calories/hour conversion
       } else {
-        caloriesPerHour = 0;
+        // Intensity-based calculation using MET values from ESP32
+        const metValues = {
+          0: 0.0,   // Stopped
+          1: 2.0,   // Coasting
+          2: 4.0,   // Light/Casual
+          3: 8.0,   // Moderate
+          4: 12.0   // Vigorous/Rapid
+        };
+        const met = metValues[intensity] || 8.0; // Default to moderate
+        caloriesPerHour = met * userWeight; // MET * weight = calories/hour
       }
       
       todaySession.caloriesBurned = sessionTimeHours * caloriesPerHour;
@@ -221,6 +229,7 @@ export const updateSessionProgressRealtime = async (req, res) => {
         distance,
         speed,
         sessionTime,
+        intensity,
         calories: todaySession.caloriesBurned,
         status: todaySession.status,
         sessionActive
@@ -234,6 +243,7 @@ export const updateSessionProgressRealtime = async (req, res) => {
           distance: todaySession.currentDistance,
           speed: todaySession.currentSpeed,
           sessionTime: todaySession.sessionTime,
+          intensity: todaySession.intensity,
           calories: Math.round(todaySession.caloriesBurned),
           watts: todaySession.currentWatts,
           voltage: todaySession.voltage,

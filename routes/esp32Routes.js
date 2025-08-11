@@ -18,7 +18,8 @@ const validateRideData = [
   body('power').isFloat({ min: 0 }).withMessage('Power must be a positive number'),
   body('voltage').isFloat({ min: 0 }).withMessage('Voltage must be a positive number'),
   body('sessionTime').isInt({ min: 0 }).withMessage('Session time must be a positive integer'),
-  body('timestamp').isInt({ min: 0 }).withMessage('Timestamp must be a positive integer')
+  body('timestamp').isInt({ min: 0 }).withMessage('Timestamp must be a positive integer'),
+  body('intensity').optional().isInt({ min: 0, max: 4 }).withMessage('Intensity must be between 0-4')
 ];
 
 const validateSessionData = [
@@ -52,19 +53,21 @@ router.post('/ride-data', authenticateToken, validateRideData, async (req, res) 
       voltage,
       sessionTime,
       state,
+      intensity = 2, // Default to light cycling if not provided
       timestamp
     } = req.body;
 
     const userId = req.user.id;
 
-    // Log the received data
+    // Log the received data with intensity
     logger.info('ESP32 ride data received', {
       userId,
       speed,
       distance,
       power,
       sessionTime,
-      state
+      state,
+      intensity
     });
 
     // TODO: Store in database when models are ready
@@ -83,7 +86,8 @@ router.post('/ride-data', authenticateToken, validateRideData, async (req, res) 
           maxPower,
           voltage,
           sessionTime,
-          state
+          state,
+          intensity
         }
       }
     });
@@ -202,18 +206,20 @@ router.post('/telemetry', authenticateToken, async (req, res) => {
       });
     }
     
-    // Parse telemetry data
+    // Parse telemetry data with intensity field
     const parsedMetrics = {
       speed: parseFloat(data.speed) || 0,
       distance: parseFloat(data.distance) || 0,
       sessionTime: parseInt(data.sessionTime) || 0,
       watts: parseFloat(data.power) || 0,
-      voltage: parseFloat(data.voltage) || 0
+      voltage: parseFloat(data.voltage) || 0,
+      intensity: parseInt(data.intensity) || 2 // Default to 'light' cycling
     };
     
     logger.info(`📊 Parsed Telemetry Data:`, {
       parsed: parsedMetrics,
-      workoutActive: data.state === 'RUNNING'
+      workoutActive: data.state === 'RUNNING',
+      intensityLevel: parsedMetrics.intensity
     });
     
     // 🚨 NEW: Update session progress in real-time
@@ -233,6 +239,7 @@ router.post('/telemetry', authenticateToken, async (req, res) => {
           sessionTime: parsedMetrics.sessionTime,
           watts: parsedMetrics.watts,
           voltage: parsedMetrics.voltage,
+          intensity: parsedMetrics.intensity, // Pass intensity level to session progress
           sessionActive: workoutActive // 🚨 NEW: Pass session active status
         })
       });

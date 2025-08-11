@@ -25,7 +25,27 @@ export function calculateBMR(weight, height, birthDate, gender) {
 }
 
 export function calculateCyclingCaloriesDirect(weight, hours, intensity = 'moderate') {
-  const metValues = { 'light': 4, 'moderate': 8, 'vigorous': 12 };
+  // Enhanced 5-level intensity system matching frontend
+  const metValues = { 
+    'stopped': 0.0,
+    'coasting': 2.0,
+    'light': 4.0, 
+    'moderate': 8.0, 
+    'vigorous': 12.0 
+  };
+  
+  // Handle numeric intensity levels from ESP32 (0-4)
+  if (typeof intensity === 'number') {
+    switch (intensity) {
+      case 0: intensity = 'stopped'; break;
+      case 1: intensity = 'coasting'; break;
+      case 2: intensity = 'light'; break;
+      case 3: intensity = 'moderate'; break;
+      case 4: intensity = 'vigorous'; break;
+      default: intensity = 'moderate';
+    }
+  }
+  
   const met = metValues[intensity] || metValues.moderate;
   return parseFloat((met * weight * hours).toFixed(2));
 }
@@ -54,15 +74,30 @@ export async function calculateCyclingCalories(userId, hours, intensity = 'moder
       // 2. Use profile data for calculation
       const { weight, activityLevel } = user.profile;
       
-      // 3. Get MET value based on intensity
+      // 3. Get MET value based on intensity (enhanced 5-level system)
       const metValues = {
-        'light': 4,
-        'moderate': 8,
-        'vigorous': 12
+        'stopped': 0.0,
+        'coasting': 2.0,
+        'light': 4.0,
+        'moderate': 8.0,
+        'vigorous': 12.0
       };
       
+      // Handle numeric intensity levels from ESP32 (0-4)
+      let intensityKey = intensity;
+      if (typeof intensity === 'number') {
+        switch (intensity) {
+          case 0: intensityKey = 'stopped'; break;
+          case 1: intensityKey = 'coasting'; break;
+          case 2: intensityKey = 'light'; break;
+          case 3: intensityKey = 'moderate'; break;
+          case 4: intensityKey = 'vigorous'; break;
+          default: intensityKey = 'moderate';
+        }
+      }
+      
       // 4. Calculate calories: MET * weight(kg) * hours
-      const met = metValues[intensity] || metValues.moderate;
+      const met = metValues[intensityKey] || metValues.moderate;
       const caloriesBurned = met * weight * hours;
       
       return {
@@ -72,7 +107,7 @@ export async function calculateCyclingCalories(userId, hours, intensity = 'moder
           met,
           weight,
           hours,
-          intensity,
+          intensity: intensityKey,
           activityLevel
         }
       };
