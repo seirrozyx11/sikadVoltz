@@ -218,6 +218,9 @@ router.post('/telemetry', authenticateToken, async (req, res) => {
     
     // 🚨 NEW: Update session progress in real-time
     try {
+      // 🚨 FIXED: Only update session progress if ESP32 indicates workout is active
+      const workoutActive = data.state === 'RUNNING' || data.state === 'ACTIVE' || parsedMetrics.sessionTime > 0;
+      
       const updateResponse = await fetch(`${req.protocol}://${req.get('host')}/api/plans/update-session-progress-realtime`, {
         method: 'POST',
         headers: {
@@ -229,7 +232,8 @@ router.post('/telemetry', authenticateToken, async (req, res) => {
           speed: parsedMetrics.speed,
           sessionTime: parsedMetrics.sessionTime,
           watts: parsedMetrics.watts,
-          voltage: parsedMetrics.voltage
+          voltage: parsedMetrics.voltage,
+          sessionActive: workoutActive // 🚨 NEW: Pass session active status
         })
       });
       
@@ -238,7 +242,7 @@ router.post('/telemetry', authenticateToken, async (req, res) => {
       if (updateResult.success) {
         logger.info(`✅ Session progress updated successfully`, updateResult.data);
       } else {
-        logger.warn(`⚠️ Session progress update failed:`, updateResult.error);
+        logger.info(`ℹ️ Session update response:`, updateResult.message);
       }
       
     } catch (updateError) {

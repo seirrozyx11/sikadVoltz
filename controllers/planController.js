@@ -15,6 +15,7 @@ import {
   getMissedSessionSummary
 } from '../services/missedSessionDetector.js';
 import CyclingPlan from '../models/CyclingPlan.js';
+import User from '../models/User.js'; // 🚨 ADD: User model import for profile access
 import SessionTrackerService from '../services/session_tracker_service.js';
 import logger from '../utils/logger.js'; // 🚨 ADD: Logger import for real-time session updates
 
@@ -120,12 +121,25 @@ export const updateSessionProgress = async (req, res) => {
 export const updateSessionProgressRealtime = async (req, res) => {
   try {
     const userId = req.user?.userId;
-    const { distance, speed, sessionTime, watts, voltage } = req.body;
+    const { distance, speed, sessionTime, watts, voltage, sessionActive = false } = req.body;
     
     if (!userId) {
       return res.status(401).json({
         success: false,
         error: 'Authentication required'
+      });
+    }
+    
+    // 🚨 NEW: Only update session progress if session is actively started
+    if (!sessionActive && sessionTime === 0) {
+      return res.json({
+        success: true,
+        message: 'ESP32 data received but no active session',
+        data: {
+          dataReceived: true,
+          sessionActive: false,
+          message: 'Distance tracking only during active sessions'
+        }
       });
     }
     
@@ -155,72 +169,93 @@ export const updateSessionProgressRealtime = async (req, res) => {
       });
     }
     
-    // Update session with real-time data
-    todaySession.currentDistance = distance || 0;
-    todaySession.currentSpeed = speed || 0;
-    todaySession.sessionTime = sessionTime || 0;
-    todaySession.currentWatts = watts || 0;
-    todaySession.voltage = voltage || 0;
+    // 🚨 FIXED: Only update distance and metrics during active sessions
+    // Store the previous distance to calculate incremental distance for this active session
+    const previousDistance = todaySession.currentDistance || 0;
     
-    // Calculate real-time calories
-    const sessionTimeHours = (sessionTime || 0) / 3600; // Convert seconds to hours
-    
-    // Get user weight from profile if available, otherwise use default
-    let userWeight = 75; // Default weight
-    try {
-      const user = await User.findById(userId);
-      if (user?.profile?.weight) {
-        userWeight = user.profile.weight;
+    // Update session with real-time data only if session is active
+    if (sessionActive || sessionTime > 0) {
+      todaySession.currentDistance = distance || 0;
+      todaySession.currentSpeed = speed || 0;
+      todaySession.sessionTime = sessionTime || 0;
+      todaySession.currentWatts = watts || 0;
+      todaySession.voltage = voltage || 0;
+      
+      // Calculate real-time calories
+      const sessionTimeHours = (sessionTime || 0) / 3600; // Convert seconds to hours
+      
+      // Get user weight from profile if available, otherwise use default
+      let userWeight = 75; // Default weight
+      try {
+        const user = await User.findById(userId);
+        if (user?.profile?.weight) {
+          userWeight = user.profile.weight;
+        }
+      } catch (error) {
+        logger.warn(`Could not load user profile for calorie calculation, using default weight: ${error.message}`);
       }
-    } catch (error) {
-      logger.warn(`Could not load user profile for calorie calculation, using default weight: ${error.message}`);
-    }
-    
-    // Calorie calculation: either from watts or speed-based estimation
-    let caloriesPerHour;
-    if (watts && watts > 0) {
-      // More accurate: based on power output
-      caloriesPerHour = watts * 3.6; // 1 watt = ~3.6 calories/hour
-    } else if (speed && speed > 0) {
-      // Estimation based on speed and weight
-      caloriesPerHour = userWeight * speed * 0.5; // Rough estimation
-    } else {
-      caloriesPerHour = 0;
-    }
-    
-    todaySession.caloriesBurned = sessionTimeHours * caloriesPerHour;
-    
-    // Update session status
-    if (sessionTime > 0) {
-      todaySession.status = 'progress'; // ✅ FIXED: Match frontend calendar expectations
-    }
-    
-    // Save the updated plan
-    await plan.save();
-    
-    logger.info(`✅ Real-time session update for user ${userId}`, {
-      distance,
-      speed,
-      sessionTime,
-      calories: todaySession.caloriesBurned,
-      status: todaySession.status
-    });
-    
-    res.json({
-      success: true,
-      message: 'Session progress updated successfully',
-      data: {
-        sessionId: todaySession._id,
-        distance: todaySession.currentDistance,
-        speed: todaySession.currentSpeed,
-        sessionTime: todaySession.sessionTime,
-        calories: Math.round(todaySession.caloriesBurned),
-        watts: todaySession.currentWatts,
-        voltage: todaySession.voltage,
+      
+      // Calorie calculation: either from watts or speed-based estimation
+      let caloriesPerHour;
+      if (watts && watts > 0) {
+        // More accurate: based on power output
+        caloriesPerHour = watts * 3.6; // 1 watt = ~3.6 calories/hour
+      } else if (speed && speed > 0) {
+        // Estimation based on speed and weight
+        caloriesPerHour = userWeight * speed * 0.5; // Rough estimation
+      } else {
+        caloriesPerHour = 0;
+      }
+      
+      todaySession.caloriesBurned = sessionTimeHours * caloriesPerHour;
+      
+      // Update session status
+      if (sessionTime > 0) {
+        todaySession.status = 'progress'; // ✅ FIXED: Match frontend calendar expectations
+      }
+      
+      // Save the updated plan
+      await plan.save();
+      
+      logger.info(`✅ Real-time session update for user ${userId}`, {
+        distance,
+        speed,
+        sessionTime,
+        calories: todaySession.caloriesBurned,
         status: todaySession.status,
-        dayNumber: plan.dailySessions.indexOf(todaySession) + 1
-      }
-    });
+        sessionActive
+      });
+      
+      res.json({
+        success: true,
+        message: 'Session progress updated successfully',
+        data: {
+          sessionId: todaySession._id,
+          distance: todaySession.currentDistance,
+          speed: todaySession.currentSpeed,
+          sessionTime: todaySession.sessionTime,
+          calories: Math.round(todaySession.caloriesBurned),
+          watts: todaySession.currentWatts,
+          voltage: todaySession.voltage,
+          status: todaySession.status,
+          dayNumber: plan.dailySessions.indexOf(todaySession) + 1,
+          sessionActive: true
+        }
+      });
+    } else {
+      // Session not active, just acknowledge the data but don't update session progress
+      res.json({
+        success: true,
+        message: 'ESP32 data received but session not active',
+        data: {
+          dataReceived: true,
+          sessionActive: false,
+          currentSpeed: speed || 0,
+          currentWatts: watts || 0,
+          message: 'Start your workout session to begin tracking distance and calories'
+        }
+      });
+    }
     
   } catch (error) {
     logger.error('❌ Error updating real-time session progress:', error);
