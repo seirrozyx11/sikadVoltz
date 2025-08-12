@@ -52,10 +52,12 @@ class SessionTrackerService {
       });
 
       // Update user activity log
+      // Ensure duration is at least 1
+      const safeDuration = Math.max(1, parseFloat(completedHours) * 60);
       await this.updateUserActivityLog(userId, {
         sessionId,
         calories: parseFloat(caloriesBurned || 0),
-        duration: parseFloat(completedHours) * 60
+        duration: safeDuration
       });
 
       return {
@@ -168,7 +170,7 @@ class SessionTrackerService {
 
       // Update session data
       sessionActivity.calories = sessionData.calories;
-      sessionActivity.duration = sessionData.duration;
+  sessionActivity.duration = Math.max(1, sessionData.duration);
       sessionActivity.metadata.lastUpdate = new Date();
 
       await user.save();

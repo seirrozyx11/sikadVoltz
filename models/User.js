@@ -6,7 +6,7 @@ const activityLogSchema = new mongoose.Schema({
   type: {
     type: String,
     required: true,
-    enum: ['cycling', 'running', 'walking', 'swimming', 'other']
+    enum: ['cycling', 'cycling_session', 'running', 'walking', 'swimming', 'other']
   },
   duration: { 
     type: Number, 
