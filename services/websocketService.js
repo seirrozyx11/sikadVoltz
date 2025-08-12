@@ -52,6 +52,29 @@ class WebSocketService {
       }
       this.clients.get(userId).add(ws);
 
+      // Relay client-sent telemetry to all sockets for the same user
+      ws.on('message', (raw) => {
+        try {
+          const msg = JSON.parse(raw.toString());
+          const event = msg?.event;
+          const data = msg?.data;
+          if (!event) return;
+
+          // Only relay known real-time events
+          switch (event) {
+            case 'telemetry_update':
+              // Broadcast to all active sockets for this user (including sender)
+              this.broadcastToUser(userId, event, data);
+              break;
+            default:
+              // Ignore unknown events for now
+              break;
+          }
+        } catch (e) {
+          logger.warn('Invalid WS message received', e);
+        }
+      });
+
       // Handle client disconnection
       ws.on('close', () => {
         logger.info(`WebSocket disconnected for user ${userId}`);

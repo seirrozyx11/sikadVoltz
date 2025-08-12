@@ -52,8 +52,9 @@ class SessionTrackerService {
       });
 
       // Update user activity log
-      // Ensure duration is at least 1
-      const safeDuration = Math.max(1, parseFloat(completedHours) * 60);
+      // Ensure duration is valid and at least 1 minute (NaN-safe)
+      const hoursVal = Number(completedHours);
+      const safeDuration = Math.max(1, Math.round((Number.isFinite(hoursVal) ? hoursVal : 0) * 60));
       await this.updateUserActivityLog(userId, {
         sessionId,
         calories: parseFloat(caloriesBurned || 0),
@@ -153,8 +154,9 @@ class SessionTrackerService {
                    activity.type === 'cycling_session'
       );
 
-      // Always ensure duration is at least 1
-      const safeDuration = Math.max(1, Number(sessionData.duration) || 0);
+      // Always ensure duration is at least 1 minute and rounded (NaN-safe)
+      const durationVal = Number(sessionData.duration);
+      const safeDuration = Math.max(1, Math.round(Number.isFinite(durationVal) ? durationVal : 0));
 
       if (!sessionActivity) {
         sessionActivity = {
@@ -277,15 +279,17 @@ class SessionTrackerService {
 
     if (sessionActivity) {
       sessionActivity.calories = parseFloat(sessionData.finalCalories || sessionActivity.calories);
-      sessionActivity.duration = parseFloat(sessionData.finalHours || 0) * 60;
+      const finalHoursVal = Number(sessionData.finalHours);
+      sessionActivity.duration = Math.max(1, Math.round(((Number.isFinite(finalHoursVal) ? finalHoursVal : 0) * 60)));
       sessionActivity.metadata.isActive = false;
       sessionActivity.metadata.completedAt = new Date();
     }
 
     // Create summary activity entry
+    const finalHoursVal2 = Number(sessionData.finalHours);
     const summaryActivity = {
       type: 'cycling',
-      duration: parseFloat(sessionData.finalHours || 0) * 60,
+      duration: Math.max(1, Math.round(((Number.isFinite(finalHoursVal2) ? finalHoursVal2 : 0) * 60))),
       calories: parseFloat(sessionData.finalCalories || 0),
       date: new Date(),
       sessionId: sessionData.sessionId,

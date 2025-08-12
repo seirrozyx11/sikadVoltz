@@ -353,7 +353,8 @@ async function recordCalorieActivity(userId, activityData) {
 
     const activity = {
       type: activityData.type || 'cycling',
-      duration: activityData.duration || 0,
+      // Ensure duration is at least 1 minute to satisfy schema min constraint
+      duration: Math.max(1, Number(activityData.duration) || 0),
       calories: activityData.calories || 0,
       sessionId: activityData.sessionId,
       date: activityData.timestamp || new Date(),
