@@ -9,6 +9,7 @@ import { dirname } from 'path';
 import http from 'http';
 import { WebSocketServer } from 'ws';
 import logger from './utils/logger.js';
+import { initWebSocket, getWebSocketService } from './services/websocketService.js';
 import esp32BLEBridge from './services/esp32_ble_bridge.js';
 
 // Import routes
@@ -274,19 +275,22 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Create HTTP + WebSocket server
+// Create HTTP server
 const server = http.createServer(app);
+
+// Initialize WebSocket service
+initWebSocket(server);
 
 // Initialize real-time telemetry service
 const telemetryService = new RealTimeTelemetryService();
 
-// WebSocket connection (legacy - keeping for backward compatibility)
-const wss = new WebSocketServer({ 
+// Legacy WebSocket server for backward compatibility
+const legacyWss = new WebSocketServer({ 
   server,
   path: '/ws/legacy' 
 });
 
-wss.on('connection', (ws, req) => {
+legacyWss.on('connection', (ws, req) => {
   const clientIp = req.socket.remoteAddress;
   logger.info(`Legacy WebSocket client connected: ${clientIp}`);
 

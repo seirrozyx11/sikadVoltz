@@ -227,7 +227,7 @@ export const updateSessionProgressRealtime = async (req, res) => {
       
       // Save the updated plan
       await plan.save();
-      
+
       logger.info(`✅ Real-time session update for user ${userId}`, {
         distance,
         speed,
@@ -237,7 +237,31 @@ export const updateSessionProgressRealtime = async (req, res) => {
         status: todaySession.status,
         sessionActive
       });
-      
+
+      // --- WebSocket Integration: Emit real-time update to user dashboard ---
+      try {
+        const { getWebSocketService } = await import('../services/websocketService.js');
+        getWebSocketService().broadcastToUser(
+          userId.toString(),
+          'dashboard_session_update',
+          {
+            sessionId: todaySession._id,
+            distance: todaySession.currentDistance,
+            speed: todaySession.currentSpeed,
+            sessionTime: todaySession.sessionTime,
+            intensity: todaySession.intensity,
+            calories: Math.round(todaySession.caloriesBurned),
+            watts: todaySession.currentWatts,
+            voltage: todaySession.voltage,
+            status: todaySession.status,
+            dayNumber: plan.dailySessions.indexOf(todaySession) + 1,
+            sessionActive: true
+          }
+        );
+      } catch (wsError) {
+        logger.warn('WebSocket dashboard update failed:', wsError.message);
+      }
+
       res.json({
         success: true,
         message: 'Session progress updated successfully',
