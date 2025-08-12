@@ -153,12 +153,15 @@ class SessionTrackerService {
                    activity.type === 'cycling_session'
       );
 
+      // Always ensure duration is at least 1
+      const safeDuration = Math.max(1, Number(sessionData.duration) || 0);
+
       if (!sessionActivity) {
         sessionActivity = {
           type: 'cycling_session',
           sessionId: sessionData.sessionId,
-          duration: 0,
-          calories: 0,
+          duration: safeDuration,
+          calories: sessionData.calories || 0,
           date: new Date(),
           metadata: {
             isActive: true,
@@ -166,16 +169,16 @@ class SessionTrackerService {
           }
         };
         user.activityLog.push(sessionActivity);
+      } else {
+        // Update session data
+        sessionActivity.calories = sessionData.calories;
+        sessionActivity.duration = safeDuration;
+        sessionActivity.metadata.lastUpdate = new Date();
       }
-
-      // Update session data
-      sessionActivity.calories = sessionData.calories;
-  sessionActivity.duration = Math.max(1, sessionData.duration);
-      sessionActivity.metadata.lastUpdate = new Date();
 
       await user.save();
       
-      console.log(`Updated activity log for user ${userId}: ${sessionData.calories} calories`);
+      console.log(`Updated activity log for user ${userId}: ${sessionData.calories} calories, duration: ${safeDuration}`);
     } catch (error) {
       console.error('Failed to update user activity log:', error);
       throw error;
