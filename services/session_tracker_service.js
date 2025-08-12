@@ -12,20 +12,35 @@ class SessionTrackerService {
   static async updateSessionProgress(userId, sessionData) {
     try {
       const { sessionId, completedHours, caloriesBurned, planId } = sessionData;
-  
+
+      // Logging for debugging
+      console.log('[SessionTracker] updateSessionProgress called:', { userId, planId, sessionId });
+
       // Get user to verify profile exists
       const user = await User.findById(userId);
       if (!user || !user.profile) {
         throw new Error('User profile not complete');
       }
 
-      // Get the plan
-      const plan = await CyclingPlan.findOne({ 
+      // Try to find the plan by planId and userId
+      let plan = await CyclingPlan.findOne({ 
         _id: planId,
         user: userId 
       }).sort({ createdAt: -1 });
 
       if (!plan) {
+        // Fallback: try to find the most recent active plan for the user
+        console.warn(`[SessionTracker] Plan not found by planId. Falling back to most recent active plan for user ${userId}`);
+        plan = await CyclingPlan.findOne({ user: userId, isActive: true }).sort({ createdAt: -1 });
+        if (plan) {
+          console.warn(`[SessionTracker] Fallback plan found: ${plan._id}`);
+        }
+      }
+
+      if (!plan) {
+        // Log all plans for this user for debugging
+        const allPlans = await CyclingPlan.find({ user: userId });
+        console.error(`[SessionTracker] No plan found for user ${userId}. planId: ${planId}. User has ${allPlans.length} plans.`);
         throw new Error('Active plan not found');
       }
 
