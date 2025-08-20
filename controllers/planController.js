@@ -45,17 +45,39 @@ export const createPlan = async (req, res) => {
     }
 
     const planData = await generateCyclingPlan(userId, goalId);
-    
+
+    // --- Plan Classification Framework ---
+    // Classify plan type based on daily cycling hours
+    // --- Plan Classification Framework ---
+    // Specific ranges: 0.75-1hr=Safe, 1.1-2hr=Recommended, >2hr=Risky
+    let planType = "Recommended";
+    if (planData.planSummary && planData.planSummary.dailyCyclingHours) {
+      const hours = planData.planSummary.dailyCyclingHours;
+      if (hours >= 0.75 && hours <= 1.0) {
+        planType = "Safe (45min - 1hr)";
+      } else if (hours > 1.0 && hours <= 2.0) {
+        planType = "Recommended (1.1hr - 2hr)";
+      } else if (hours > 2.0) {
+        planType = "Risky (2.1hr and above)";
+      } else {
+        planType = "Below healthy minimum (<45min)";
+      }
+    }
+
     const cyclingPlan = new CyclingPlan({
       ...planData,
-      planSummary: planData.planSummary
+      planSummary: planData.planSummary,
+      planType: planType // Store planType in the plan
     });
-    
+
     await cyclingPlan.save();
 
+    // Always include planType explicitly in the response
+    const planObj = cyclingPlan.toObject();
+    planObj.planType = cyclingPlan.planType;
     res.status(201).json({
       success: true,
-      data: cyclingPlan
+      data: planObj
     });
   } catch (error) {
     console.error('Error creating plan:', error);
@@ -404,17 +426,76 @@ export const missedSession = async (req, res) => {
     }
 
     const session = plan.dailySessions[sessionIndex];
-    session.status = 'missed';
-    session.missedHours = session.plannedHours;
-    plan.missedCount += 1;
-    plan.totalMissedHours += session.plannedHours;
+    // Mark this session as missed (idempotent guard)
+    if (session.status !== 'missed') {
+      session.status = 'missed';
+      session.missedHours = session.plannedHours;
+    }
 
-    // Carry over missed hours to next available session
+    // Recompute missed counters from source of truth
+    const missedSessions = plan.dailySessions.filter(s => s.status === 'missed');
+    const totalMissedHours = missedSessions.reduce((sum, s) => sum + (s.missedHours || s.plannedHours || 0), 0);
+    plan.missedCount = missedSessions.length;
+    plan.totalMissedHours = totalMissedHours;
+
+    // Collect remaining sessions eligible for redistribution (pending and future only)
+    const remainingSessions = [];
     for (let i = sessionIndex + 1; i < plan.dailySessions.length; i++) {
-      const nextSession = plan.dailySessions[i];
-      if (nextSession.status === 'pending') {
-        nextSession.adjustedHours += session.plannedHours;
-        break;
+      const s = plan.dailySessions[i];
+      if (s.status === 'pending') {
+        remainingSessions.push({ idx: i, ref: s });
+      }
+    }
+
+    // Reset adjustedHours for all remaining sessions (idempotent recompute)
+    for (const { ref } of remainingSessions) {
+      ref.adjustedHours = 0;
+    }
+
+    // Nothing to redistribute or nowhere to put it
+    if (totalMissedHours > 0 && remainingSessions.length > 0) {
+      // Weight by plannedHours (can be extended with intensity factor)
+      const weights = remainingSessions.map(({ ref }) => Math.max(0, ref.plannedHours || 0));
+      const totalWeight = weights.reduce((a, b) => a + b, 0) || 1;
+
+      // Safety caps: max 25% of planned or 0.75h per session
+      const caps = remainingSessions.map(({ ref }) => {
+        const planned = Math.max(0, ref.plannedHours || 0);
+        return Math.min(planned * 0.25, 0.75);
+      });
+
+      // Initial proportional allocation with caps
+      let remainder = totalMissedHours;
+      const allocations = new Array(remainingSessions.length).fill(0);
+
+      // One pass proportional
+      for (let i = 0; i < remainingSessions.length; i++) {
+        const desired = (weights[i] / totalWeight) * totalMissedHours;
+        const alloc = Math.min(desired, caps[i]);
+        allocations[i] = alloc;
+        remainder -= alloc;
+      }
+
+      // Spillover: distribute remainder to sessions with remaining capacity
+      let safetyIterations = 0;
+      while (remainder > 1e-6 && safetyIterations < 10) {
+        safetyIterations++;
+        // Find sessions with remaining capacity
+        const remainingCapacity = allocations.map((a, i) => Math.max(0, caps[i] - a));
+        const totalCapacity = remainingCapacity.reduce((a, b) => a + b, 0);
+        if (totalCapacity <= 1e-6) break;
+
+        for (let i = 0; i < remainingSessions.length && remainder > 1e-6; i++) {
+          if (remainingCapacity[i] <= 1e-6) continue;
+          const share = Math.min(remainingCapacity[i], (weights[i] / totalWeight) * remainder);
+          allocations[i] += share;
+          remainder -= share;
+        }
+      }
+
+      // Apply allocations
+      for (let i = 0; i < remainingSessions.length; i++) {
+        remainingSessions[i].ref.adjustedHours = (remainingSessions[i].ref.adjustedHours || 0) + allocations[i];
       }
     }
 
