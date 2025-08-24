@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const workoutHistorySchema = new mongoose.Schema({
   user: {
@@ -59,4 +59,4 @@ const workoutHistorySchema = new mongoose.Schema({
 workoutHistorySchema.index({ user: 1, startDate: -1 });
 workoutHistorySchema.index({ status: 1 });
 
-module.exports = mongoose.model('WorkoutHistory', workoutHistorySchema);
+export default mongoose.model('WorkoutHistory', workoutHistorySchema);
