@@ -44,6 +44,12 @@ export const createPlan = async (req, res) => {
       return errorResponse(res, 401, 'Authentication required');
     }
 
+    // Deactivate all existing active plans for this user before creating a new one
+    await CyclingPlan.updateMany(
+      { user: userId, isActive: true },
+      { $set: { isActive: false } }
+    );
+
     const planData = await generateCyclingPlan(userId, goalId);
 
     // --- Plan Classification Framework ---
@@ -67,7 +73,8 @@ export const createPlan = async (req, res) => {
     const cyclingPlan = new CyclingPlan({
       ...planData,
       planSummary: planData.planSummary,
-      planType: planType // Store planType in the plan
+      planType: planType, // Store planType in the plan
+      isActive: true // Ensure new plan is active
     });
 
     await cyclingPlan.save();
