@@ -21,6 +21,7 @@ import calorieCalculationRoutes from './routes/calorieCalculationRoutes.js';
 import goalsRoutes from './routes/goalsRoutes.js';
 import esp32Routes from './routes/esp32Routes.js';
 import workoutHistoryRoutes from './routes/workoutHistoryRoutes.js';
+import progressRoutes from './routes/progressRoutes.js';
 // Import services
 import RealTimeTelemetryService from './services/realTimeTelemetryService.js';
 import { initializeScheduledTasks } from './services/scheduledTasks.js';
@@ -136,6 +137,7 @@ app.use('/api/profile', profileRoutes);
 app.use('/api/goals', goalsRoutes);
 app.use('/api/esp32', esp32Routes);
 app.use('/api/workout-history', workoutHistoryRoutes);
+app.use('/api/progress', progressRoutes);
 
 // Render-compatible health check (essential for deployment)
 app.get('/health', (req, res) => {
