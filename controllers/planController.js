@@ -149,190 +149,6 @@ export const updateSessionProgress = async (req, res) => {
   }
 };
 
-// 🚨 NEW: Real-time session progress update for ESP32 telemetry
-export const updateSessionProgressRealtime = async (req, res) => {
-  try {
-    const userId = req.user?.userId;
-    const { distance, speed, sessionTime, watts, voltage, intensity = 2, sessionActive = false } = req.body;
-    
-    if (!userId) {
-      return res.status(401).json({
-        success: false,
-        error: 'Authentication required'
-      });
-    }
-    
-    // 🚨 NEW: Only update session progress if session is actively started
-    if (!sessionActive && sessionTime === 0) {
-      return res.json({
-        success: true,
-        message: 'ESP32 data received but no active session',
-        data: {
-          dataReceived: true,
-          sessionActive: false,
-          intensity: intensity,
-          message: 'Distance tracking only during active sessions'
-        }
-      });
-    }
-    
-    // Find user's active plan
-    const plan = await CyclingPlan.findOne({ 
-      user: userId, 
-      isActive: true 
-    });
-    
-    if (!plan) {
-      return res.status(404).json({
-        success: false,
-        error: 'No active cycling plan found'
-      });
-    }
-    
-    // Find today's session
-    const today = new Date().toISOString().split('T')[0];
-    const todaySession = plan.dailySessions.find(session => 
-      session.date.toISOString().split('T')[0] === today
-    );
-    
-    if (!todaySession) {
-      return res.status(404).json({
-        success: false,
-        error: 'No cycling session scheduled for today'
-      });
-    }
-    
-    // 🚨 FIXED: Only update distance and metrics during active sessions
-    // Store the previous distance to calculate incremental distance for this active session
-    const previousDistance = todaySession.currentDistance || 0;
-    
-    // Update session with real-time data only if session is active
-    if (sessionActive || sessionTime > 0) {
-      todaySession.currentDistance = distance || 0;
-      todaySession.currentSpeed = speed || 0;
-      todaySession.sessionTime = sessionTime || 0;
-      todaySession.currentWatts = watts || 0;
-      todaySession.voltage = voltage || 0;
-      todaySession.intensity = intensity || 2; // Store current intensity level
-      
-      // Calculate real-time calories using intensity-based calculation
-      const sessionTimeHours = (sessionTime || 0) / 3600; // Convert seconds to hours
-      
-      // Get user weight from profile if available, otherwise use default
-      let userWeight = 75; // Default weight
-      try {
-        const user = await User.findById(userId);
-        if (user?.profile?.weight) {
-          userWeight = user.profile.weight;
-        }
-      } catch (error) {
-        logger.warn(`Could not load user profile for calorie calculation, using default weight: ${error.message}`);
-      }
-      
-      // Enhanced calorie calculation: either from watts or intensity-based estimation
-      let caloriesPerHour;
-      if (watts && watts > 0) {
-        // Power-based calculation (most accurate)
-        caloriesPerHour = (watts * 3.6) / 4.184; // Watts to calories/hour conversion
-      } else {
-        // Intensity-based calculation using MET values from ESP32
-        const metValues = {
-          0: 0.0,   // Stopped
-          1: 2.0,   // Coasting
-          2: 4.0,   // Light/Casual
-          3: 8.0,   // Moderate
-          4: 12.0   // Vigorous/Rapid
-        };
-        const met = metValues[intensity] || 8.0; // Default to moderate
-        caloriesPerHour = met * userWeight; // MET * weight = calories/hour
-      }
-      
-      todaySession.caloriesBurned = sessionTimeHours * caloriesPerHour;
-      
-      // Update session status
-      if (sessionTime > 0) {
-        todaySession.status = 'progress'; // ✅ FIXED: Match frontend calendar expectations
-      }
-      
-      // Save the updated plan
-      await plan.save();
-
-      logger.info(`✅ Real-time session update for user ${userId}`, {
-        distance,
-        speed,
-        sessionTime,
-        intensity,
-        calories: todaySession.caloriesBurned,
-        status: todaySession.status,
-        sessionActive
-      });
-
-      // --- WebSocket Integration: Emit real-time update to user dashboard ---
-      try {
-        const { getWebSocketService } = await import('../services/websocketService.js');
-        getWebSocketService().broadcastToUser(
-          userId.toString(),
-          'dashboard_session_update',
-          {
-            sessionId: todaySession._id,
-            distance: todaySession.currentDistance,
-            speed: todaySession.currentSpeed,
-            sessionTime: todaySession.sessionTime,
-            intensity: todaySession.intensity,
-            calories: Math.round(todaySession.caloriesBurned),
-            watts: todaySession.currentWatts,
-            voltage: todaySession.voltage,
-            status: todaySession.status,
-            dayNumber: plan.dailySessions.indexOf(todaySession) + 1,
-            sessionActive: true
-          }
-        );
-      } catch (wsError) {
-        logger.warn('WebSocket dashboard update failed:', wsError.message);
-      }
-
-      res.json({
-        success: true,
-        message: 'Session progress updated successfully',
-        data: {
-          sessionId: todaySession._id,
-          distance: todaySession.currentDistance,
-          speed: todaySession.currentSpeed,
-          sessionTime: todaySession.sessionTime,
-          intensity: todaySession.intensity,
-          calories: Math.round(todaySession.caloriesBurned),
-          watts: todaySession.currentWatts,
-          voltage: todaySession.voltage,
-          status: todaySession.status,
-          dayNumber: plan.dailySessions.indexOf(todaySession) + 1,
-          sessionActive: true
-        }
-      });
-    } else {
-      // Session not active, just acknowledge the data but don't update session progress
-      res.json({
-        success: true,
-        message: 'ESP32 data received but session not active',
-        data: {
-          dataReceived: true,
-          sessionActive: false,
-          currentSpeed: speed || 0,
-          currentWatts: watts || 0,
-          message: 'Start your workout session to begin tracking distance and calories'
-        }
-      });
-    }
-    
-  } catch (error) {
-    logger.error('❌ Error updating real-time session progress:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to update session progress',
-      details: error.message
-    });
-  }
-};
-
 /**
  * Complete a session and finalize the progress
  * Enhanced with better validation and error handling
@@ -1652,6 +1468,116 @@ export const forceMissedSessionDetection = async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Failed to force detection',
+      details: error.message
+    });
+  }
+};
+
+/**
+ * 🚨 CRITICAL FIX: Real-time session progress update for ESP32
+ * This function is MISSING and causing "Error syncing session progress"
+ */
+export const updateSessionProgressRealtime = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    const {
+      distance,
+      speed,
+      sessionTime,
+      watts,
+      voltage,
+      intensity = 2,
+      sessionActive = true
+    } = req.body;
+
+    if (!userId) {
+      return errorResponse(res, 401, 'Authentication required');
+    }
+
+    logger.info(`🔄 Real-time session update for user ${userId}`, {
+      distance, speed, sessionTime, watts, sessionActive
+    });
+
+    // Find active plan
+    const plan = await CyclingPlan.findOne({ user: userId, isActive: true });
+    if (!plan) {
+      logger.warn(`No active plan found for user ${userId}`);
+      return res.json({
+        success: true,
+        message: 'No active plan - update ignored',
+        data: { ignored: true }
+      });
+    }
+
+    // Find today's session
+    const today = new Date().toISOString().split('T')[0];
+    const todaySession = plan.dailySessions.find(session =>
+      session.date.toISOString().split('T')[0] === today
+    );
+
+    if (!todaySession) {
+      logger.warn(`No session found for today (${today}) for user ${userId}`);
+      return res.json({
+        success: true,
+        message: 'No session for today - update ignored',
+        data: { ignored: true }
+      });
+    }
+
+    // Only update if session is active (ESP32 indicates workout in progress)
+    if (sessionActive && sessionTime > 0) {
+      // Update session with real-time data
+      todaySession.currentDistance = Math.max(todaySession.currentDistance || 0, distance);
+      todaySession.currentSpeed = speed;
+      todaySession.sessionTime = sessionTime;
+
+      // Calculate calories burned in real-time
+      const user = await User.findById(userId);
+      const weight = user?.profile?.weight || 70;
+      const caloriesBurned = calculateCyclingCalories(weight, sessionTime / 60, intensity);
+
+      todaySession.caloriesBurned = Math.max(todaySession.caloriesBurned || 0, caloriesBurned);
+
+      // Update session status if not already completed
+      if (todaySession.status === 'pending') {
+        todaySession.status = 'in_progress';
+      }
+
+      await plan.save();
+
+      logger.info(`✅ Session updated successfully for user ${userId}`, {
+        sessionId: todaySession._id,
+        distance: todaySession.currentDistance,
+        calories: todaySession.caloriesBurned,
+        status: todaySession.status
+      });
+
+      res.json({
+        success: true,
+        message: 'Session progress updated successfully',
+        data: {
+          sessionId: todaySession._id,
+          distance: todaySession.currentDistance,
+          speed: todaySession.currentSpeed,
+          caloriesBurned: todaySession.caloriesBurned,
+          sessionTime: todaySession.sessionTime,
+          status: todaySession.status
+        }
+      });
+    } else {
+      // Session not active - just acknowledge
+      res.json({
+        success: true,
+        message: 'Session not active - no update needed',
+        data: { sessionActive: false }
+      });
+    }
+
+  } catch (error) {
+    logger.error('❌ Real-time session update error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update session progress',
       details: error.message
     });
   }
