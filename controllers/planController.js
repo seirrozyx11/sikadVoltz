@@ -1,5 +1,6 @@
 import {
-  calculateCyclingCalories
+  calculateCyclingCalories,
+  calculateCyclingCaloriesDirect
 } from '../services/calorieService.js';
 import {
   generateCyclingPlan,
@@ -1531,10 +1532,14 @@ export const updateSessionProgressRealtime = async (req, res) => {
       todaySession.currentSpeed = speed;
       todaySession.sessionTime = sessionTime;
 
-      // Calculate calories burned in real-time
+      // Calculate calories burned in real-time using proper service
       const user = await User.findById(userId);
       const weight = user?.profile?.weight || 70;
-      const caloriesBurned = calculateCyclingCalories(weight, sessionTime / 60, intensity);
+      const sessionTimeHours = sessionTime / 3600; // Convert seconds to hours
+      
+      // Use the proper calculateCyclingCalories function that returns a result object
+      const calcResult = await calculateCyclingCalories(userId, sessionTimeHours, intensity);
+      const caloriesBurned = calcResult.success ? calcResult.caloriesBurned : 0;
 
       todaySession.caloriesBurned = Math.max(todaySession.caloriesBurned || 0, caloriesBurned);
 
