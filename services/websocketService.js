@@ -23,7 +23,7 @@ class WebSocketService {
       }
 
       // Verify JWT token
-      jwt.verify(token, process.env.JWT_SECRET, (err, decoded) => {
+      jwt.verify(token, process.env.JWT_SECRET || 'fallbacksecret', (err, decoded) => {
         if (err) {
           socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
           socket.destroy();

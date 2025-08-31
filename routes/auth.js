@@ -16,7 +16,7 @@ const createToken = (user) => {
   return jwt.sign(
     { userId: user._id, email: user.email },
     process.env.JWT_SECRET || 'fallbacksecret',
-    { expiresIn: '24h' }
+    { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
   );
 };
 

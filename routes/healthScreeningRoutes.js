@@ -10,7 +10,7 @@ const router = express.Router();
  */
 router.post('/health-screening', authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId; // Fixed: use userId instead of id
     const { risk_level, risk_score, responses, screening_date } = req.body;
 
     // Validate required fields
@@ -85,7 +85,7 @@ router.post('/health-screening', authenticateToken, async (req, res) => {
     logger.error('Error saving health screening results:', {
       error: error.message,
       stack: error.stack,
-      userId: req.user?.id,
+      userId: req.user?.userId,
     });
 
     res.status(500).json({
@@ -101,7 +101,7 @@ router.post('/health-screening', authenticateToken, async (req, res) => {
  */
 router.get('/health-screening', authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId; // Fixed: use userId instead of id
 
     const user = await User.findById(userId);
     if (!user) {
@@ -150,7 +150,7 @@ router.get('/health-screening', authenticateToken, async (req, res) => {
     logger.error('Error retrieving health screening results:', {
       error: error.message,
       stack: error.stack,
-      userId: req.user?.id,
+      userId: req.user?.userId,
     });
 
     res.status(500).json({
@@ -166,7 +166,7 @@ router.get('/health-screening', authenticateToken, async (req, res) => {
  */
 router.delete('/health-screening', authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId; // Fixed: use userId instead of id
 
     const user = await User.findById(userId);
     if (!user) {
@@ -195,7 +195,7 @@ router.delete('/health-screening', authenticateToken, async (req, res) => {
     logger.error('Error clearing health screening data:', {
       error: error.message,
       stack: error.stack,
-      userId: req.user?.id,
+      userId: req.user?.userId,
     });
 
     res.status(500).json({
@@ -211,7 +211,7 @@ router.delete('/health-screening', authenticateToken, async (req, res) => {
  */
 router.get('/health-screening/recommendations', authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user.userId; // Fixed: use userId instead of id
 
     const user = await User.findById(userId);
     if (!user || !user.healthScreening) {
@@ -276,7 +276,7 @@ router.get('/health-screening/recommendations', authenticateToken, async (req, r
     logger.error('Error retrieving health screening recommendations:', {
       error: error.message,
       stack: error.stack,
-      userId: req.user?.id,
+      userId: req.user?.userId,
     });
 
     res.status(500).json({
