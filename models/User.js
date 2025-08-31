@@ -65,6 +65,36 @@ const userSchema = new mongoose.Schema({
   activityLog: [activityLogSchema],
   profileCompleted: { type: Boolean, default: false },
   
+  // Health screening fields
+  healthScreening: {
+    riskLevel: {
+      type: String,
+      enum: ['LOW', 'MODERATE', 'HIGH'],
+      required: false
+    },
+    riskScore: {
+      type: Number,
+      min: 0,
+      required: false
+    },
+    responses: {
+      type: mongoose.Schema.Types.Mixed,
+      required: false
+    },
+    screeningDate: {
+      type: Date,
+      required: false
+    },
+    isValid: {
+      type: Boolean,
+      default: true
+    },
+    lastUpdated: {
+      type: Date,
+      default: Date.now
+    }
+  },
+  
   // Google Sign-In fields
   profilePicture: { type: String },
   authProvider: { 
