@@ -361,4 +361,76 @@ router.post('/reduce-intensity', authenticateToken, async (req, res) => {
   }
 });
 
+// Acknowledge missed sessions (mark as resolved)
+router.post('/acknowledge-missed-sessions', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    const { acknowledged, acknowledgedAt, reason } = req.body;
+
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Authentication required'
+      });
+    }
+
+    // Find the active plan
+    const plan = await CyclingPlan.findOne({ 
+      user: userId, 
+      isActive: true 
+    });
+
+    if (!plan) {
+      return res.status(404).json({
+        success: false,
+        error: 'No active plan found'
+      });
+    }
+
+    // Mark missed sessions as acknowledged
+    const today = new Date();
+    let acknowledgedCount = 0;
+
+    plan.dailySessions.forEach(session => {
+      if (session.status === 'missed') {
+        session.acknowledged = acknowledged || true;
+        session.acknowledgedAt = acknowledgedAt || today;
+        session.acknowledgmentReason = reason || 'User took recovery action';
+        acknowledgedCount++;
+      }
+    });
+
+    // Add acknowledgment to plan history
+    plan.adjustmentHistory = plan.adjustmentHistory || [];
+    plan.adjustmentHistory.push({
+      type: 'missed_sessions_acknowledged',
+      date: today,
+      details: {
+        acknowledgedCount,
+        reason: reason || 'User took recovery action to address missed sessions'
+      }
+    });
+
+    await plan.save();
+
+    res.json({
+      success: true,
+      message: `${acknowledgedCount} missed sessions acknowledged successfully`,
+      data: {
+        acknowledgedCount,
+        acknowledgedAt: acknowledgedAt || today,
+        totalMissedSessions: plan.dailySessions.filter(s => s.status === 'missed').length
+      }
+    });
+
+  } catch (error) {
+    console.error('Acknowledge missed sessions error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to acknowledge missed sessions',
+      details: error.message
+    });
+  }
+});
+
 export default router;

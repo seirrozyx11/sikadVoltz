@@ -197,28 +197,42 @@ export async function realtimeMissedSessionCheck(userId) {
     // Generate user-friendly alerts
     const alerts = [];
     
-    if (detectionResult.newMissedCount > 0) {
-      alerts.push({
-        type: 'missed_detected',
-        severity: 'warning',
-        title: `${detectionResult.newMissedCount} Missed Session${detectionResult.newMissedCount > 1 ? 's' : ''} Detected`,
-        message: `You've missed ${detectionResult.newMissedHours} hours of cycling. Don't worry, we can adjust your plan!`,
-        action: 'adjust_plan'
-      });
+    // ✅ FIXED: Only show alerts for unacknowledged missed sessions
+    const unacknowledgedMissedSessions = plan.dailySessions.filter(session => 
+      session.status === 'missed' && !session.acknowledged
+    );
+    
+    if (detectionResult.newMissedCount > 0 || unacknowledgedMissedSessions.length > 0) {
+      const totalUnacknowledged = unacknowledgedMissedSessions.length;
+      
+      if (totalUnacknowledged > 0) {
+        alerts.push({
+          type: 'missed_detected',
+          severity: 'warning',
+          title: `${totalUnacknowledged} Missed Session${totalUnacknowledged > 1 ? 's' : ''} Need Attention`,
+          message: `You have ${totalUnacknowledged} missed session(s) that need to be addressed. Don't worry, we can adjust your plan!`,
+          action: 'adjust_plan',
+          missedDays: totalUnacknowledged
+        });
+      }
     }
 
     if (detectionResult.currentStats.day1Missed) {
-      alerts.push({
-        type: 'day1_missed',
-        severity: 'info',
-        title: 'Day 1 was missed',
-        message: `Your cycling journey started on ${detectionResult.currentStats.day1Date} but wasn't completed.`,
-        action: 'motivational'
-      });
+      // Only show day 1 alert if it's not acknowledged
+      const day1Session = plan.dailySessions[0];
+      if (day1Session && day1Session.status === 'missed' && !day1Session.acknowledged) {
+        alerts.push({
+          type: 'day1_missed',
+          severity: 'info',
+          title: 'Day 1 was missed',
+          message: `Your cycling journey started on ${detectionResult.currentStats.day1Date} but wasn't completed.`,
+          action: 'motivational'
+        });
+      }
     }
 
-    if (detectionResult.needsAdjustment) {
-      const adjustmentType = detectionResult.totalMissedCount >= 7 ? 'reset' : 'redistribute';
+    if (detectionResult.needsAdjustment && unacknowledgedMissedSessions.length > 0) {
+      const adjustmentType = unacknowledgedMissedSessions.length >= 7 ? 'reset' : 'redistribute';
       alerts.push({
         type: 'adjustment_needed',
         severity: adjustmentType === 'reset' ? 'error' : 'warning',
@@ -226,7 +240,8 @@ export async function realtimeMissedSessionCheck(userId) {
         message: adjustmentType === 'reset' 
           ? 'You\'ve missed a week+ of sessions. A fresh start might be better!'
           : 'We can redistribute your missed hours across remaining days.',
-        action: adjustmentType
+        action: adjustmentType,
+        missedDays: unacknowledgedMissedSessions.length
       });
     }
 
