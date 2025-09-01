@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import bcrypt from 'bcrypt';
+import crypto from 'crypto';
 
 // Define activity log schema
 const activityLogSchema = new mongoose.Schema({
@@ -102,7 +103,37 @@ const userSchema = new mongoose.Schema({
     enum: ['local', 'google'], 
     default: 'local' 
   },
-  isEmailVerified: { type: Boolean, default: false }
+  isEmailVerified: { type: Boolean, default: false },
+  
+  // Password Reset Fields
+  resetPasswordToken: { type: String, select: false },
+  resetPasswordExpires: { type: Date, select: false },
+  resetPasswordAttempts: { type: Number, default: 0, select: false },
+  lastResetAttempt: { type: Date, select: false },
+
+  // Enhanced Security Tracking
+  lastResetIP: { type: String, select: false },
+  resetAttemptIPs: [{
+    ip: { type: String, required: true },
+    timestamp: { type: Date, default: Date.now },
+    userAgent: { type: String }
+  }],
+  trustedIPs: [{ type: String }], // Known safe locations
+
+  // Backup Recovery Options
+  securityQuestions: [{
+    question: { type: String, required: true },
+    answer: { type: String, required: true, select: false }, // Hashed with bcrypt
+    created: { type: Date, default: Date.now }
+  }],
+  backupEmail: { type: String, select: false },
+
+  // Analytics & Compliance
+  resetAnalytics: {
+    totalResets: { type: Number, default: 0 },
+    lastSuccessfulReset: { type: Date },
+    suspiciousActivity: { type: Boolean, default: false }
+  },
 }, { 
   timestamps: true,
   toJSON: { virtuals: true },
@@ -129,6 +160,58 @@ userSchema.pre('save', async function(next) {
 // Method to compare passwords
 userSchema.methods.comparePassword = async function(candidatePassword) {
   return await bcrypt.compare(candidatePassword, this.password);
+};
+
+// Password reset methods
+userSchema.methods.createPasswordResetToken = function() {
+  const resetToken = crypto.randomBytes(32).toString('hex');
+  
+  this.resetPasswordToken = crypto.createHash('sha256').update(resetToken).digest('hex');
+  this.resetPasswordExpires = Date.now() + 15 * 60 * 1000; // 15 minutes
+  
+  return resetToken; // Return unhashed token to send via email
+};
+
+userSchema.methods.validateResetToken = function(token) {
+  const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+  
+  return (
+    this.resetPasswordToken === hashedToken &&
+    this.resetPasswordExpires > Date.now()
+  );
+};
+
+userSchema.methods.clearPasswordResetFields = function() {
+  this.resetPasswordToken = undefined;
+  this.resetPasswordExpires = undefined;
+  this.resetPasswordAttempts = 0;
+  this.lastResetAttempt = undefined;
+};
+
+userSchema.methods.recordResetAttempt = function(ip, userAgent) {
+  this.resetPasswordAttempts = (this.resetPasswordAttempts || 0) + 1;
+  this.lastResetAttempt = new Date();
+  this.lastResetIP = ip;
+  
+  // Add to reset attempt history (keep last 10 attempts)
+  this.resetAttemptIPs = this.resetAttemptIPs || [];
+  this.resetAttemptIPs.push({
+    ip: ip,
+    timestamp: new Date(),
+    userAgent: userAgent
+  });
+  
+  // Keep only last 10 attempts
+  if (this.resetAttemptIPs.length > 10) {
+    this.resetAttemptIPs = this.resetAttemptIPs.slice(-10);
+  }
+};
+
+userSchema.methods.updateResetAnalytics = function() {
+  this.resetAnalytics = this.resetAnalytics || {};
+  this.resetAnalytics.totalResets = (this.resetAnalytics.totalResets || 0) + 1;
+  this.resetAnalytics.lastSuccessfulReset = new Date();
+  this.resetAnalytics.suspiciousActivity = false;
 };
 
 // Method to add activity to log

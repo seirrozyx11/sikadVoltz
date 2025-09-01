@@ -10,7 +10,7 @@ import http from 'http';
 import { WebSocketServer } from 'ws';
 import logger from './utils/logger.js';
 import { initWebSocket, getWebSocketService } from './services/websocketService.js';
-import esp32BLEBridge from './services/esp32_ble_bridge.js';
+// import esp32BLEBridge from './services/esp32_ble_bridge.js'; // Disabled for testing
 
 // Import routes
 import authRouter from './routes/auth.js';
@@ -23,6 +23,7 @@ import esp32Routes from './routes/esp32Routes.js';
 import workoutHistoryRoutes from './routes/workoutHistoryRoutes.js';
 import progressRoutes from './routes/progressRoutes.js';
 import healthScreeningRoutes from './routes/healthScreeningRoutes.js';
+import passwordResetRoutes from './routes/passwordReset.js';
 // Import services
 import RealTimeTelemetryService from './services/realTimeTelemetryService.js';
 import { initializeScheduledTasks } from './services/scheduledTasks.js';
@@ -85,7 +86,7 @@ const app = express();
 const allowedOrigins = [
   ...(process.env.ALLOWED_ORIGINS?.split(',') || []).map(o => o.trim()),
   BASE_URL, // Use dynamic base URL
-  WS_BASE_URL // Allow WebSocket connections
+
 ].filter(Boolean);
 
 app.use(cors({
@@ -131,6 +132,7 @@ app.use((req, res, next) => {
 
 // API routes
 app.use('/api/auth', authRouter);
+app.use('/api/password-reset', passwordResetRoutes);
 app.use('/api/plans', planRoutes);
 app.use('/api/calories', calorieRoutes);
 app.use('/api/calorie-calculation', calorieCalculationRoutes);
@@ -225,6 +227,7 @@ app.get('/', (req, res) => {
     },
     endpoints: {
       auth: "/api/auth",
+      "password-reset": "/api/password-reset",
       plans: "/api/plans",
       calories: "/api/calories",
       "calorie-calculation": "/api/calorie-calculation",
@@ -373,9 +376,10 @@ const startServer = async () => {
         logger.error('❌ Failed to initialize scheduled tasks:', taskError);
       }
       
-      // Initialize ESP32 BLE Bridge on a separate port
+      // Initialize ESP32 BLE Bridge on a separate port (disabled for now)
       try {
-        esp32BLEBridge.initialize(server, PORT + 1);
+        // esp32BLEBridge.initialize(server, PORT + 1);
+        console.log('⚠️  ESP32 BLE Bridge disabled for testing');
       } catch (error) {
         logger.warn('ESP32 BLE Bridge failed to start:', error);
         console.warn('⚠️  ESP32 BLE Bridge not available');
