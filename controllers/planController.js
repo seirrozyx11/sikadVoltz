@@ -1543,10 +1543,45 @@ export const updateSessionProgressRealtime = async (req, res) => {
 
       todaySession.caloriesBurned = Math.max(todaySession.caloriesBurned || 0, caloriesBurned);
 
-      // Update session status if not already completed
-      if (todaySession.status === 'pending') {
-        todaySession.status = 'in_progress';
+      // **NEW**: Enhanced session status handling based on firmware data
+      const { sessionStatus, autoSession, cadence } = req.body;
+      
+      if (sessionStatus) {
+        // Map firmware session status to plan session status
+        switch(sessionStatus) {
+          case 'IN_PROGRESS':
+            todaySession.status = 'in_progress';
+            todaySession.autoManaged = autoSession || false;
+            break;
+          case 'PAUSED':
+            todaySession.status = 'paused';
+            break;
+          case 'COMPLETED':
+            if (todaySession.status !== 'completed') {
+              todaySession.status = 'completed';
+              todaySession.completedAt = new Date();
+            }
+            break;
+          case 'IDLE':
+            // Don't change status if already in progress
+            if (todaySession.status === 'pending') {
+              todaySession.status = 'pending';
+            }
+            break;
+        }
+      } else {
+        // Legacy behavior - update status if not already completed
+        if (todaySession.status === 'pending') {
+          todaySession.status = 'in_progress';
+        }
       }
+
+      // **NEW**: Store additional metrics from enhanced firmware
+      if (cadence) {
+        todaySession.currentCadence = parseFloat(cadence);
+      }
+      
+      todaySession.lastUpdate = new Date();
 
       await plan.save();
 
@@ -1554,7 +1589,9 @@ export const updateSessionProgressRealtime = async (req, res) => {
         sessionId: todaySession._id,
         distance: todaySession.currentDistance,
         calories: todaySession.caloriesBurned,
-        status: todaySession.status
+        status: todaySession.status,
+        autoManaged: todaySession.autoManaged,
+        cadence: todaySession.currentCadence
       });
 
       res.json({
@@ -1566,7 +1603,10 @@ export const updateSessionProgressRealtime = async (req, res) => {
           speed: todaySession.currentSpeed,
           caloriesBurned: todaySession.caloriesBurned,
           sessionTime: todaySession.sessionTime,
-          status: todaySession.status
+          status: todaySession.status,
+          autoManaged: todaySession.autoManaged || false,
+          cadence: todaySession.currentCadence || 0,
+          lastUpdate: todaySession.lastUpdate
         }
       });
     } else {

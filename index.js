@@ -186,29 +186,19 @@ app.get('/ws-info', (req, res) => {
 
 // WebSocket health check endpoint
 app.get('/ws-health', (req, res) => {
-  const wsHealthy = telemetryService?.isInitialized || false;
-  const status = wsHealthy ? 200 : 503;
+  const wsService = getWebSocketService();
   
-  res.status(status).json({
-    success: wsHealthy,
-    websocketService: {
-      status: wsHealthy ? 'healthy' : 'unhealthy',
-      initialized: wsHealthy,
-      endpoints: {
-        telemetry: `${WS_BASE_URL}/ws/telemetry`,
-        legacy: `${WS_BASE_URL}/ws/legacy`
-      }
+  res.json({
+    status: 'healthy',
+    timestamp: new Date().toISOString(),
+    websocket: {
+      status: 'active',
+      connections: wsService ? 'available' : 'unavailable'
     },
-    urls: {
-      baseUrl: BASE_URL,
-      websocketBase: WS_BASE_URL
-    },
-    testInstructions: {
-      message: "To test WebSocket connection, use a WebSocket client to connect to the telemetry endpoint",
-      testUrl: `${WS_BASE_URL}/ws/telemetry`,
-      expectedResponse: "Connection established message with timestamp"
-    },
-    timestamp: new Date().toISOString()
+    esp32: {
+      status: 'direct_ble_connection',
+      note: 'ESP32 connects directly to Flutter via BLE'
+    }
   });
 });
 

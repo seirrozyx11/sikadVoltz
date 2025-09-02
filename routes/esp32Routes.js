@@ -205,90 +205,94 @@ router.post('/telemetry', authenticateToken, async (req, res) => {
         error: 'Device ID and data are required'
       });
     }
-    
-    // Parse telemetry data with intensity field
-    const parsedMetrics = {
+
+    // **NEW**: Handle enhanced firmware data structure
+    const telemetryData = {
       speed: parseFloat(data.speed) || 0,
       distance: parseFloat(data.distance) || 0,
-      sessionTime: parseInt(data.sessionTime) || 0,
-      watts: parseFloat(data.power) || 0,
+      cadence: parseFloat(data.cadence) || 0,
+      power: parseFloat(data.power) || 0,
       voltage: parseFloat(data.voltage) || 0,
-      intensity: parseInt(data.intensity) || 2 // Default to 'light' cycling
+      intensity: parseInt(data.intensity) || 0,
+      gear_ratio: parseFloat(data.gear_ratio) || 4.33,
+      // **NEW FIELDS** from firmware update
+      session_status: data.session_status || 'IDLE',
+      auto_session: data.auto_session === 'true' || data.auto_session === true,
+      session_duration: parseInt(data.session_duration) || 0,
+      cloud: data.cloud === 'true' || data.cloud === true
     };
     
-    logger.info(`📊 Parsed Telemetry Data:`, {
-      parsed: parsedMetrics,
-      workoutActive: data.state === 'RUNNING',
-      intensityLevel: parsedMetrics.intensity
+    logger.info(`📊 Enhanced Telemetry Data:`, {
+      metrics: telemetryData,
+      autoSession: telemetryData.auto_session,
+      sessionStatus: telemetryData.session_status,
+      sessionDuration: telemetryData.session_duration
     });
+
+    // **NEW**: Auto-session management - only update if session is active
+    const isSessionActive = telemetryData.session_status === 'IN_PROGRESS' || 
+                           telemetryData.session_status === 'PAUSED';
     
-    // 🚨 NEW: Update session progress in real-time
-    try {
-      // 🚨 FIXED: Only update session progress if ESP32 indicates workout is active
-      const workoutActive = data.state === 'RUNNING' || data.state === 'ACTIVE' || parsedMetrics.sessionTime > 0;
-      
-      const updateResponse = await fetch(`${req.protocol}://${req.get('host')}/api/plans/update-session-progress-realtime`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': req.headers.authorization
-        },
-        body: JSON.stringify({
-          distance: parsedMetrics.distance,
-          speed: parsedMetrics.speed,
-          sessionTime: parsedMetrics.sessionTime,
-          watts: parsedMetrics.watts,
-          voltage: parsedMetrics.voltage,
-          intensity: parsedMetrics.intensity, // Pass intensity level to session progress
-          sessionActive: workoutActive // 🚨 NEW: Pass session active status
-        })
-      });
-      
-      const updateResult = await updateResponse.json();
-      
-      if (updateResult.success) {
-        logger.info(`✅ Session progress updated successfully`, updateResult.data);
-      } else {
-        logger.info(`ℹ️ Session update response:`, updateResult.message);
+    if (isSessionActive && telemetryData.auto_session) {
+      try {
+        const updateResponse = await fetch(`${req.protocol}://${req.get('host')}/api/plans/update-session-progress-realtime`, {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': req.headers.authorization
+          },
+          body: JSON.stringify({
+            distance: telemetryData.distance,
+            speed: telemetryData.speed,
+            sessionTime: telemetryData.session_duration,
+            watts: telemetryData.power,
+            voltage: telemetryData.voltage,
+            intensity: telemetryData.intensity,
+            cadence: telemetryData.cadence,
+            sessionStatus: telemetryData.session_status,
+            autoSession: telemetryData.auto_session
+          })
+        });
+        
+        const updateResult = await updateResponse.json();
+        
+        if (updateResult.success) {
+          logger.info(`✅ Auto-session progress updated`, updateResult.data);
+        } else {
+          logger.info(`ℹ️ Session update response:`, updateResult.message);
+        }
+        
+      } catch (updateError) {
+        logger.error('❌ Error updating auto-session progress:', updateError.message);
       }
-      
-    } catch (updateError) {
-      logger.error('❌ Error updating session progress:', updateError.message);
     }
-    
+
     // Publish to real-time service if available
     const telemetryService = req.app.locals.telemetryService;
     if (telemetryService) {
       try {
-        await telemetryService.publishTelemetry(deviceId, {
-          type: 'telemetry',
-          deviceId: deviceId,
-          userId: userId,
-          sessionId: sessionId || `auto_${Date.now()}`,
-          metrics: parsedMetrics,
-          timestamp: new Date()
-        });
-        logger.info(`🚀 Real-time telemetry published for device ${deviceId}`);
-      } catch (publishError) {
-        logger.error('❌ WebSocket publish failed:', publishError.message);
+        telemetryService.processTelemetryData(userId, deviceId, telemetryData);
+      } catch (serviceError) {
+        logger.error('❌ Telemetry service error:', serviceError);
       }
     }
-    
+
     res.json({
       success: true,
-      message: 'Telemetry data received and processed',
+      message: 'Telemetry received and processed',
       data: {
-        sessionUpdated: true,
-        metrics: parsedMetrics,
-        publishedToWebSocket: !!telemetryService
+        processed: telemetryData,
+        sessionActive: isSessionActive,
+        autoSession: telemetryData.auto_session,
+        timestamp: new Date().toISOString()
       }
     });
     
   } catch (error) {
-    logger.error('Telemetry processing error:', error);
+    logger.error('ESP32 telemetry error:', error);
     res.status(500).json({
       success: false,
-      error: 'Failed to process telemetry data',
+      error: 'Failed to process telemetry',
       details: error.message
     });
   }
