@@ -1,4 +1,4 @@
-// import cron from 'node-cron'; // Disabled for testing
+import cron from 'node-cron';
 import { detectAndMarkMissedSessions, realtimeMissedSessionCheck } from './missedSessionDetector.js';
 import User from '../models/User.js';
 import CyclingPlan from '../models/CyclingPlan.js';
@@ -51,17 +51,40 @@ async function sendMissedSessionNotification(userId, missedData) {
  * Runs every day at 8:00 AM (disabled for testing)
  */
 export function startDailyMissedSessionDetection() {
-  // Disabled for testing - requires node-cron
-  logger.info('📅 Daily missed session detection disabled (requires node-cron)');
-  return;
+  logger.info('📅 Starting daily missed session detection at 8:00 AM');
   
-  // Original cron implementation (commented out)
-  /*
   // Run every day at 8:00 AM
   cron.schedule('0 8 * * *', async () => {
-    // ... cron implementation
+    logger.info('� [CRON] Daily missed session detection started');
+    
+    try {
+      const activeUsers = await User.find({});
+      let totalProcessed = 0;
+      let totalNotified = 0;
+      
+      for (const user of activeUsers) {
+        const activePlan = await CyclingPlan.findOne({ 
+          user: user._id, 
+          isActive: true 
+        });
+        
+        if (activePlan) {
+          const result = await detectAndMarkMissedSessions(user._id);
+          totalProcessed++;
+          
+          if (result.success && result.newMissedCount > 0) {
+            await sendMissedSessionNotification(user._id, result);
+            totalNotified++;
+          }
+        }
+      }
+      
+      logger.info(`✅ [CRON] Daily detection complete: ${totalProcessed} users processed, ${totalNotified} notifications sent`);
+      
+    } catch (error) {
+      logger.error('❌ [CRON] Daily missed session detection error:', error);
+    }
   });
-  */
 }
 
 /**
@@ -69,17 +92,34 @@ export function startDailyMissedSessionDetection() {
  * Runs every hour during active hours (6 AM - 10 PM) (disabled for testing)
  */
 export function startHourlyMissedSessionCheck() {
-  // Disabled for testing - requires node-cron
-  logger.info('⏰ Hourly missed session check disabled (requires node-cron)');
-  return;
+  logger.info('⏰ Starting hourly missed session check (6 AM - 10 PM)');
   
-  // Original cron implementation (commented out)
-  /*
   // Run every hour from 6 AM to 10 PM
   cron.schedule('0 6-22 * * *', async () => {
-    // ... cron implementation
+    logger.info('🔍 [CRON] Hourly missed session check started');
+    
+    try {
+      const activeUsers = await User.find({});
+      let checksPerformed = 0;
+      
+      for (const user of activeUsers) {
+        const activePlan = await CyclingPlan.findOne({ 
+          user: user._id, 
+          isActive: true 
+        });
+        
+        if (activePlan) {
+          await realtimeMissedSessionCheck(user._id);
+          checksPerformed++;
+        }
+      }
+      
+      logger.info(`✅ [CRON] Hourly check complete: ${checksPerformed} users checked`);
+      
+    } catch (error) {
+      logger.error('❌ [CRON] Hourly missed session check error:', error);
+    }
   });
-  */
 }
 
 /**
