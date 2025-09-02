@@ -11,7 +11,7 @@ class SessionTrackerService {
    */
   static async updateSessionProgress(userId, sessionData) {
     try {
-      const { sessionId, completedHours, caloriesBurned, planId } = sessionData;
+      const { sessionId, completedHours, caloriesBurned, distance, planId } = sessionData;
 
       // Logging for debugging
       console.log('[SessionTracker] updateSessionProgress called:', { userId, planId, sessionId });
@@ -44,11 +44,12 @@ class SessionTrackerService {
         throw new Error('Active plan not found');
       }
 
-      // Update session in plan
+      // Update session in plan with distance
       const sessionResult = await this.updatePlanSession(plan, {
         sessionId,
         completedHours: parseFloat(completedHours),
-        caloriesBurned: parseFloat(caloriesBurned || 0)
+        caloriesBurned: parseFloat(caloriesBurned || 0),
+        distance: parseFloat(distance || 0) // Add distance parameter
       });
 
       // Update user activity log
@@ -79,7 +80,7 @@ class SessionTrackerService {
    * Update session in cycling plan
    */
   static async updatePlanSession(plan, sessionData) {
-    const { sessionId, completedHours, caloriesBurned } = sessionData;
+    const { sessionId, completedHours, caloriesBurned, distance } = sessionData;
 
     // Find or create session entry
     let sessionEntry = plan.activeSessions?.find(s => s.sessionId === sessionId);
@@ -95,6 +96,7 @@ class SessionTrackerService {
         lastUpdate: new Date(),
         completedHours: 0,
         caloriesBurned: 0,
+        distance: 0.0, // Add distance field
         isActive: true
       };
       
@@ -104,6 +106,7 @@ class SessionTrackerService {
     // Update session progress
     sessionEntry.completedHours = completedHours;
     sessionEntry.caloriesBurned = caloriesBurned;
+    sessionEntry.distance = distance || 0.0; // Add distance update
     sessionEntry.lastUpdate = new Date();
 
     // Update today's session
@@ -119,6 +122,7 @@ class SessionTrackerService {
     if (todaySession && todaySession.status === 'pending') {
       todaySession.progressCalories = caloriesBurned;
       todaySession.progressHours = completedHours;
+      todaySession.progressDistance = distance || 0.0; // Add distance to daily session
       todaySession.lastActivity = new Date();
     }
 
@@ -192,7 +196,7 @@ class SessionTrackerService {
    */
   static async completeSession(userId, sessionData) {
     try {
-      const { sessionId, finalCalories, finalHours } = sessionData;
+      const { sessionId, finalCalories, finalHours, finalDistance } = sessionData;
 
       // Update plan
       const plan = await CyclingPlan.findOne({ 
@@ -214,6 +218,7 @@ class SessionTrackerService {
         sessionEntry.completedAt = new Date();
         sessionEntry.finalCalories = parseFloat(finalCalories || sessionEntry.caloriesBurned);
         sessionEntry.finalHours = parseFloat(finalHours || sessionEntry.completedHours);
+        sessionEntry.finalDistance = parseFloat(finalDistance || sessionEntry.distance || 0); // Add distance
 
         // Update today's session
         const today = new Date();
@@ -228,6 +233,7 @@ class SessionTrackerService {
         if (todaySession) {
           todaySession.completedHours = (todaySession.completedHours || 0) + sessionEntry.finalHours;
           todaySession.caloriesBurned = (todaySession.caloriesBurned || 0) + sessionEntry.finalCalories;
+          todaySession.distance = (todaySession.distance || 0) + sessionEntry.finalDistance; // Add distance to completed session
           
           if (todaySession.completedHours >= todaySession.plannedHours) {
             todaySession.status = 'completed';

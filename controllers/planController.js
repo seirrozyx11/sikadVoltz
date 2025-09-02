@@ -101,7 +101,7 @@ export const createPlan = async (req, res) => {
 // In planController.js
 export const updateSessionProgress = async (req, res) => {
   try {
-    const { sessionId, completedHours, planId, intensity = 'moderate' } = req.body;
+    const { sessionId, completedHours, planId, distance, intensity = 'moderate' } = req.body;
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -125,11 +125,12 @@ export const updateSessionProgress = async (req, res) => {
       return errorResponse(res, 400, calcResult.error);
     }
 
-    // Update session with calculated calories
+    // Update session with calculated calories and distance
     const result = await SessionTrackerService.updateSessionProgress(userId, {
       sessionId,
       completedHours,
       caloriesBurned: calcResult.caloriesBurned,
+      distance: distance || 0.0, // Add distance parameter
       planId
     });
 
@@ -156,7 +157,7 @@ export const updateSessionProgress = async (req, res) => {
  */
 export const completeSession = async (req, res) => {
   try {
-    const { sessionId, finalCalories, finalHours } = req.body;
+    const { sessionId, finalCalories, finalHours, distance } = req.body;
     const userId = req.user?.userId;
 
     if (!userId) {
@@ -166,7 +167,8 @@ export const completeSession = async (req, res) => {
     const result = await SessionTrackerService.completeSession(userId, {
       sessionId,
       finalCalories,
-      finalHours
+      finalHours,
+      finalDistance: distance || 0.0 // Add distance parameter
     });
 
     if (result.success) {

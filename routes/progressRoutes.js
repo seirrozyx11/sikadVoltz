@@ -14,9 +14,9 @@ router.get('/progress', authenticateToken, async (req, res) => {
 
     // Get the user's current active cycling plan
     const plan = await CyclingPlan.findOne({
-      userId: req.user._id,
-      status: 'active'
-    }).populate('dailySessions');
+      user: req.user.userId,  // Fixed: use req.user.userId instead of req.user._id
+      isActive: true          // Fixed: use isActive instead of status: 'active'
+    });
 
     if (!plan) {
       return res.status(404).json({
