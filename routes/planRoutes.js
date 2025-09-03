@@ -28,9 +28,9 @@ import {
   // performDailyCheck, // Need to check if this exists
   // getPlanAdjustmentHistory, // Need to check if this exists
   // 🎯 NEW: Automatic Missed Session Detection Functions
-  autoDetectMissedSessions,
-  // getMissedSessionStatus, // Need to implement this function
-  // forceMissedSessionDetection // Need to implement this function
+  // autoDetectMissedSessions, // Need to check if this exists
+  // getMissedSessionStatus, // Need to check if this exists
+  // forceMissedSessionDetection // Need to check if this exists
 } from '../controllers/planController.js';
 
 import authenticateToken from '../middleware/authenticateToken.js';
@@ -131,7 +131,7 @@ router.get('/suggest-reset', authenticateToken, suggestNewPlan);
 // router.get('/adjustment-history', authenticateToken, getPlanAdjustmentHistory);
 
 //Automatic Missed Session Detection Endpoints
-router.get('/auto-detect-missed', authenticateToken, autoDetectMissedSessions);
+// router.get('/auto-detect-missed', authenticateToken, autoDetectMissedSessions);
 // router.get('/missed-status', authenticateToken, getMissedSessionStatus);
 // router.post('/force-detect-missed', authenticateToken, forceMissedSessionDetection);
 

@@ -55,7 +55,7 @@ export function startDailyMissedSessionDetection() {
   
   // Run every day at 8:00 AM
   cron.schedule('0 8 * * *', async () => {
-    logger.info('� [CRON] Daily missed session detection started');
+    logger.info('�️ [CRON] Daily missed session detection started');
     
     try {
       const activeUsers = await User.find({});
