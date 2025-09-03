@@ -1,5 +1,22 @@
 /**
- * Email Service for Password Reset
+ * Email Ser  setupTransporter() {
+    try {
+      // Gmail SMTP configuration
+      this.transporter = nodemailer.createTransporter({
+        host: process.env.EMAIL_HOST,
+        port: process.env.EMAIL_PORT,
+        secure: false, // true for 465, false for other ports
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS
+        },
+        pool: true, // Use connection pooling
+        maxConnections: 5,
+        maxMessages: 100,
+        rateLimit: 10 // Max 10 emails per second
+      });
+
+      this.isConfigured = !!(process.env.EMAIL_USER && process.env.EMAIL_PASS);d Reset
  * 
  * Professional email service using Gmail SMTP with responsive templates
  * and comprehensive tracking for password reset functionality.
@@ -35,7 +52,7 @@ class EmailService {
       if (this.isConfigured) {
         logger.info('Email service configured successfully');
       } else {
-        logger.warn('Email service not configured - missing GMAIL_USER or GMAIL_APP_PASSWORD');
+        logger.warn('Email service not configured - missing EMAIL_USER or EMAIL_PASS');
       }
     } catch (error) {
       logger.error('Email service setup failed', { error: error.message });
@@ -56,7 +73,7 @@ class EmailService {
       const resetUrl = `${process.env.FRONTEND_URL || 'http://localhost:8082'}/reset-password?token=${resetToken}`;
       
       const mailOptions = {
-        from: `"${process.env.EMAIL_FROM_NAME || 'SikadVoltz Security'}" <${process.env.GMAIL_USER}>`,
+        from: `"SikadVoltz Security" <${process.env.EMAIL_FROM}>`,
         to: email,
         subject: options.isResend ? 
           '🔐 Password Reset Link (Resent) - SikadVoltz' : 
@@ -103,7 +120,7 @@ class EmailService {
 
     try {
       const mailOptions = {
-        from: `"${process.env.EMAIL_FROM_NAME || 'SikadVoltz Security'}" <${process.env.GMAIL_USER}>`,
+        from: `"SikadVoltz Security" <${process.env.EMAIL_FROM}>`,
         to: email,
         subject: '✅ Password Changed Successfully - SikadVoltz',
         html: this.getPasswordChangedTemplate(email, options),
