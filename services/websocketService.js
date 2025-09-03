@@ -112,6 +112,16 @@ class WebSocketService {
     });
   }
 
+  // Send message to specific user (alias for broadcastToUser for notification compatibility)
+  sendToUser(userId, data) {
+    this.broadcastToUser(userId, 'message', data);
+  }
+
+  // Get user connections (for notification service compatibility)
+  getUserConnections(userId) {
+    return this.clients.get(userId) || new Set();
+  }
+
   // Broadcast to all connected clients
   broadcast(event, data) {
     const message = JSON.stringify({ event, data });

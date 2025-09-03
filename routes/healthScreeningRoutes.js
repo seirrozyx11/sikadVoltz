@@ -11,7 +11,7 @@ const router = express.Router();
 router.post('/health-screening', authenticateToken, async (req, res) => {
   try {
     const userId = req.user.userId; // Fixed: use userId instead of id
-    const { risk_level, risk_score, responses, screening_date } = req.body;
+    const { risk_level, risk_score, responses, screening_date, is_quick_screening } = req.body;
 
     // Validate required fields
     if (!risk_level || risk_score === undefined || !responses || !screening_date) {
@@ -59,6 +59,7 @@ router.post('/health-screening', authenticateToken, async (req, res) => {
       screeningDate: new Date(screening_date),
       isValid: true,
       lastUpdated: new Date(),
+      isQuickScreening: is_quick_screening || false,
     };
 
     await user.save();
@@ -67,6 +68,7 @@ router.post('/health-screening', authenticateToken, async (req, res) => {
       userId,
       riskLevel: risk_level,
       riskScore: risk_score,
+      isQuickScreening: is_quick_screening || false,
       timestamp: new Date().toISOString(),
     });
 
@@ -78,6 +80,7 @@ router.post('/health-screening', authenticateToken, async (req, res) => {
         risk_score: user.healthScreening.riskScore,
         screening_date: user.healthScreening.screeningDate,
         can_proceed: user.healthScreening.riskLevel !== 'HIGH',
+        is_quick_screening: user.healthScreening.isQuickScreening,
       },
     });
 
@@ -143,6 +146,7 @@ router.get('/health-screening', authenticateToken, async (req, res) => {
         is_valid: isValid,
         can_proceed: screening.riskLevel !== 'HIGH' && isValid,
         responses: screening.responses,
+        is_quick_screening: screening.isQuickScreening || false,
       },
     });
 

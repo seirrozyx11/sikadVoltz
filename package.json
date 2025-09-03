@@ -23,6 +23,7 @@
   "license": "MIT",
   "dependencies": {
     "@abandonware/noble": "^1.9.2-15",
+    "axios": "^1.11.0",
     "bcrypt": "^6.0.0",
     "cloudinary": "^2.5.1",
     "cors": "^2.8.5",

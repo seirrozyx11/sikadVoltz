@@ -23,6 +23,7 @@ import esp32Routes from './routes/esp32Routes.js';
 import workoutHistoryRoutes from './routes/workoutHistoryRoutes.js';
 import progressRoutes from './routes/progressRoutes.js';
 import healthScreeningRoutes from './routes/healthScreeningRoutes.js';
+import notificationRoutes from './routes/notificationRoutes.js';
 import passwordResetRoutes from './routes/passwordReset.js';
 // Import services
 import RealTimeTelemetryService from './services/realTimeTelemetryService.js';
@@ -142,6 +143,7 @@ app.use('/api/esp32', esp32Routes);
 app.use('/api/workout-history', workoutHistoryRoutes);
 app.use('/api/progress', progressRoutes);
 app.use('/api/profile', healthScreeningRoutes);
+app.use('/api/notifications', notificationRoutes);
 
 // Render-compatible health check (essential for deployment)
 app.get('/health', (req, res) => {

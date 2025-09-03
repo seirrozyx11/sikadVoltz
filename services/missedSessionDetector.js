@@ -1,5 +1,6 @@
 import CyclingPlan from '../models/CyclingPlan.js';
 import logger from '../utils/logger.js';
+import NotificationService from './notificationService.js';
 
 /**
  * Automatic Missed Session Detection Service
@@ -68,6 +69,25 @@ export async function detectAndMarkMissedSessions(userId) {
       await plan.save();
 
       logger.info(`Updated plan for user ${userId}: +${newMissedCount} missed sessions, +${newMissedHours} missed hours`);
+      
+      // Create notification for missed sessions
+      try {
+        await NotificationService.createMissedSessionNotification(userId, {
+          count: newMissedCount,
+          sessions: missedSessionsDetected,
+          planAdjusted: plan.missedCount >= (plan.autoAdjustmentSettings?.weeklyResetThreshold || 7),
+          totalMissedCount: plan.missedCount,
+          totalMissedHours: plan.totalMissedHours
+        });
+        
+        logger.info(`📢 Missed session notification created for user ${userId}`);
+      } catch (notificationError) {
+        logger.error('Failed to create missed session notification:', {
+          userId,
+          error: notificationError.message
+        });
+        // Don't fail the main process if notification creation fails
+      }
     }
 
     // Get current status

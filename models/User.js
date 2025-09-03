@@ -86,6 +86,10 @@ const userSchema = new mongoose.Schema({
       type: Date,
       required: false
     },
+    isQuickScreening: {
+      type: Boolean,
+      default: false
+    },
     isValid: {
       type: Boolean,
       default: true
