@@ -1,6 +1,6 @@
 import express from 'express';
 import Notification from '../models/Notification.js';
-import { authenticateToken } from '../middleware/auth.js';
+import authenticateToken from '../middleware/authenticateToken.js';
 import logger from '../utils/logger.js';
 import { getWebSocketService } from '../services/websocketService.js';
 
