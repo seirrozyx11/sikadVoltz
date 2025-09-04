@@ -115,6 +115,17 @@ const userSchema = new mongoose.Schema({
   resetPasswordAttempts: { type: Number, default: 0, select: false },
   lastResetAttempt: { type: Date, select: false },
 
+  // Login Attempt Tracking
+  loginAttempts: { type: Number, default: 0, select: false },
+  lastLoginAttempt: { type: Date, select: false },
+  loginAttemptIPs: [{
+    ip: { type: String, required: true },
+    timestamp: { type: Date, default: Date.now },
+    userAgent: { type: String },
+    success: { type: Boolean, default: false }
+  }],
+  accountLockedUntil: { type: Date, select: false },
+
   // Enhanced Security Tracking
   lastResetIP: { type: String, select: false },
   resetAttemptIPs: [{

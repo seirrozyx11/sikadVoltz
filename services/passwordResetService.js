@@ -13,6 +13,7 @@ class PasswordResetService {
   constructor() {
     this.RATE_LIMIT_WINDOW = 60 * 60 * 1000; // 1 hour
     this.MAX_ATTEMPTS_BEFORE_DELAY = 3;
+    this.MAX_ATTEMPTS_PER_HOUR = 3; // Hard limit: only 3 attempts per hour
     this.BASE_DELAY = 2000; // 2 seconds
     this.MAX_DELAY = 300000; // 5 minutes
     this.TOKEN_EXPIRY = 15 * 60 * 1000; // 15 minutes
@@ -44,27 +45,40 @@ class PasswordResetService {
     const now = Date.now();
     const windowStart = now - this.RATE_LIMIT_WINDOW;
     
-    // Count recent attempts from this IP
+    // Count recent attempts from this IP within the time window
     const recentAttempts = user.resetAttemptIPs?.filter(attempt => 
       attempt.ip === ip && 
+      attempt.timestamp.getTime() > windowStart
+    ) || [];
+    
+    // Count total recent attempts across all IPs within the time window
+    const totalRecentAttempts = user.resetAttemptIPs?.filter(attempt => 
       attempt.timestamp.getTime() > windowStart
     ) || [];
     
     const totalAttempts = user.resetPasswordAttempts || 0;
     const delay = this.calculateDelay(totalAttempts);
     
+    // Check hard maximum limit per hour
+    const hasExceededMaxAttempts = totalRecentAttempts.length >= this.MAX_ATTEMPTS_PER_HOUR;
+    
     // Check if last attempt was too recent
     const lastAttempt = user.lastResetAttempt;
     const timeSinceLastAttempt = lastAttempt ? now - lastAttempt.getTime() : Infinity;
     
-    const isRateLimited = delay > 0 && timeSinceLastAttempt < delay;
-    const remainingDelay = isRateLimited ? delay - timeSinceLastAttempt : 0;
+    const isRateLimited = (delay > 0 && timeSinceLastAttempt < delay) || hasExceededMaxAttempts;
+    const remainingDelay = hasExceededMaxAttempts ? 
+      this.RATE_LIMIT_WINDOW - (now - Math.min(...totalRecentAttempts.map(a => a.timestamp.getTime()))) :
+      (delay > 0 && timeSinceLastAttempt < delay) ? delay - timeSinceLastAttempt : 0;
     
     return {
       isRateLimited,
       remainingDelay,
       recentAttempts: recentAttempts.length,
       totalAttempts,
+      hasExceededMaxAttempts,
+      maxAttemptsPerHour: this.MAX_ATTEMPTS_PER_HOUR,
+      totalRecentAttempts: totalRecentAttempts.length,
       nextAttemptAt: isRateLimited ? new Date(now + remainingDelay) : new Date()
     };
   }

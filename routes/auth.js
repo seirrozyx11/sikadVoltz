@@ -5,6 +5,8 @@ import { OAuth2Client } from 'google-auth-library';
 import User from '../models/User.js';
 import { validateRequest, authValidation } from '../middleware/validation.js';
 import TokenBlacklist from '../models/TokenBlacklist.js'; // Ensure this exists
+import loginRateLimitService from '../services/loginRateLimitService.js';
+import logger from '../utils/logger.js';
 
 const router = express.Router();
 
@@ -86,32 +88,110 @@ router.post('/register', validateRequest(authValidation.register), async (req, r
   }
 });
 
-// Login
+// Login with rate limiting
 router.post('/login', validateRequest(authValidation.login), async (req, res) => {
+  const clientIP = req.ip || req.connection.remoteAddress || req.headers['x-forwarded-for'];
+  const userAgent = req.get('User-Agent') || 'Unknown';
+  
   try {
     const { email, password } = req.body;
 
-    const user = await User.findOne({ email }).select('+password');
+    // Find user first (including sensitive fields for rate limiting)
+    const user = await User.findOne({ email }).select('+password +loginAttempts +lastLoginAttempt +loginAttemptIPs +accountLockedUntil');
+    
     if (!user) {
+      // Even for non-existent users, log the attempt for security monitoring
+      logger.warn('Login attempt for non-existent user', {
+        email: email.replace(/^(.{2}).*(@.*)$/, '$1***$2'),
+        ip: clientIP,
+        userAgent
+      });
+      
       return res.status(401).json({
         success: false,
-        error: 'Authentication failed',
+        error: 'AUTHENTICATION_FAILED',
         message: 'Invalid email or password',
         field: 'email'
       });
     }
 
+    // Check rate limiting before attempting authentication
+    const rateLimitResult = await loginRateLimitService.checkLoginRateLimit(user, clientIP);
+    
+    if (rateLimitResult.isBlocked) {
+      logger.warn('Login blocked due to rate limiting', {
+        email: email.replace(/^(.{2}).*(@.*)$/, '$1***$2'),
+        ip: clientIP,
+        reason: rateLimitResult.reason,
+        attemptsUsed: rateLimitResult.attemptsUsed || 0,
+        isAccountLocked: rateLimitResult.isAccountLocked
+      });
+
+      if (rateLimitResult.isAccountLocked) {
+        return res.status(423).json({
+          success: false,
+          error: 'ACCOUNT_LOCKED',
+          message: rateLimitResult.message,
+          remainingLockTime: rateLimitResult.remainingLockTime,
+          unlockAt: rateLimitResult.unlockAt
+        });
+      }
+
+      if (rateLimitResult.hasExceededMaxAttempts) {
+        return res.status(429).json({
+          success: false,
+          error: 'MAX_LOGIN_ATTEMPTS_EXCEEDED',
+          message: rateLimitResult.message,
+          maxAttemptsPerHour: rateLimitResult.maxAttemptsPerHour,
+          windowResetAt: rateLimitResult.windowResetAt
+        });
+      }
+    }
+
+    // Attempt password verification
     const isMatch = await user.comparePassword(password);
+    
     if (!isMatch) {
+      // Record failed login attempt
+      await loginRateLimitService.recordLoginAttempt(user, clientIP, userAgent, false);
+      
+      // Check for suspicious activity
+      const suspiciousActivity = loginRateLimitService.detectSuspiciousLoginActivity(user, clientIP, userAgent);
+      
+      if (suspiciousActivity.isSuspicious) {
+        logger.warn('Suspicious login activity detected', {
+          email: email.replace(/^(.{2}).*(@.*)$/, '$1***$2'),
+          ip: clientIP,
+          indicators: suspiciousActivity.indicators,
+          riskLevel: suspiciousActivity.riskLevel
+        });
+      }
+
+      logger.info('Failed login attempt recorded', {
+        email: email.replace(/^(.{2}).*(@.*)$/, '$1***$2'),
+        ip: clientIP,
+        attemptsRemaining: rateLimitResult.attemptsRemaining - 1
+      });
+
       return res.status(401).json({
         success: false,
-        error: 'Authentication failed',
+        error: 'AUTHENTICATION_FAILED',
         message: 'Invalid email or password',
-        field: 'password'
+        field: 'password',
+        attemptsRemaining: Math.max(0, (rateLimitResult.attemptsRemaining || 3) - 1)
       });
     }
 
+    // Successful login - record attempt and generate token
+    await loginRateLimitService.recordLoginAttempt(user, clientIP, userAgent, true);
+    
     const token = createToken(user);
+
+    logger.info('Successful login', {
+      email: email.replace(/^(.{2}).*(@.*)$/, '$1***$2'),
+      ip: clientIP,
+      userAgent: userAgent.substring(0, 100) // Truncate long user agents
+    });
 
     res.json({
       success: true,
@@ -126,11 +206,17 @@ router.post('/login', validateRequest(authValidation.login), async (req, res) =>
       }
     });
   } catch (error) {
-    console.error('Login error:', error);
+    logger.error('Login system error', { 
+      error: error.message, 
+      stack: error.stack,
+      email: req.body.email?.replace(/^(.{2}).*(@.*)$/, '$1***$2'),
+      ip: clientIP 
+    });
+    
     res.status(500).json({
       success: false,
-      error: 'Server error',
-      message: 'Login failed'
+      error: 'SERVER_ERROR',
+      message: 'Login system temporarily unavailable'
     });
   }
 });
@@ -157,6 +243,46 @@ router.get('/profile', authenticateUser, (req, res) => {
     message: 'User profile fetched successfully',
     user: req.user
   });
+});
+
+// 🔐 Admin: Unlock Account (for emergency use)
+router.post('/admin/unlock-account', authenticateUser, async (req, res) => {
+  try {
+    const { email } = req.body;
+    
+    if (!email) {
+      return res.status(400).json({
+        success: false,
+        error: 'Email is required'
+      });
+    }
+
+    // For now, simple admin check (you may want to implement proper admin roles)
+    const currentUser = await User.findById(req.user.userId);
+    if (!currentUser || !currentUser.email.includes('admin')) {
+      return res.status(403).json({
+        success: false,
+        error: 'Admin access required'
+      });
+    }
+
+    const result = await loginRateLimitService.unlockAccount(email);
+    
+    if (result.success) {
+      logger.info('Account unlocked by admin', {
+        targetEmail: email.replace(/^(.{2}).*(@.*)$/, '$1***$2'),
+        adminEmail: currentUser.email.replace(/^(.{2}).*(@.*)$/, '$1***$2')
+      });
+    }
+
+    res.json(result);
+  } catch (error) {
+    logger.error('Admin unlock error', { error: error.message });
+    res.status(500).json({
+      success: false,
+      error: 'Failed to unlock account'
+    });
+  }
 });
 
 // Google Sign-In Authentication

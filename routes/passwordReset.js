@@ -42,14 +42,24 @@ const progressiveRateLimit = async (req, res, next) => {
             email,
             ip: clientIP,
             remainingDelay: rateLimit.remainingDelay,
-            totalAttempts: rateLimit.totalAttempts
+            totalAttempts: rateLimit.totalAttempts,
+            hasExceededMaxAttempts: rateLimit.hasExceededMaxAttempts
           });
+          
+          // Different messages for hard limit vs progressive delay
+          const errorMessage = rateLimit.hasExceededMaxAttempts ? 
+            `Maximum password reset attempts (${rateLimit.maxAttemptsPerHour}) exceeded. Please wait 1 hour before trying again.` :
+            `Too many reset attempts. Please wait ${nextAttemptIn} seconds before trying again.`;
+          
+          const errorCode = rateLimit.hasExceededMaxAttempts ? 'MAX_ATTEMPTS_EXCEEDED' : 'TOO_MANY_ATTEMPTS';
           
           return res.status(429).json({
             success: false,
-            error: 'TOO_MANY_ATTEMPTS',
-            message: `Too many reset attempts. Please wait ${nextAttemptIn} seconds before trying again.`,
+            error: errorCode,
+            message: errorMessage,
             retryAfter: nextAttemptIn,
+            maxAttemptsPerHour: rateLimit.maxAttemptsPerHour,
+            attemptsUsed: rateLimit.totalRecentAttempts,
             nextAttemptAt: rateLimit.nextAttemptAt
           });
         }
