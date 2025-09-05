@@ -149,6 +149,7 @@ export const getProfile = async (req, res) => {
     // Return profile data at root level for simpler parsing
     res.status(200).json({
       success: true,
+      profileCompleted: user.profileCompleted, // Include profile completion status
       ...user.profile.toObject() // Include all profile fields
     });
     
