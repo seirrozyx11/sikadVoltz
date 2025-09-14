@@ -37,7 +37,6 @@ import authenticateToken from '../middleware/authenticateToken.js';
 import { validateRequest, planValidation } from '../middleware/validation.js';
 import { requireCompleteProfile } from '../middleware/profileValidation.js';
 import { realtimeMissedSessionCheck } from '../services/missedSessionDetector.js';
-import { manualMissedSessionDetection } from '../services/scheduledTasks.js';
 import CyclingPlan from '../models/CyclingPlan.js';
 
 const router = express.Router();

@@ -1,5 +1,6 @@
 import express from 'express';
 import Notification from '../models/Notification.js';
+import NotificationService from '../services/notificationService.js';
 import authenticateToken from '../middleware/authenticateToken.js';
 import logger from '../utils/logger.js';
 import { getWebSocketService } from '../services/websocketService.js';
@@ -20,15 +21,21 @@ router.get('/', async (req, res) => {
       page = 1, 
       limit = 20, 
       type, 
-      unread_only = false,
+      unreadOnly = false,
       priority 
     } = req.query;
 
     // Build query filter
     const filter = { userId };
-    if (type) filter.type = type;
-    if (unread_only === 'true') filter.isRead = false;
+    if (type && type !== 'all') filter.type = type;
+    if (unreadOnly === 'true') filter.isRead = false;
     if (priority) filter.priority = priority;
+
+    // Add expiration filter
+    filter.$or = [
+      { expiresAt: { $gt: new Date() } },
+      { expiresAt: null }
+    ];
 
     // Execute query with pagination
     const skip = (parseInt(page) - 1) * parseInt(limit);
@@ -45,6 +52,12 @@ router.get('/', async (req, res) => {
     // Get unread count
     const unreadCount = await Notification.getUnreadCount(userId);
 
+    // **ENHANCED**: Add timeAgo to each notification for frontend
+    const notificationsWithTimeAgo = notifications.map(notification => ({
+      ...notification,
+      timeAgo: getTimeAgo(notification.createdAt)
+    }));
+
     logger.info(`📋 Retrieved ${notifications.length} notifications for user ${userId}`, {
       userId,
       page: parseInt(page),
@@ -56,14 +69,12 @@ router.get('/', async (req, res) => {
     res.json({
       success: true,
       data: {
-        notifications,
+        notifications: notificationsWithTimeAgo,
         pagination: {
-          page: parseInt(page),
-          limit: parseInt(limit),
-          total,
+          currentPage: parseInt(page),
           totalPages,
-          hasNext: parseInt(page) < totalPages,
-          hasPrev: parseInt(page) > 1
+          totalCount: total,
+          hasMore: total > page * limit
         },
         unreadCount
       }
@@ -76,7 +87,7 @@ router.get('/', async (req, res) => {
     });
     res.status(500).json({
       success: false,
-      error: 'Failed to fetch notifications'
+      message: 'Failed to fetch notifications'
     });
   }
 });
@@ -147,7 +158,7 @@ router.get('/by-type/:type', async (req, res) => {
  * PUT /api/notifications/:id/read
  * Mark specific notification as read
  */
-router.put('/:id/read', async (req, res) => {
+router.patch('/:id/read', async (req, res) => {
   try {
     const userId = req.user.userId;
     const { id } = req.params;
@@ -157,7 +168,7 @@ router.put('/:id/read', async (req, res) => {
     if (!notification) {
       return res.status(404).json({
         success: false,
-        error: 'Notification not found'
+        message: 'Notification not found'
       });
     }
 
@@ -170,25 +181,26 @@ router.put('/:id/read', async (req, res) => {
         type: notification.type
       });
 
-      // Broadcast updated unread count via WebSocket
+      // **REAL-TIME**: Broadcast updated unread count via WebSocket
       const unreadCount = await Notification.getUnreadCount(userId);
       const wsService = getWebSocketService();
       if (wsService) {
         wsService.sendToUser(userId, {
           type: 'notification_read',
-          data: {
-            notificationId: id,
-            unreadCount
-          }
+          notificationId: id,
+          unreadCount,
+          timestamp: new Date().toISOString()
         });
       }
     }
 
     res.json({
       success: true,
-      data: {
-        notification,
-        unreadCount: await Notification.getUnreadCount(userId)
+      data: { 
+        notification: {
+          ...notification.toJSON(),
+          timeAgo: getTimeAgo(notification.createdAt)
+        }
       }
     });
 
@@ -200,7 +212,7 @@ router.put('/:id/read', async (req, res) => {
     });
     res.status(500).json({
       success: false,
-      error: 'Failed to mark notification as read'
+      message: 'Failed to mark notification as read'
     });
   }
 });
@@ -209,7 +221,7 @@ router.put('/:id/read', async (req, res) => {
  * PUT /api/notifications/mark-all-read
  * Mark all notifications as read for user
  */
-router.put('/mark-all-read', async (req, res) => {
+router.patch('/read-all', async (req, res) => {
   try {
     const userId = req.user.userId;
 
@@ -220,23 +232,19 @@ router.put('/mark-all-read', async (req, res) => {
       updatedCount: result.modifiedCount
     });
 
-    // Broadcast updated unread count via WebSocket
+    // **REAL-TIME**: Broadcast updated unread count via WebSocket
     const wsService = getWebSocketService();
     if (wsService) {
       wsService.sendToUser(userId, {
-        type: 'notifications_all_read',
-        data: {
-          unreadCount: 0
-        }
+        type: 'all_notifications_read',
+        unreadCount: 0,
+        timestamp: new Date().toISOString()
       });
     }
 
     res.json({
       success: true,
-      data: {
-        updatedCount: result.modifiedCount,
-        unreadCount: 0
-      }
+      message: 'All notifications marked as read'
     });
 
   } catch (error) {
@@ -246,7 +254,7 @@ router.put('/mark-all-read', async (req, res) => {
     });
     res.status(500).json({
       success: false,
-      error: 'Failed to mark all notifications as read'
+      message: 'Failed to mark all notifications as read'
     });
   }
 });
@@ -409,5 +417,59 @@ router.post('/cleanup', async (req, res) => {
     });
   }
 });
+
+/**
+ * POST /api/notifications/test
+ * Create test notification (for development)
+ */
+router.post('/test', async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    
+    const notification = await NotificationService.createMissedSessionNotification(
+      userId,
+      {
+        count: 1,
+        sessions: [{ date: new Date() }],
+        planAdjusted: false,
+        consecutiveMissedDays: 1,
+        suggestedAction: 'start_session'
+      }
+    );
+
+    res.status(201).json({
+      success: true,
+      data: { notification },
+      message: 'Test notification created and sent'
+    });
+  } catch (error) {
+    logger.error('❌ Error creating test notification:', { 
+      error: error.message, 
+      userId: req.user?.userId 
+    });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to create test notification'
+    });
+  }
+});
+
+// **NEW**: Helper function for timeAgo calculation
+function getTimeAgo(date) {
+  const now = new Date();
+  const diffMs = now - new Date(date);
+  const diffMins = Math.floor(diffMs / 60000);
+  const diffHours = Math.floor(diffMins / 60);
+  const diffDays = Math.floor(diffHours / 24);
+  const diffWeeks = Math.floor(diffDays / 7);
+  const diffMonths = Math.floor(diffDays / 30);
+
+  if (diffMins < 1) return 'Just now';
+  if (diffMins < 60) return `${diffMins}m ago`;
+  if (diffHours < 24) return `${diffHours}h ago`;
+  if (diffDays < 7) return `${diffDays}d ago`;
+  if (diffWeeks < 4) return `${diffWeeks}w ago`;
+  return `${diffMonths}mo ago`;
+}
 
 export default router;

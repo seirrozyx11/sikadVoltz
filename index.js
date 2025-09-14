@@ -27,7 +27,7 @@ import notificationRoutes from './routes/notificationRoutes.js';
 import passwordResetRoutes from './routes/passwordReset.js';
 // Import services
 import RealTimeTelemetryService from './services/realTimeTelemetryService.js';
-import { initializeScheduledTasks } from './services/scheduledTasks.js';
+import ScheduledTasksService from './services/scheduledTasksService.js';
 
 // Environment setup
 const __filename = fileURLToPath(import.meta.url);
@@ -360,13 +360,15 @@ const startServer = async () => {
       console.log(startupMessage);
       logger.info(`Server started on port ${PORT}`);
       
-      // Initialize scheduled tasks for missed session detection
-      try {
-        initializeScheduledTasks();
-        logger.info('✅ Scheduled tasks initialized successfully');
-      } catch (taskError) {
-        logger.error('❌ Failed to initialize scheduled tasks:', taskError);
-      }
+      // **ENHANCED**: Initialize scheduled tasks for real-time notifications
+      (async () => {
+        try {
+          await ScheduledTasksService.initialize();
+          logger.info('✅ Real-time notification system initialized successfully');
+        } catch (taskError) {
+          logger.error('❌ Failed to initialize scheduled tasks:', taskError);
+        }
+      })();
       
       // Initialize ESP32 BLE Bridge on a separate port (disabled for now)
       try {

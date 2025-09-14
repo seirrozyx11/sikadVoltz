@@ -427,13 +427,23 @@ class NotificationService {
         // Get updated unread count
         const unreadCount = await Notification.getUnreadCount(userId);
         
+        // **ENHANCED**: Send notification with proper format for Flutter
         wsService.sendToUser(userId, {
-          type: 'notification',
-          timestamp: new Date().toISOString(),
-          data: {
-            notification: notification.toJSON(),
-            unreadCount
-          }
+          type: 'new_notification',
+          notification: {
+            id: notification._id,
+            type: notification.type,
+            title: notification.title,
+            message: notification.message,
+            createdAt: notification.createdAt,
+            isRead: notification.isRead,
+            priority: notification.priority,
+            actions: notification.actions,
+            timeAgo: notification.timeAgo,
+            data: notification.data
+          },
+          unreadCount,
+          timestamp: new Date().toISOString()
         });
         
         logger.info(`📡 Notification broadcasted via WebSocket`, {

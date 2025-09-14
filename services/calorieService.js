@@ -24,17 +24,26 @@ export function calculateBMR(weight, height, birthDate, gender) {
     }
 }
 
+
+
+// Calculate optimal calories using MET-based method (without power dependency)
+export function calculateOptimalCalories(weight, hours, intensity) {
+  // Use MET-based calculation - reliable and accurate for cycling
+  return calculateCyclingCaloriesDirect(weight, hours, intensity);
+}
+
 export function calculateCyclingCaloriesDirect(weight, hours, intensity = 'moderate') {
-  // Enhanced 5-level intensity system matching frontend
+  // Enhanced 6-level intensity system matching frontend (0-5)
   const metValues = { 
     'stopped': 0.0,
-    'coasting': 2.0,
-    'light': 4.0, 
-    'moderate': 8.0, 
-    'vigorous': 12.0 
+    'coasting': 2.0,   // Very light activity
+    'light': 4.0,      // Light cycling, casual pace
+    'moderate': 8.0,   // Moderate cycling, normal pace  
+    'vigorous': 12.0,  // Vigorous cycling, racing pace
+    'maximum': 16.0    // Maximum effort
   };
   
-  // Handle numeric intensity levels from ESP32 (0-4)
+  // Handle numeric intensity levels from ESP32 (0-5)
   if (typeof intensity === 'number') {
     switch (intensity) {
       case 0: intensity = 'stopped'; break;
@@ -42,6 +51,7 @@ export function calculateCyclingCaloriesDirect(weight, hours, intensity = 'moder
       case 2: intensity = 'light'; break;
       case 3: intensity = 'moderate'; break;
       case 4: intensity = 'vigorous'; break;
+      case 5: intensity = 'maximum'; break;
       default: intensity = 'moderate';
     }
   }
@@ -74,16 +84,17 @@ export async function calculateCyclingCalories(userId, hours, intensity = 'moder
       // 2. Use profile data for calculation
       const { weight, activityLevel } = user.profile;
       
-      // 3. Get MET value based on intensity (enhanced 5-level system)
+      // 3. Get MET value based on intensity (enhanced 6-level system)
       const metValues = {
         'stopped': 0.0,
-        'coasting': 2.0,
-        'light': 4.0,
-        'moderate': 8.0,
-        'vigorous': 12.0
+        'coasting': 2.0,   // Very light activity
+        'light': 4.0,      // Light cycling, casual pace
+        'moderate': 8.0,   // Moderate cycling, normal pace
+        'vigorous': 12.0,  // Vigorous cycling, racing pace
+        'maximum': 16.0    // Maximum effort
       };
       
-      // Handle numeric intensity levels from ESP32 (0-4)
+      // Handle numeric intensity levels from ESP32 (0-5)
       let intensityKey = intensity;
       if (typeof intensity === 'number') {
         switch (intensity) {
@@ -92,23 +103,24 @@ export async function calculateCyclingCalories(userId, hours, intensity = 'moder
           case 2: intensityKey = 'light'; break;
           case 3: intensityKey = 'moderate'; break;
           case 4: intensityKey = 'vigorous'; break;
+          case 5: intensityKey = 'maximum'; break;
           default: intensityKey = 'moderate';
         }
       }
       
-      // 4. Calculate calories: MET * weight(kg) * hours
-      const met = metValues[intensityKey] || metValues.moderate;
-      const caloriesBurned = met * weight * hours;
+      // 4. Calculate calories using MET-based method (reliable without power sensors)
+      const caloriesBurned = calculateOptimalCalories(weight, hours, intensityKey);
       
       return {
         success: true,
         caloriesBurned: parseFloat(caloriesBurned.toFixed(2)),
         details: {
-          met,
+          met: metValues[intensityKey] || metValues.moderate,
           weight,
           hours,
           intensity: intensityKey,
-          activityLevel
+          activityLevel,
+          calculationMethod: 'MET-based'
         }
       };
     } catch (error) {
