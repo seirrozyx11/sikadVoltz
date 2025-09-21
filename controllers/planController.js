@@ -264,66 +264,8 @@ export const missedSession = async (req, res) => {
     plan.missedCount = missedSessions.length;
     plan.totalMissedHours = totalMissedHours;
 
-    // Collect remaining sessions eligible for redistribution (pending and future only)
-    const remainingSessions = [];
-    for (let i = sessionIndex + 1; i < plan.dailySessions.length; i++) {
-      const s = plan.dailySessions[i];
-      if (s.status === 'pending') {
-        remainingSessions.push({ idx: i, ref: s });
-      }
-    }
-
-    // Reset adjustedHours for all remaining sessions (idempotent recompute)
-    for (const { ref } of remainingSessions) {
-      ref.adjustedHours = 0;
-    }
-
-    // Nothing to redistribute or nowhere to put it
-    if (totalMissedHours > 0 && remainingSessions.length > 0) {
-      // Weight by plannedHours (can be extended with intensity factor)
-      const weights = remainingSessions.map(({ ref }) => Math.max(0, ref.plannedHours || 0));
-      const totalWeight = weights.reduce((a, b) => a + b, 0) || 1;
-
-      // Safety caps: max 25% of planned or 0.75h per session
-      const caps = remainingSessions.map(({ ref }) => {
-        const planned = Math.max(0, ref.plannedHours || 0);
-        return Math.min(planned * 0.25, 0.75);
-      });
-
-      // Initial proportional allocation with caps
-      let remainder = totalMissedHours;
-      const allocations = new Array(remainingSessions.length).fill(0);
-
-      // One pass proportional
-      for (let i = 0; i < remainingSessions.length; i++) {
-        const desired = (weights[i] / totalWeight) * totalMissedHours;
-        const alloc = Math.min(desired, caps[i]);
-        allocations[i] = alloc;
-        remainder -= alloc;
-      }
-
-      // Spillover: distribute remainder to sessions with remaining capacity
-      let safetyIterations = 0;
-      while (remainder > 1e-6 && safetyIterations < 10) {
-        safetyIterations++;
-        // Find sessions with remaining capacity
-        const remainingCapacity = allocations.map((a, i) => Math.max(0, caps[i] - a));
-        const totalCapacity = remainingCapacity.reduce((a, b) => a + b, 0);
-        if (totalCapacity <= 1e-6) break;
-
-        for (let i = 0; i < remainingSessions.length && remainder > 1e-6; i++) {
-          if (remainingCapacity[i] <= 1e-6) continue;
-          const share = Math.min(remainingCapacity[i], (weights[i] / totalWeight) * remainder);
-          allocations[i] += share;
-          remainder -= share;
-        }
-      }
-
-      // Apply allocations
-      for (let i = 0; i < remainingSessions.length; i++) {
-        remainingSessions[i].ref.adjustedHours = (remainingSessions[i].ref.adjustedHours || 0) + allocations[i];
-      }
-    }
+    // Note: Automatic redistribution removed - users must manually redistribute missed hours
+    // through the "Redistribute your Missed Hours" feature for better UX control
 
     // Auto-pause plan after 3 missed days
     if (plan.missedCount >= 3) {
@@ -1627,6 +1569,158 @@ export const updateSessionProgressRealtime = async (req, res) => {
       error: 'Failed to update session progress',
       details: error.message
     });
+  }
+};
+
+// 🎯 NEW: Unified Manual Redistribution Function
+export const redistributeMissedHours = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    const { redistributionMethod, requestedAt } = req.body;
+
+    if (!userId) {
+      return errorResponse(res, 401, 'Authentication required');
+    }
+
+    // Find the active plan
+    const plan = await CyclingPlan.findOne({ 
+      user: userId, 
+      isActive: true 
+    });
+
+    if (!plan) {
+      return errorResponse(res, 404, 'No active plan found');
+    }
+
+    // Calculate total missed hours
+    const missedSessions = plan.dailySessions.filter(session => session.status === 'missed');
+    const totalMissedHours = missedSessions.reduce((sum, session) => {
+      return sum + (session.plannedHours || 1.5);
+    }, 0);
+
+    if (totalMissedHours === 0) {
+      return res.status(200).json({
+        success: true,
+        message: 'No missed hours to redistribute',
+        data: {
+          redistributedHours: 0,
+          affectedSessions: 0
+        }
+      });
+    }
+
+    // Get remaining pending sessions (future sessions)
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const remainingSessions = plan.dailySessions.filter(session => {
+      const sessionDate = new Date(session.date);
+      sessionDate.setHours(0, 0, 0, 0);
+      return sessionDate >= today && session.status === 'pending';
+    });
+
+    if (remainingSessions.length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No remaining sessions to redistribute missed hours to'
+      });
+    }
+
+    // **UNIFIED APPROACH**: Use adjustedHours field (same as automatic redistribution)
+    // Reset any existing adjustedHours first
+    remainingSessions.forEach(session => {
+      session.adjustedHours = 0;
+    });
+
+    // Apply the same sophisticated algorithm from missedSession function
+    const weights = remainingSessions.map(session => Math.max(0, session.plannedHours || 0));
+    const totalWeight = weights.reduce((a, b) => a + b, 0) || 1;
+
+    // Safety caps: max 25% of planned or 1.0h per session (slightly higher for manual)
+    const caps = remainingSessions.map(session => {
+      const planned = Math.max(0, session.plannedHours || 0);
+      return Math.min(planned * 0.25, 1.0); // 1.0h cap for manual redistribution
+    });
+
+    // Initial proportional allocation with caps
+    let remainder = totalMissedHours;
+    const allocations = new Array(remainingSessions.length).fill(0);
+
+    // One pass proportional
+    for (let i = 0; i < remainingSessions.length; i++) {
+      const desired = (weights[i] / totalWeight) * totalMissedHours;
+      const alloc = Math.min(desired, caps[i]);
+      allocations[i] = alloc;
+      remainder -= alloc;
+    }
+
+    // Spillover: distribute remainder to sessions with remaining capacity
+    let safetyIterations = 0;
+    while (remainder > 1e-6 && safetyIterations < 10) {
+      safetyIterations++;
+      const remainingCapacity = allocations.map((a, i) => Math.max(0, caps[i] - a));
+      const totalCapacity = remainingCapacity.reduce((a, b) => a + b, 0);
+      if (totalCapacity <= 1e-6) break;
+
+      for (let i = 0; i < remainingSessions.length && remainder > 1e-6; i++) {
+        if (remainingCapacity[i] <= 1e-6) continue;
+        const share = Math.min(remainingCapacity[i], (weights[i] / totalWeight) * remainder);
+        allocations[i] += share;
+        remainder -= share;
+      }
+    }
+
+    // Apply allocations using adjustedHours (unified with automatic redistribution)
+    let redistributedHours = 0;
+    for (let i = 0; i < remainingSessions.length; i++) {
+      const additionalHours = allocations[i];
+      remainingSessions[i].adjustedHours = additionalHours;
+      remainingSessions[i].notes = `${remainingSessions[i].notes || ''} [+${additionalHours.toFixed(1)}h redistributed manually]`.trim();
+      redistributedHours += additionalHours;
+    }
+
+    // Mark missed sessions as acknowledged and redistributed
+    missedSessions.forEach(session => {
+      session.acknowledged = true;
+      session.acknowledgedAt = new Date();
+      session.acknowledgmentReason = 'Hours redistributed manually by user';
+      session.redistributed = true;
+    });
+
+    // Log the redistribution - this prevents automatic redistribution
+    plan.adjustmentHistory = plan.adjustmentHistory || [];
+    plan.adjustmentHistory.push({
+      type: 'missed_hours_redistribution',
+      date: new Date(),
+      details: {
+        redistributionMethod: redistributionMethod || 'manual_unified_algorithm',
+        totalMissedHours,
+        redistributedHours,
+        missedSessionsCount: missedSessions.length,
+        remainingSessionsCount: remainingSessions.length,
+        algorithm: 'weighted_proportional_with_spillover',
+        trigger: 'manual_user_action'
+      }
+    });
+
+    await plan.save();
+
+    res.json({
+      success: true,
+      message: 'Your plan is all set! Missed hours have been redistributed.',
+      data: {
+        totalMissedHours,
+        redistributedHours,
+        missedSessionsProcessed: missedSessions.length,
+        remainingSessionsUpdated: remainingSessions.length,
+        averageAdditionalHoursPerSession: (redistributedHours / remainingSessions.length).toFixed(2),
+        algorithm: 'unified_weighted_proportional'
+      }
+    });
+
+  } catch (error) {
+    console.error('Redistribute missed hours error:', error);
+    return errorResponse(res, 500, 'Failed to redistribute missed hours', error.message);
   }
 };
 

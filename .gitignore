@@ -7,7 +7,7 @@ yarn-error.log*
 .pnp
 .pnp.json
 
-# Environment variables
+# Environment variables (keep .env.example for developer guidance)
 .env
 .env.local
 .env.development.local

@@ -9,6 +9,8 @@ import { dirname } from 'path';
 import http from 'http';
 import { WebSocketServer } from 'ws';
 import logger from './utils/logger.js';
+import environmentValidator from './utils/environmentValidator.js';
+import SecurityMiddleware from './middleware/security.js';
 import { initWebSocket, getWebSocketService } from './services/websocketService.js';
 // import esp32BLEBridge from './services/esp32_ble_bridge.js'; // Disabled for testing
 
@@ -48,6 +50,9 @@ const WS_BASE_URL = IS_RENDER
   ? 'wss://sikadvoltz-backend.onrender.com'
   : `ws://localhost:${PORT}`;
 
+// 🔒 SECURITY: Validate environment variables before starting server
+environmentValidator.validateOrExit();
+
 if (!MONGODB_URI) {
   console.error('FATAL: MONGODB_URI not defined in environment variables');
   process.exit(1);
@@ -82,6 +87,9 @@ const connectDB = async () => {
 
 // Create Express app
 const app = express();
+
+// 🔒 SECURITY: Apply all security middleware (helmet, rate limiting, HTTPS enforcement)
+SecurityMiddleware.applyAll(app);
 
 // Enhanced CORS configuration
 const allowedOrigins = [
@@ -264,7 +272,7 @@ app.use((err, req, res, next) => {
     stack: err.stack,
     method: req.method,
     url: req.originalUrl,
-    ip: req.ip
+    ip: req.ip  
   });
 
   res.status(err.status || 500).json({

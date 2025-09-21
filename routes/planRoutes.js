@@ -25,6 +25,8 @@ import {
   // 🎯 NEW: Smart Plan Adjustment Functions
   checkPlanAdjustment,
   suggestNewPlan,
+  // 🎯 NEW: Unified Redistribution Function
+  redistributeMissedHours,
   // performDailyCheck, // Need to check if this exists
   // getPlanAdjustmentHistory, // Need to check if this exists
   // 🎯 NEW: Automatic Missed Session Detection Functions
@@ -431,5 +433,8 @@ router.post('/acknowledge-missed-sessions', authenticateToken, async (req, res) 
     });
   }
 });
+
+// Redistribute missed hours across remaining plan duration
+router.post('/redistribute-missed-hours', authenticateToken, redistributeMissedHours);
 
 export default router;

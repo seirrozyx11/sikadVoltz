@@ -13,13 +13,25 @@ const router = express.Router();
 // Google OAuth2 client - you'll need to create a WEB client ID in Google Console
 const googleClient = new OAuth2Client(process.env.GOOGLE_WEB_CLIENT_ID);
 
-// Token creator
-const createToken = (user) => {
-  return jwt.sign(
+// Token creator with optional refresh token
+const createToken = (user, includeRefresh = false) => {
+  const accessToken = jwt.sign(
     { userId: user._id, email: user.email },
-    process.env.JWT_SECRET || 'fallbacksecret',
+    process.env.JWT_SECRET, // 🔒 SECURITY: No fallback - validated by environmentValidator
     { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
   );
+  
+  if (includeRefresh) {
+    const refreshToken = jwt.sign(
+      { userId: user._id, email: user.email, type: 'refresh' },
+      process.env.JWT_SECRET, // 🔒 SECURITY: No fallback - validated by environmentValidator
+      { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
+    );
+    
+    return { accessToken, refreshToken };
+  }
+  
+  return accessToken;
 };
 
 // Unified middleware for protected routes
@@ -31,7 +43,7 @@ const authenticateUser = async (req, res, next) => {
 
   const token = authHeader.split(' ')[1];
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET || 'fallbacksecret');
+    const decoded = jwt.verify(token, process.env.JWT_SECRET); // 🔒 SECURITY: No fallback
 
     // Check blacklist
     const isBlacklisted = await TokenBlacklist.exists({ token });
@@ -64,12 +76,13 @@ router.post('/register', validateRequest(authValidation.register), async (req, r
     const user = new User({ email, password, firstName, lastName });
     await user.save();
 
-    const token = createToken(user);
+    const tokens = createToken(user, true); // Include refresh token
 
     res.status(201).json({
       success: true,
       message: 'Registration successful',
-      token,
+      token: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
       data: {
         id: user._id,
         email: user.email,
@@ -182,10 +195,10 @@ router.post('/login', validateRequest(authValidation.login), async (req, res) =>
       });
     }
 
-    // Successful login - record attempt and generate token
+    // Successful login - record attempt and generate tokens
     await loginRateLimitService.recordLoginAttempt(user, clientIP, userAgent, true);
     
-    const token = createToken(user);
+    const tokens = createToken(user, true); // Request both access and refresh tokens
 
     logger.info('Successful login', {
       email: email.replace(/^(.{2}).*(@.*)$/, '$1***$2'),
@@ -196,7 +209,8 @@ router.post('/login', validateRequest(authValidation.login), async (req, res) =>
     res.json({
       success: true,
       message: 'Login successful',
-      token,
+      token: tokens.accessToken,
+      refreshToken: tokens.refreshToken,
       data: {
         id: user._id,
         email: user.email,
@@ -422,6 +436,80 @@ router.post('/google', async (req, res) => {
     res.status(400).json({
       success: false,
       error: 'Invalid Google token or authentication failed'
+    });
+  }
+});
+
+// **NEW**: Refresh token endpoint
+router.post('/refresh-token', async (req, res) => {
+  try {
+    const { refreshToken } = req.body;
+    
+    if (!refreshToken) {
+      return res.status(401).json({
+        success: false,
+        error: 'Refresh token required'
+      });
+    }
+    
+    // Verify refresh token
+    const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET); // 🔒 SECURITY: No fallback
+    
+    // Check if it's actually a refresh token
+    if (decoded.type !== 'refresh') {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid refresh token type'
+      });
+    }
+    
+    // Check if refresh token is blacklisted
+    const isBlacklisted = await TokenBlacklist.exists({ token: refreshToken });
+    if (isBlacklisted) {
+      return res.status(401).json({
+        success: false,
+        error: 'Refresh token revoked'
+      });
+    }
+    
+    // Find the user
+    const user = await User.findById(decoded.userId);
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found'
+      });
+    }
+    
+    // Generate new access token
+    const newAccessToken = createToken(user);
+    
+    res.json({
+      success: true,
+      token: newAccessToken,
+      message: 'Token refreshed successfully'
+    });
+    
+  } catch (error) {
+    console.error('Token refresh error:', error);
+    
+    if (error.name === 'TokenExpiredError') {
+      return res.status(401).json({
+        success: false,
+        error: 'Refresh token expired'
+      });
+    }
+    
+    if (error.name === 'JsonWebTokenError') {
+      return res.status(401).json({
+        success: false,
+        error: 'Invalid refresh token'
+      });
+    }
+    
+    res.status(500).json({
+      success: false,
+      error: 'Token refresh failed'
     });
   }
 });
