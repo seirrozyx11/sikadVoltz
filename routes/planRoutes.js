@@ -9,6 +9,7 @@ import {
   remindMissedGoals,
   markDayComplete,
   getMissedSessions,
+  handleMissedSessions, // NEW: Engagement-focused missed session handling
   getDailySessionStatus,
   getUpcomingSessions,
   updateSessionProgress,
@@ -25,8 +26,6 @@ import {
   // 🎯 NEW: Smart Plan Adjustment Functions
   checkPlanAdjustment,
   suggestNewPlan,
-  // 🎯 NEW: Unified Redistribution Function
-  redistributeMissedHours,
   // performDailyCheck, // Need to check if this exists
   // getPlanAdjustmentHistory, // Need to check if this exists
   // 🎯 NEW: Automatic Missed Session Detection Functions
@@ -103,6 +102,9 @@ router.post('/mark-day-complete', authenticateToken, markDayComplete);
 
 // Get missed sessions data
 router.get('/missed-sessions', authenticateToken, getMissedSessions);
+
+// NEW: Handle missed sessions with engagement-focused actions (reschedule or redistribute)
+router.post('/handle-missed-sessions', authenticateToken, handleMissedSessions);
 
 // Check daily session status
 router.get('/daily-status', authenticateToken, getDailySessionStatus);
@@ -433,8 +435,5 @@ router.post('/acknowledge-missed-sessions', authenticateToken, async (req, res) 
     });
   }
 });
-
-// Redistribute missed hours across remaining plan duration
-router.post('/redistribute-missed-hours', authenticateToken, redistributeMissedHours);
 
 export default router;

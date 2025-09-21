@@ -6,12 +6,31 @@ const sessionSchema = new mongoose.Schema({
     completedHours: { type: Number, default: 0 },
     status: { 
       type: String, 
-      enum: ['pending', 'completed', 'missed', 'rescheduled'],
+      enum: ['pending', 'completed', 'missed', 'rescheduled', 'redistributed'],
       default: 'pending'
     },
     caloriesBurned: { type: Number, default: 0 },
     missedHours: { type: Number, default: 0 }, // Track hours that need to be carried over
-    adjustedHours: { type: Number, default: 0 } // Track additional hours from previous missed sessions
+    adjustedHours: { type: Number, default: 0 }, // Track additional hours from previous missed sessions
+    
+    // NEW: Action tracking for missed session management
+    actionHistory: [{
+      action: {
+        type: String,
+        enum: ['reschedule', 'redistribute'],
+        required: false
+      },
+      actionDate: { type: Date, default: Date.now },
+      originalDate: Date,
+      newDate: Date, // For rescheduled sessions
+      hoursRedistributed: Number, // For redistributed sessions
+      reason: String
+    }],
+    
+    // NEW: Original session tracking (for rescheduled sessions)
+    originalSessionId: { type: mongoose.Schema.Types.ObjectId },
+    isRescheduled: { type: Boolean, default: false },
+    isRedistributed: { type: Boolean, default: false }
   });
   
   const cyclingPlanSchema = new mongoose.Schema({
@@ -38,20 +57,38 @@ const sessionSchema = new mongoose.Schema({
       newDailyTarget: Number,
       reason: { 
         type: String, 
-        enum: ['missed_day', 'weekly_reset', 'manual_adjustment'],
+        enum: ['missed_day', 'weekly_reset', 'manual_adjustment', 'reschedule_action', 'redistribute_action'],
         default: 'missed_day'
       },
       redistributionMethod: {
         type: String,
         enum: ['distribute_remaining', 'extend_plan', 'increase_intensity'],
         default: 'distribute_remaining'
-      }
+      },
+      // NEW: Action tracking for engagement-focused missed session management
+      actionType: {
+        type: String,
+        enum: ['reschedule', 'redistribute'],
+        required: false
+      },
+      sessionsAffected: [{ type: mongoose.Schema.Types.ObjectId }],
+      userChoiceReason: String
     }],
     autoAdjustmentSettings: {
       enabled: { type: Boolean, default: true },
       maxDailyHours: { type: Number, default: 3 }, // Safety limit
       gracePeriodDays: { type: Number, default: 2 }, // Buffer days
       weeklyResetThreshold: { type: Number, default: 7 } // Days missed before suggesting reset
+    },
+    
+    // NEW: Engagement-focused missed session management
+    missedSessionManagement: {
+      pendingMissedSessions: [{ type: mongoose.Schema.Types.ObjectId }], // Sessions awaiting user action
+      lastActionDate: Date,
+      userEngagementScore: { type: Number, default: 0 }, // Track how user handles missed sessions
+      consecutiveEngagements: { type: Number, default: 0 }, // Consecutive non-skip actions
+      totalRescheduledSessions: { type: Number, default: 0 },
+      totalRedistributedSessions: { type: Number, default: 0 }
     },
     
     planSummary: {
