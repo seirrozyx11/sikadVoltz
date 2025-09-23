@@ -88,7 +88,13 @@ const connectDB = async () => {
 // Create Express app
 const app = express();
 
-// 🔒 SECURITY: Apply all security middleware (helmet, rate limiting, HTTPS enforcement)
+// � CRITICAL FIX: Body parsing MUST come before security middleware
+// This is required because rate limiting middleware accesses req.body.email
+app.use(express.json());
+app.use(express.urlencoded({ extended: true }));
+
+// �🔒 SECURITY: Apply all security middleware (helmet, rate limiting, HTTPS enforcement)
+// Note: Rate limiting now runs after body parsing
 SecurityMiddleware.applyAll(app);
 
 // Enhanced CORS configuration
@@ -112,10 +118,6 @@ app.use(cors({
   credentials: true,
   optionsSuccessStatus: 200
 }));
-
-// Middleware
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
 
 // Enhanced request logging
 app.use((req, res, next) => {

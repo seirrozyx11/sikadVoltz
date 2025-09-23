@@ -150,7 +150,7 @@ class SecurityMiddleware {
           ip: req.ip,
           userAgent: req.get('User-Agent'),
           path: req.path,
-          email: req.body.email?.replace(/^(.{2}).*(@.*)$/, '$1***$2') || 'unknown'
+          email: req.body?.email?.replace(/^(.{2}).*(@.*)$/, '$1***$2') || 'unknown'
         });
       }
     });
@@ -167,13 +167,14 @@ class SecurityMiddleware {
       },
       keyGenerator: (req) => {
         // Rate limit by IP and email combination
-        const email = req.body.email || 'unknown';
+        // Handle cases where body might not be parsed yet
+        const email = req.body?.email || 'unknown';
         return `${req.ip}-${email}`;
       },
       onLimitReached: (req, res, options) => {
         logger.error('Password reset rate limit exceeded', {
           ip: req.ip,
-          email: req.body.email?.replace(/^(.{2}).*(@.*)$/, '$1***$2') || 'unknown'
+          email: req.body?.email?.replace(/^(.{2}).*(@.*)$/, '$1***$2') || 'unknown'
         });
       }
     });
