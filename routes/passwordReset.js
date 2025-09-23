@@ -198,15 +198,31 @@ router.post('/forgot-password',
           error: emailResult.error
         });
         
-        // Clear the reset token since email failed
-        user.clearPasswordResetFields();
-        await user.save();
-        
-        res.status(500).json({
-          success: false,
-          error: 'EMAIL_SEND_FAILED',
-          message: 'Failed to send reset email. Please try again later.'
-        });
+        // Enhanced error handling - don't clear token for timeout errors
+        // This allows manual email testing and retry functionality
+        if (emailResult.error && emailResult.error.includes('timeout')) {
+          // Keep token for debugging purposes, but inform user of email issue
+          res.status(202).json({
+            success: true,
+            error: 'EMAIL_DELIVERY_DELAYED',
+            message: 'Password reset request processed. If you don\'t receive an email within a few minutes, please contact support.',
+            debug: {
+              emailConfigurationIssue: true,
+              tokenGenerated: true,
+              userCanContactSupport: true
+            }
+          });
+        } else {
+          // Clear the reset token for other email failures
+          user.clearPasswordResetFields();
+          await user.save();
+          
+          res.status(500).json({
+            success: false,
+            error: 'EMAIL_SEND_FAILED',
+            message: 'Failed to send reset email. Please try again later.'
+          });
+        }
       }
       
     } catch (error) {

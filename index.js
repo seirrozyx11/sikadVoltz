@@ -27,6 +27,7 @@ import progressRoutes from './routes/progressRoutes.js';
 import healthScreeningRoutes from './routes/healthScreeningRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import passwordResetRoutes from './routes/passwordReset.js';
+import emailTestRoutes from './routes/emailTest.js';
 // Import services
 import RealTimeTelemetryService from './services/realTimeTelemetryService.js';
 import ScheduledTasksService from './services/scheduledTasksService.js';
@@ -154,6 +155,7 @@ app.use('/api/workout-history', workoutHistoryRoutes);
 app.use('/api/progress', progressRoutes);
 app.use('/api/profile', healthScreeningRoutes);
 app.use('/api/notifications', notificationRoutes);
+app.use('/api/email-test', emailTestRoutes);
 
 // Render-compatible health check (essential for deployment)
 app.get('/health', (req, res) => {

@@ -1,5 +1,27 @@
 /**
- * Email Service for Password Reset
+ * Email Service for       // Gmail SMTP configuration with timeout protection
+      this.transporter = nodemailer.createTransporter({
+        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+        port: parseInt(process.env.EMAIL_PORT) || 587,
+        secure: false, // true for 465, false for other ports
+        auth: {
+          user: process.env.EMAIL_USER,
+          pass: process.env.EMAIL_PASS
+        },
+        pool: true, // Use connection pooling
+        maxConnections: 5,
+        maxMessages: 100,
+        rateLimit: 10, // Max 10 emails per second
+        // Add timeout configurations to prevent hanging
+        connectionTimeout: 10000, // 10 seconds to establish connection
+        greetingTimeout: 5000,    // 5 seconds for server greeting
+        socketTimeout: 30000,     // 30 seconds for socket inactivity
+        // Add TLS configuration for Gmail
+        tls: {
+          ciphers: 'SSLv3',
+          rejectUnauthorized: false
+        }
+      });
  * 
  * Professional email service using Gmail SMTP with responsive templates
  * and comprehensive tracking for password reset functionality.
@@ -53,7 +75,7 @@ class EmailService {
   }
 
   /**
-   * Send password reset email
+   * Send password reset email with timeout protection
    */
   async sendPasswordResetEmail(email, resetToken, options = {}) {
     if (!this.isConfigured) {
@@ -62,11 +84,20 @@ class EmailService {
     }
 
     try {
+      // First verify the connection with short timeout
+      const verifyPromise = this.transporter.verify();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Connection timeout after 10 seconds')), 10000)
+      );
+      
+      await Promise.race([verifyPromise, timeoutPromise]);
+      logger.info('SMTP connection verified successfully');
+
       // Use deep link URL instead of web URL for mobile app
       const resetUrl = `sikadvoltz://reset-password?token=${resetToken}`;
       
       const mailOptions = {
-        from: `"SikadVoltz Security" <${process.env.EMAIL_FROM}>`,
+        from: `"SikadVoltz Security" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
         to: email,
         subject: options.isResend ? 
           '🔐 Password Reset Link (Resent) - SikadVoltz' : 
@@ -75,7 +106,13 @@ class EmailService {
         text: this.getPasswordResetTextTemplate(resetUrl, email, options)
       };
 
-      const result = await this.transporter.sendMail(mailOptions);
+      // Send email with timeout protection
+      const sendPromise = this.transporter.sendMail(mailOptions);
+      const sendTimeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('Email send timeout after 30 seconds')), 30000)
+      );
+      
+      const result = await Promise.race([sendPromise, sendTimeoutPromise]);
       
       logger.info('Password reset email sent successfully', {
         messageId: result.messageId,
@@ -96,6 +133,19 @@ class EmailService {
         isResend: options.isResend || false
       });
 
+      // Log specific timeout errors
+      if (error.message.includes('timeout')) {
+        logger.error('Email timeout details', {
+          errorType: 'CONNECTION_TIMEOUT',
+          configured: {
+            host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+            port: process.env.EMAIL_PORT || '587',
+            user: process.env.EMAIL_USER ? 'Set' : 'Not set',
+            pass: process.env.EMAIL_PASS ? 'Set' : 'Not set'
+          }
+        });
+      }
+
       return { 
         success: false, 
         error: error.message 
@@ -104,20 +154,55 @@ class EmailService {
   }
 
   /**
-   * Test email configuration
+   * Test email configuration with enhanced diagnostics
    */
   async testEmailConfiguration() {
     if (!this.isConfigured) {
-      return { success: false, error: 'Email service not configured' };
+      return { 
+        success: false, 
+        error: 'Email service not configured - missing EMAIL_USER or EMAIL_PASS',
+        details: {
+          EMAIL_USER: process.env.EMAIL_USER ? 'Set' : 'Missing',
+          EMAIL_PASS: process.env.EMAIL_PASS ? 'Set' : 'Missing',
+          EMAIL_HOST: process.env.EMAIL_HOST || 'Using default: smtp.gmail.com',
+          EMAIL_PORT: process.env.EMAIL_PORT || 'Using default: 587'
+        }
+      };
     }
 
     try {
-      await this.transporter.verify();
+      // Test with timeout protection
+      const verifyPromise = this.transporter.verify();
+      const timeoutPromise = new Promise((_, reject) => 
+        setTimeout(() => reject(new Error('SMTP verification timeout after 10 seconds')), 10000)
+      );
+      
+      await Promise.race([verifyPromise, timeoutPromise]);
       logger.info('Email configuration test successful');
-      return { success: true, message: 'Email service is working correctly' };
+      return { 
+        success: true, 
+        message: 'Email service is working correctly',
+        config: {
+          host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+          port: process.env.EMAIL_PORT || '587',
+          user: process.env.EMAIL_USER,
+          secure: false
+        }
+      };
     } catch (error) {
       logger.error('Email configuration test failed', { error: error.message });
-      return { success: false, error: error.message };
+      return { 
+        success: false, 
+        error: error.message,
+        troubleshooting: {
+          timeoutIssues: error.message.includes('timeout') ? 
+            'Check if EMAIL_USER and EMAIL_PASS are correctly set. For Gmail, use App Password, not regular password.' : null,
+          authIssues: error.message.includes('auth') ? 
+            'Authentication failed. Verify EMAIL_USER is correct and EMAIL_PASS is a valid Gmail App Password.' : null,
+          connectionIssues: error.message.includes('connect') ? 
+            'Cannot connect to SMTP server. Check network connectivity or try different EMAIL_HOST/EMAIL_PORT.' : null
+        }
+      };
     }
   }
 
