@@ -21,8 +21,15 @@ const TOKEN_BLACKLIST = new Set();
 /**
  * Middleware: Progressive Rate Limiting
  * Implements exponential backoff instead of hard limits
+ * TESTING MODE: Rate limiting disabled for unlimited testing
  */
 const progressiveRateLimit = async (req, res, next) => {
+  // TESTING: Skip rate limiting entirely for unlimited testing
+  if (process.env.NODE_ENV === 'development' || process.env.DISABLE_RATE_LIMIT === 'true') {
+    logger.info('Rate limiting disabled for testing purposes');
+    return next();
+  }
+  
   const clientIP = req.ip || req.connection.remoteAddress;
   const email = req.body.email?.toLowerCase();
   const key = `${clientIP}:${email}`;
