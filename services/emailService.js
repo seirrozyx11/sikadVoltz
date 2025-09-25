@@ -25,7 +25,7 @@ class EmailService {
       console.log('EMAIL_PASS:', process.env.EMAIL_PASS ? 'Set' : 'Not set');
       
       // Gmail SMTP configuration with environment variable support
-      const emailPort = parseInt(process.env.EMAIL_PORT) || 465;
+      const emailPort = parseInt(process.env.EMAIL_PORT) || 587;
       const isSSL = emailPort === 465;
       
       this.transporter = nodemailer.createTransporter({
@@ -128,7 +128,7 @@ class EmailService {
           errorType: 'CONNECTION_TIMEOUT',
           configured: {
             host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-            port: process.env.EMAIL_PORT || '465',
+            port: process.env.EMAIL_PORT || '587',
             user: process.env.EMAIL_USER ? 'Set' : 'Not set',
             pass: process.env.EMAIL_PASS ? 'Set' : 'Not set'
           }
@@ -154,7 +154,7 @@ class EmailService {
           EMAIL_USER: process.env.EMAIL_USER ? 'Set' : 'Missing',
           EMAIL_PASS: process.env.EMAIL_PASS ? 'Set' : 'Missing',
           EMAIL_HOST: process.env.EMAIL_HOST || 'Using default: smtp.gmail.com',
-          EMAIL_PORT: process.env.EMAIL_PORT || 'Using default: 465'
+          EMAIL_PORT: process.env.EMAIL_PORT || 'Using default: 587'
         }
       };
     }
@@ -173,7 +173,7 @@ class EmailService {
         message: 'Email service is working correctly',
         config: {
           host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-          port: process.env.EMAIL_PORT || '465',
+          port: process.env.EMAIL_PORT || '587',
           user: process.env.EMAIL_USER,
           secure: false
         }

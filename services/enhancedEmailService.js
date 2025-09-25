@@ -61,7 +61,7 @@ class EnhancedEmailService {
 
   setupGmailSMTP() {
     try {
-      const emailPort = parseInt(process.env.EMAIL_PORT) || 465;
+      const emailPort = parseInt(process.env.EMAIL_PORT) || 587;
       const isSSL = emailPort === 465;
       
       this.transporter = nodemailer.createTransporter({
