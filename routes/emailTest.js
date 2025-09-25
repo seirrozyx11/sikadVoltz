@@ -17,20 +17,27 @@ const router = express.Router();
  */
 router.get('/config', async (req, res) => {
   try {
+    const configuredPort = parseInt(process.env.EMAIL_PORT) || 587;
+    const isSecure = configuredPort === 465;
+    
     const config = {
-      isConfigured: emailService.isConfigured,
+      configured: emailService.isConfigured,
+      service: 'Gmail',
+      configuration: {
+        name: `Gmail ${isSecure ? 'SSL' : 'TLS'} (Port ${configuredPort})`,
+        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+        port: configuredPort,
+        secure: isSecure,
+        configuredInRender: true
+      },
       environment: {
-        EMAIL_HOST: process.env.EMAIL_HOST || 'Not set',
-        EMAIL_PORT: process.env.EMAIL_PORT || 'Not set',
+        EMAIL_HOST: process.env.EMAIL_HOST || 'Using defaults (smtp.gmail.com)',
+        EMAIL_PORT: process.env.EMAIL_PORT || 'Using defaults (587)',
         EMAIL_USER: process.env.EMAIL_USER ? 'Set' : 'Not set',
         EMAIL_PASS: process.env.EMAIL_PASS ? 'Set' : 'Not set',
-        EMAIL_FROM: process.env.EMAIL_FROM ? 'Set' : 'Not set'
+        EMAIL_FROM: process.env.EMAIL_FROM ? 'Set' : 'Using EMAIL_USER'
       },
-      defaults: {
-        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-        port: process.env.EMAIL_PORT || '465',
-        from: process.env.EMAIL_FROM || process.env.EMAIL_USER
-      }
+      renderOptimized: false // Single port as configured
     };
 
     res.json({
@@ -63,27 +70,28 @@ router.get('/config', async (req, res) => {
 
 /**
  * POST /api/email-test/connection
- * Test SMTP connection with dual-port fallback analysis
+ * Test SMTP connection using configured port (587)
  */
 router.post('/connection', async (req, res) => {
   const startTime = Date.now();
   
   try {
-    logger.info('Testing email connection with dual-port fallback...');
+    logger.info('Testing email connection using configured port 587...');
     
     const testResult = await emailService.testEmailConfiguration();
     const duration = Date.now() - startTime;
     
-    // Enhanced response for Render testing
+    // Response for single-port configuration
     res.json({
       success: testResult.success,
       message: testResult.message || testResult.error,
+      configuration: testResult.configuration,
       duration: `${duration}ms`,
       timestamp: new Date().toISOString(),
       renderOptimized: testResult.renderOptimized || false,
-      configurations: testResult.results || [],
       recommendation: testResult.recommendation || 'No specific recommendation',
-      hostingEnvironment: process.env.NODE_ENV === 'production' ? 'Render Production' : 'Local Development'
+      hostingEnvironment: process.env.NODE_ENV === 'production' ? 'Render Production' : 'Local Development',
+      configuredPort: process.env.EMAIL_PORT || '587'
     });
 
   } catch (error) {
