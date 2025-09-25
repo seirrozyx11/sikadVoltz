@@ -39,9 +39,12 @@ class RenderAPIEmailService {
     this.provider = 'SendGrid API';
     this.isConfigured = true;
     this.apiKey = process.env.SENDGRID_API_KEY;
-    this.fromEmail = process.env.EMAIL_FROM || process.env.EMAIL_USER || 'noreply@sikadvoltz.com';
+    this.fromEmail = process.env.EMAIL_FROM || 'noreply-support@sikadvoltz.com';
     
-    logger.info('SendGrid API email service configured (Render-compatible)');
+    logger.info('SendGrid API email service configured (Render-compatible)', {
+      fromEmail: this.fromEmail,
+      hasApiKey: !!this.apiKey
+    });
   }
 
   /**
