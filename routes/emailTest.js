@@ -6,7 +6,11 @@
  */
 
 import express from 'express';
-import emailService from '../services/renderEmailService.js'; // Use Render-optimized service
+import renderEmailService from '../services/renderEmailService.js';
+import renderAPIEmailService from '../services/renderAPIEmailService.js';
+import enhancedEmailService from '../services/enhancedEmailService.js';
+import emailService from '../services/emailService.js';
+import networkDiagnostics from '../utils/networkDiagnostics.js';
 import logger from '../utils/logger.js';
 
 const router = express.Router();
@@ -113,8 +117,113 @@ router.post('/connection', async (req, res) => {
 });
 
 /**
+ * GET /api/email-test/network-diagnostics
+ * Test network connectivity to SMTP servers
+ */
+router.get('/network-diagnostics', async (req, res) => {
+  try {
+    const NetworkDiagnostics = (await import('../utils/networkDiagnostics.js')).default;
+    const diagnostics = new NetworkDiagnostics();
+    
+    logger.info('Running network diagnostics for SMTP connectivity...');
+    
+    const results = await diagnostics.testSMTPConnectivity();
+    
+    res.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV === 'production' ? 'Render Production' : 'Local Development',
+      diagnosis: results.smtpBlocked ? 'SMTP ports likely blocked by hosting provider' : 'Network connectivity issues',
+      recommendation: results.smtpBlocked ? 'Use API-based email services (SendGrid, Mailgun)' : 'Check network configuration',
+      httpConnectivity: results.httpConnectivity,
+      smtpBlocked: results.smtpBlocked
+    });
+
+  } catch (error) {
+    logger.error('Network diagnostics failed', { error: error.message });
+    res.status(500).json({
+      success: false,
+      error: 'Network diagnostics failed',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * GET /api/email-test/service-comparison
+ * Compare all available email services
+ */
+router.get('/service-comparison', async (req, res) => {
+  try {
+    const services = [];
+    
+    // Test SendGrid API service (Render-compatible)
+    try {
+      const apiResult = await renderAPIEmailService.testEmailConfiguration();
+      services.push({
+        name: 'SendGrid API (Recommended for Render)',
+        ...apiResult,
+        priority: 1,
+        renderCompatible: true
+      });
+    } catch (error) {
+      services.push({
+        name: 'SendGrid API',
+        success: false,
+        error: error.message,
+        priority: 1,
+        renderCompatible: true
+      });
+    }
+
+    // Test SMTP services (likely to fail on Render)
+    try {
+      const renderResult = await renderEmailService.testEmailConfiguration();
+      services.push({
+        name: 'Gmail SMTP (Render Optimized)',
+        ...renderResult,
+        priority: 2,
+        renderCompatible: false,
+        warning: 'SMTP blocked on Render'
+      });
+    } catch (error) {
+      services.push({
+        name: 'Gmail SMTP (Render Optimized)',
+        success: false,
+        error: error.message,
+        priority: 2,
+        renderCompatible: false
+      });
+    }
+
+    // Determine recommendation
+    const workingService = services.find(s => s.success);
+    const recommendation = workingService ? 
+      `Use ${workingService.name}` : 
+      'Set up SendGrid API - see SENDGRID_SETUP_GUIDE.md';
+
+    res.json({
+      success: true,
+      timestamp: new Date().toISOString(),
+      environment: process.env.NODE_ENV === 'production' ? 'Render Production' : 'Local Development',
+      services,
+      recommendation,
+      setupGuide: 'See SENDGRID_SETUP_GUIDE.md for complete setup instructions'
+    });
+
+  } catch (error) {
+    logger.error('Service comparison failed', { error: error.message });
+    res.status(500).json({
+      success: false,
+      error: 'Service comparison failed',
+      details: error.message
+    });
+  }
+});
+
+/**
  * POST /api/email-test/send-test
- * Send a test email (use sparingly)
+ * Send a test email using the API service (Render-compatible)
  */
 router.post('/send-test', async (req, res) => {
   const { testEmail } = req.body;
@@ -132,7 +241,8 @@ router.post('/send-test', async (req, res) => {
     // Create a simple test reset token for testing
     const testToken = 'test_' + Math.random().toString(36).substr(2, 32);
     
-    const result = await emailService.sendPasswordResetEmail(testEmail, testToken, {
+    // Use the NEW API-based service (should work on Render)
+    const result = await renderAPIEmailService.sendPasswordResetEmail(testEmail, testToken, {
       firstName: 'Test User',
       isResend: false
     });
@@ -142,9 +252,11 @@ router.post('/send-test', async (req, res) => {
     res.json({
       success: result.success,
       messageId: result.messageId,
+      provider: result.provider,
       error: result.error,
       duration: `${duration}ms`,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      renderCompatible: true
     });
 
   } catch (error) {
