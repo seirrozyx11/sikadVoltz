@@ -63,22 +63,27 @@ router.get('/config', async (req, res) => {
 
 /**
  * POST /api/email-test/connection
- * Test SMTP connection without sending emails
+ * Test SMTP connection with dual-port fallback analysis
  */
 router.post('/connection', async (req, res) => {
   const startTime = Date.now();
   
   try {
-    logger.info('Testing email connection...');
+    logger.info('Testing email connection with dual-port fallback...');
     
     const testResult = await emailService.testEmailConfiguration();
     const duration = Date.now() - startTime;
     
+    // Enhanced response for Render testing
     res.json({
       success: testResult.success,
       message: testResult.message || testResult.error,
       duration: `${duration}ms`,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      renderOptimized: testResult.renderOptimized || false,
+      configurations: testResult.results || [],
+      recommendation: testResult.recommendation || 'No specific recommendation',
+      hostingEnvironment: process.env.NODE_ENV === 'production' ? 'Render Production' : 'Local Development'
     });
 
   } catch (error) {
@@ -93,7 +98,8 @@ router.post('/connection', async (req, res) => {
       success: false,
       error: error.message,
       duration: `${duration}ms`,
-      timestamp: new Date().toISOString()
+      timestamp: new Date().toISOString(),
+      hostingEnvironment: process.env.NODE_ENV === 'production' ? 'Render Production' : 'Local Development'
     });
   }
 });

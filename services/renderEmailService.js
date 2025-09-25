@@ -27,37 +27,65 @@ class RenderEmailService {
       console.log('EMAIL_PORT:', process.env.EMAIL_PORT);
       console.log('EMAIL_PASS:', process.env.EMAIL_PASS ? 'Set' : 'Not set');
       
-      // Single optimized SMTP configuration using environment variables
-      // Port 465 (SSL) proved to be most reliable in testing
-      const emailPort = parseInt(process.env.EMAIL_PORT) || 465;
-      const isSSL = emailPort === 465;
+      // Render-optimized dual-port fallback strategy
+      // Primary: User's configured port, Fallback: Alternative port for Render reliability
+      const primaryPort = parseInt(process.env.EMAIL_PORT) || 465;
+      const fallbackPort = primaryPort === 465 ? 587 : 465;
       
-      this.smtpConfig = {
-        name: `Gmail ${isSSL ? 'SSL' : 'TLS'} (Port ${emailPort})`,
-        config: {
-          host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-          port: emailPort,
-          secure: isSSL, // true for 465 (SSL), false for 587 (TLS)
-          auth: {
-            user: process.env.EMAIL_USER,
-            pass: process.env.EMAIL_PASS
-          },
-          pool: true,
-          maxConnections: 1, // Conservative for Render
-          maxMessages: 10,
-          rateLimit: 1, // Slow rate for Render
-          connectionTimeout: 15000,
-          greetingTimeout: 10000,
-          socketTimeout: 45000,
-          tls: {
-            rejectUnauthorized: false
+      this.smtpConfigs = [
+        // Primary configuration (user's preferred port)
+        {
+          name: `Gmail ${primaryPort === 465 ? 'SSL' : 'TLS'} (Port ${primaryPort})`,
+          config: {
+            host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+            port: primaryPort,
+            secure: primaryPort === 465,
+            auth: {
+              user: process.env.EMAIL_USER,
+              pass: process.env.EMAIL_PASS
+            },
+            pool: true,
+            maxConnections: 1,
+            maxMessages: 10,
+            rateLimit: 1,
+            connectionTimeout: 12000, // Shorter timeout for faster fallback
+            greetingTimeout: 8000,
+            socketTimeout: 30000,
+            tls: {
+              rejectUnauthorized: false
+            }
+          }
+        },
+        // Fallback configuration (alternative port for Render)
+        {
+          name: `Gmail ${fallbackPort === 465 ? 'SSL' : 'TLS'} (Port ${fallbackPort}) - Render Fallback`,
+          config: {
+            host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+            port: fallbackPort,
+            secure: fallbackPort === 465,
+            auth: {
+              user: process.env.EMAIL_USER,
+              pass: process.env.EMAIL_PASS
+            },
+            pool: true,
+            maxConnections: 1,
+            maxMessages: 5,
+            rateLimit: 1,
+            connectionTimeout: 20000, // Longer timeout for fallback
+            greetingTimeout: 15000,
+            socketTimeout: 60000,
+            tls: {
+              rejectUnauthorized: false
+            }
           }
         }
-      };
+      ];
 
-      // Create transporter with the configured settings
-      this.transporter = nodemailer.createTransport(this.smtpConfig.config);
-      this.currentConfigName = this.smtpConfig.name;
+      this.currentConfigIndex = 0;
+
+      // Start with primary configuration
+      this.transporter = nodemailer.createTransport(this.smtpConfigs[0].config);
+      this.currentConfigName = this.smtpConfigs[0].name;
 
       this.isConfigured = !!(process.env.EMAIL_USER && process.env.EMAIL_PASS);
       
@@ -73,15 +101,34 @@ class RenderEmailService {
   }
 
   /**
-   * Recreate transporter (for connection refresh if needed)
+   * Try fallback SMTP configuration when primary fails
    */
-  refreshConnection() {
-    this.transporter = nodemailer.createTransport(this.smtpConfig.config);
-    logger.info(`Refreshed connection for ${this.currentConfigName}`);
+  tryFallbackConfiguration() {
+    if (this.currentConfigIndex < this.smtpConfigs.length - 1) {
+      this.currentConfigIndex++;
+      const fallbackConfig = this.smtpConfigs[this.currentConfigIndex];
+      this.transporter = nodemailer.createTransport(fallbackConfig.config);
+      this.currentConfigName = fallbackConfig.name;
+      
+      logger.info(`Switching to fallback: ${this.currentConfigName}`);
+      return true;
+    }
+    return false;
   }
 
   /**
-   * Send password reset email with timeout protection
+   * Reset to primary configuration
+   */
+  resetToPrimaryConfiguration() {
+    this.currentConfigIndex = 0;
+    const primaryConfig = this.smtpConfigs[0];
+    this.transporter = nodemailer.createTransport(primaryConfig.config);
+    this.currentConfigName = primaryConfig.name;
+    logger.info(`Reset to primary: ${this.currentConfigName}`);
+  }
+
+  /**
+   * Send password reset email with dual-port fallback for Render reliability
    */
   async sendPasswordResetEmail(email, resetToken, options = {}) {
     if (!this.isConfigured) {
@@ -89,71 +136,112 @@ class RenderEmailService {
       return { success: false, error: 'Email service not configured' };
     }
 
-    try {
-      logger.info(`Sending email using ${this.currentConfigName}`);
-      
-      // Test connection with timeout protection
-      const verifyPromise = this.transporter.verify();
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error(`Connection timeout after 15 seconds with ${this.currentConfigName}`)), 15000)
-      );
-      
-      await Promise.race([verifyPromise, timeoutPromise]);
-      logger.info(`${this.currentConfigName} connection verified successfully`);
+    let lastError = null;
+    let attempts = 0;
+    const maxAttempts = this.smtpConfigs.length;
 
-      // Use deep link URL instead of web URL for mobile app
-      const resetUrl = `sikadvoltz://reset-password?token=${resetToken}`;
-      
-      const mailOptions = {
-        from: `"SikadVoltz Security" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
-        to: email,
-        subject: options.isResend ? 
-          '🔐 Password Reset Link (Resent) - SikadVoltz' : 
-          '🔐 Reset Your SikadVoltz Password',
-        html: this.getPasswordResetTemplate(resetUrl, email, options),
-        text: this.getPasswordResetTextTemplate(resetUrl, email, options)
-      };
+    // Try primary first, then fallback if needed
+    while (attempts < maxAttempts) {
+      try {
+        attempts++;
+        
+        logger.info(`Email attempt ${attempts}/${maxAttempts} using ${this.currentConfigName}`);
+        
+        // Test connection with shorter timeout for faster fallback
+        const verifyPromise = this.transporter.verify();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error(`Connection timeout after 12 seconds with ${this.currentConfigName}`)), 12000)
+        );
+        
+        await Promise.race([verifyPromise, timeoutPromise]);
+        logger.info(`${this.currentConfigName} connection verified successfully`);
 
-      // Send email with timeout protection
-      const sendPromise = this.transporter.sendMail(mailOptions);
-      const sendTimeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error(`Email send timeout after 45 seconds with ${this.currentConfigName}`)), 45000)
-      );
-      
-      const result = await Promise.race([sendPromise, sendTimeoutPromise]);
-      
-      logger.info('Password reset email sent successfully', {
-        messageId: result.messageId,
-        email: email.replace(/^(.{2}).*(@.*)$/, '$1***$2'),
-        configuration: this.currentConfigName,
-        isResend: options.isResend || false
-      });
+        // Use deep link URL instead of web URL for mobile app
+        const resetUrl = `sikadvoltz://reset-password?token=${resetToken}`;
+        
+        const mailOptions = {
+          from: `"SikadVoltz Security" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
+          to: email,
+          subject: options.isResend ? 
+            '🔐 Password Reset Link (Resent) - SikadVoltz' : 
+            '🔐 Reset Your SikadVoltz Password',
+          html: this.getPasswordResetTemplate(resetUrl, email, options),
+          text: this.getPasswordResetTextTemplate(resetUrl, email, options)
+        };
 
-      return { 
-        success: true, 
-        messageId: result.messageId,
-        acceptedRecipients: result.accepted,
-        configuration: this.currentConfigName
-      };
+        // Send email with timeout protection
+        const sendPromise = this.transporter.sendMail(mailOptions);
+        const sendTimeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error(`Email send timeout after 30 seconds with ${this.currentConfigName}`)), 30000)
+        );
+        
+        const result = await Promise.race([sendPromise, sendTimeoutPromise]);
+        
+        logger.info('Password reset email sent successfully', {
+          messageId: result.messageId,
+          email: email.replace(/^(.{2}).*(@.*)$/, '$1***$2'),
+          configuration: this.currentConfigName,
+          attempt: attempts,
+          isResend: options.isResend || false
+        });
 
-    } catch (error) {
-      logger.error(`Email failed with ${this.currentConfigName}`, {
-        error: error.message,
-        email: email.replace(/^(.{2}).*(@.*)$/, '$1***$2'),
-        configuration: this.currentConfigName,
-        isResend: options.isResend || false
-      });
+        // Reset to primary config for next time if fallback was used
+        if (this.currentConfigIndex !== 0) {
+          this.resetToPrimaryConfiguration();
+        }
 
-      return { 
-        success: false, 
-        error: error.message,
-        configuration: this.currentConfigName
-      };
+        return { 
+          success: true, 
+          messageId: result.messageId,
+          acceptedRecipients: result.accepted,
+          configuration: this.currentConfigName,
+          attempt: attempts
+        };
+
+      } catch (error) {
+        lastError = error;
+        
+        logger.error(`Email attempt ${attempts}/${maxAttempts} failed with ${this.currentConfigName}`, {
+          error: error.message,
+          email: email.replace(/^(.{2}).*(@.*)$/, '$1***$2'),
+          configuration: this.currentConfigName,
+          isResend: options.isResend || false
+        });
+
+        // Try fallback configuration if available
+        if (attempts < maxAttempts) {
+          const hasFallback = this.tryFallbackConfiguration();
+          if (!hasFallback) {
+            break; // No more configurations to try
+          }
+          
+          // Brief delay before trying fallback
+          await new Promise(resolve => setTimeout(resolve, 1000));
+        }
+      }
     }
+
+    // All configurations failed
+    logger.error('All email configurations failed', {
+      totalAttempts: attempts,
+      lastError: lastError?.message,
+      email: email.replace(/^(.{2}).*(@.*)$/, '$1***$2'),
+      allConfigurations: this.smtpConfigs.map(c => c.name)
+    });
+
+    // Reset to primary configuration for next time
+    this.resetToPrimaryConfiguration();
+
+    return { 
+      success: false, 
+      error: lastError?.message || 'All email configurations failed',
+      totalAttempts: attempts,
+      configurationsAttempted: this.smtpConfigs.slice(0, attempts).map(c => c.name)
+    };
   }
 
   /**
-   * Test email configuration
+   * Test both email configurations for Render compatibility
    */
   async testEmailConfiguration() {
     if (!this.isConfigured) {
@@ -169,49 +257,61 @@ class RenderEmailService {
       };
     }
 
-    try {
-      const verifyPromise = this.transporter.verify();
-      const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error('Verification timeout after 15 seconds')), 15000)
-      );
+    const results = [];
+    let successfulConfig = null;
+
+    // Test both configurations
+    for (let i = 0; i < this.smtpConfigs.length; i++) {
+      const config = this.smtpConfigs[i];
+      const testTransporter = nodemailer.createTransport(config.config);
       
-      const startTime = Date.now();
-      await Promise.race([verifyPromise, timeoutPromise]);
-      const duration = Date.now() - startTime;
-      
-      logger.info(`${this.currentConfigName} test successful in ${duration}ms`);
-      
-      return { 
-        success: true,
-        message: `Email configuration working: ${this.currentConfigName}`,
-        configuration: this.currentConfigName,
-        duration: `${duration}ms`,
-        details: {
-          host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-          port: process.env.EMAIL_PORT || '465',
-          user: process.env.EMAIL_USER,
-          secure: parseInt(process.env.EMAIL_PORT) === 465
-        }
-      };
+      try {
+        const verifyPromise = testTransporter.verify();
+        const timeoutPromise = new Promise((_, reject) => 
+          setTimeout(() => reject(new Error('Verification timeout after 12 seconds')), 12000)
+        );
         
-    } catch (error) {
-      logger.error(`${this.currentConfigName} test failed`, { error: error.message });
-      
-      return { 
-        success: false,
-        message: `Email configuration failed: ${this.currentConfigName}`,
-        configuration: this.currentConfigName,
-        error: error.message,
-        troubleshooting: {
-          timeoutIssues: error.message.includes('timeout') ? 
-            'Check if EMAIL_USER and EMAIL_PASS are correctly set. For Gmail, use App Password, not regular password.' : null,
-          authIssues: error.message.includes('auth') ? 
-            'Authentication failed. Verify EMAIL_USER is correct and EMAIL_PASS is a valid Gmail App Password.' : null,
-          connectionIssues: error.message.includes('connect') ? 
-            'Cannot connect to SMTP server. Check network connectivity or try different EMAIL_HOST/EMAIL_PORT.' : null
+        const startTime = Date.now();
+        await Promise.race([verifyPromise, timeoutPromise]);
+        const duration = Date.now() - startTime;
+        
+        results.push({
+          configuration: config.name,
+          success: true,
+          duration: `${duration}ms`,
+          message: 'Connection successful'
+        });
+        
+        if (!successfulConfig) {
+          successfulConfig = config.name;
         }
-      };
+        
+        logger.info(`${config.name} test successful in ${duration}ms`);
+        
+      } catch (error) {
+        results.push({
+          configuration: config.name,
+          success: false,
+          error: error.message
+        });
+        
+        logger.error(`${config.name} test failed`, { error: error.message });
+      }
+      
+      testTransporter.close();
     }
+
+    return { 
+      success: !!successfulConfig,
+      message: successfulConfig ? 
+        `Working configuration found: ${successfulConfig}` : 
+        'All configurations failed - check network and credentials',
+      results: results,
+      recommendation: successfulConfig ? 
+        `Render can use ${successfulConfig} for email delivery` : 
+        'Consider checking Render firewall rules or alternative email service',
+      renderOptimized: true
+    };
   }
 
   // Template methods (same as before)
