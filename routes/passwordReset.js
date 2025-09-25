@@ -8,7 +8,7 @@
 import express from 'express';
 import User from '../models/User.js';
 import passwordResetService from '../services/passwordResetService.js';
-import emailService from '../services/emailService.js';
+import emailService from '../services/renderEmailService.js'; // Use Render-optimized service
 import logger from '../utils/logger.js';
 import { body, validationResult } from 'express-validator';
 

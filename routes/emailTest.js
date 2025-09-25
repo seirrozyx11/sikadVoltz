@@ -6,7 +6,7 @@
  */
 
 import express from 'express';
-import emailService from '../services/emailService.js';
+import emailService from '../services/renderEmailService.js'; // Use Render-optimized service
 import logger from '../utils/logger.js';
 
 const router = express.Router();
@@ -28,7 +28,7 @@ router.get('/config', async (req, res) => {
       },
       defaults: {
         host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-        port: process.env.EMAIL_PORT || '587',
+        port: process.env.EMAIL_PORT || '465',
         from: process.env.EMAIL_FROM || process.env.EMAIL_USER
       }
     };

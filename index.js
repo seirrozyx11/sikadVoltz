@@ -28,6 +28,7 @@ import healthScreeningRoutes from './routes/healthScreeningRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import passwordResetRoutes from './routes/passwordReset.js';
 import emailTestRoutes from './routes/emailTest.js';
+import adminTokenRoutes from './routes/adminTokenRetrieval.js';
 // Import services
 import RealTimeTelemetryService from './services/realTimeTelemetryService.js';
 import ScheduledTasksService from './services/scheduledTasksService.js';
@@ -156,6 +157,7 @@ app.use('/api/progress', progressRoutes);
 app.use('/api/profile', healthScreeningRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/email-test', emailTestRoutes);
+app.use('/api/admin', adminTokenRoutes);
 
 // Render-compatible health check (essential for deployment)
 app.get('/health', (req, res) => {

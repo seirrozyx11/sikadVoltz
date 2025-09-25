@@ -1,27 +1,5 @@
 /**
- * Email Service for       // Gmail SMTP configuration with timeout protection
-      this.transporter = nodemailer.createTransporter({
-        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-        port: parseInt(process.env.EMAIL_PORT) || 587,
-        secure: false, // true for 465, false for other ports
-        auth: {
-          user: process.env.EMAIL_USER,
-          pass: process.env.EMAIL_PASS
-        },
-        pool: true, // Use connection pooling
-        maxConnections: 5,
-        maxMessages: 100,
-        rateLimit: 10, // Max 10 emails per second
-        // Add timeout configurations to prevent hanging
-        connectionTimeout: 10000, // 10 seconds to establish connection
-        greetingTimeout: 5000,    // 5 seconds for server greeting
-        socketTimeout: 30000,     // 30 seconds for socket inactivity
-        // Add TLS configuration for Gmail
-        tls: {
-          ciphers: 'SSLv3',
-          rejectUnauthorized: false
-        }
-      });
+ * Email Service
  * 
  * Professional email service using Gmail SMTP with responsive templates
  * and comprehensive tracking for password reset functionality.
@@ -46,11 +24,14 @@ class EmailService {
       console.log('EMAIL_PORT:', process.env.EMAIL_PORT);
       console.log('EMAIL_PASS:', process.env.EMAIL_PASS ? 'Set' : 'Not set');
       
-      // Gmail SMTP configuration
-      this.transporter = nodemailer.createTransport({
-        host: process.env.EMAIL_HOST,
-        port: process.env.EMAIL_PORT,
-        secure: false, // true for 465, false for other ports
+      // Gmail SMTP configuration with environment variable support
+      const emailPort = parseInt(process.env.EMAIL_PORT) || 465;
+      const isSSL = emailPort === 465;
+      
+      this.transporter = nodemailer.createTransporter({
+        host: process.env.EMAIL_HOST || 'smtp.gmail.com',
+        port: emailPort,
+        secure: isSSL, // true for 465 (SSL), false for 587 (TLS)
         auth: {
           user: process.env.EMAIL_USER,
           pass: process.env.EMAIL_PASS
@@ -58,7 +39,15 @@ class EmailService {
         pool: true, // Use connection pooling
         maxConnections: 5,
         maxMessages: 100,
-        rateLimit: 10 // Max 10 emails per second
+        rateLimit: 10, // Max 10 emails per second
+        // Add timeout configurations to prevent hanging
+        connectionTimeout: 10000, // 10 seconds to establish connection
+        greetingTimeout: 5000,    // 5 seconds for server greeting
+        socketTimeout: 30000,     // 30 seconds for socket inactivity
+        // Add TLS configuration for Gmail
+        tls: {
+          rejectUnauthorized: false
+        }
       });
 
       this.isConfigured = !!(process.env.EMAIL_USER && process.env.EMAIL_PASS);
@@ -139,7 +128,7 @@ class EmailService {
           errorType: 'CONNECTION_TIMEOUT',
           configured: {
             host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-            port: process.env.EMAIL_PORT || '587',
+            port: process.env.EMAIL_PORT || '465',
             user: process.env.EMAIL_USER ? 'Set' : 'Not set',
             pass: process.env.EMAIL_PASS ? 'Set' : 'Not set'
           }
@@ -165,7 +154,7 @@ class EmailService {
           EMAIL_USER: process.env.EMAIL_USER ? 'Set' : 'Missing',
           EMAIL_PASS: process.env.EMAIL_PASS ? 'Set' : 'Missing',
           EMAIL_HOST: process.env.EMAIL_HOST || 'Using default: smtp.gmail.com',
-          EMAIL_PORT: process.env.EMAIL_PORT || 'Using default: 587'
+          EMAIL_PORT: process.env.EMAIL_PORT || 'Using default: 465'
         }
       };
     }
@@ -184,7 +173,7 @@ class EmailService {
         message: 'Email service is working correctly',
         config: {
           host: process.env.EMAIL_HOST || 'smtp.gmail.com',
-          port: process.env.EMAIL_PORT || '587',
+          port: process.env.EMAIL_PORT || '465',
           user: process.env.EMAIL_USER,
           secure: false
         }
