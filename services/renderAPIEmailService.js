@@ -94,12 +94,12 @@ class RenderAPIEmailService {
         },
         content: [
           {
-            type: 'text/html',
-            value: this.getPasswordResetTemplate(resetUrl, email, options)
-          },
-          {
             type: 'text/plain', 
             value: this.getPasswordResetTextTemplate(resetUrl, email, options)
+          },
+          {
+            type: 'text/html',
+            value: this.getPasswordResetTemplate(resetUrl, email, options)
           }
         ]
       };
