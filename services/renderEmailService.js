@@ -46,9 +46,9 @@ class RenderEmailService {
           maxConnections: 1,
           maxMessages: 10,
           rateLimit: 1,
-          connectionTimeout: 15000, // Standard timeout for single config
-          greetingTimeout: 10000,
-          socketTimeout: 45000,
+          connectionTimeout: 8000, // Optimized timeout for faster failure detection
+          greetingTimeout: 5000,
+          socketTimeout: 30000,
           tls: {
             rejectUnauthorized: false
           }
@@ -98,95 +98,89 @@ class RenderEmailService {
       return { success: false, error: 'Email service not configured' };
     }
 
+    // Prepare email options outside try block to avoid scope issues
+    const resetUrl = `sikadvoltz://reset-password?token=${resetToken}`;
+    const mailOptions = {
+      from: `"SikadVoltz Security" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
+      to: email,
+      subject: options.isResend ? 
+        '🔐 Password Reset Link (Resent) - SikadVoltz' : 
+        '🔐 Reset Your SikadVoltz Password',
+      html: this.getPasswordResetTemplate(resetUrl, email, options),
+      text: this.getPasswordResetTextTemplate(resetUrl, email, options)
+    };
+
+    // Try sending email with optimized timeout and retry logic
+    return await this.attemptEmailSend(mailOptions, email, options);
+  }
+
+  /**
+   * Attempt to send email with smart retry logic
+   */
+  async attemptEmailSend(mailOptions, email, options, isRetry = false) {
     try {
-      logger.info(`Sending password reset email using ${this.currentConfigName}`);
+      const attempt = isRetry ? 'retry' : 'initial';
+      logger.info(`Sending password reset email (${attempt}) using ${this.currentConfigName}`);
       
-      // Test connection with configured timeout
+      // Quick connection test with reduced timeout (8 seconds)
       const verifyPromise = this.transporter.verify();
       const timeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error(`Connection timeout after 15 seconds with ${this.currentConfigName}`)), 15000)
+        setTimeout(() => reject(new Error(`Connection timeout after 8 seconds with ${this.currentConfigName}`)), 8000)
       );
       
       await Promise.race([verifyPromise, timeoutPromise]);
       logger.info(`${this.currentConfigName} connection verified successfully`);
 
-      // Use deep link URL instead of web URL for mobile app
-      const resetUrl = `sikadvoltz://reset-password?token=${resetToken}`;
-      
-      const mailOptions = {
-        from: `"SikadVoltz Security" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
-        to: email,
-        subject: options.isResend ? 
-          '🔐 Password Reset Link (Resent) - SikadVoltz' : 
-          '🔐 Reset Your SikadVoltz Password',
-        html: this.getPasswordResetTemplate(resetUrl, email, options),
-        text: this.getPasswordResetTextTemplate(resetUrl, email, options)
-      };
-
-      // Send email with timeout protection
+      // Send email with timeout protection (25 seconds)
       const sendPromise = this.transporter.sendMail(mailOptions);
       const sendTimeoutPromise = new Promise((_, reject) => 
-        setTimeout(() => reject(new Error(`Email send timeout after 30 seconds with ${this.currentConfigName}`)), 30000)
+        setTimeout(() => reject(new Error(`Email send timeout after 25 seconds with ${this.currentConfigName}`)), 25000)
       );
       
       const result = await Promise.race([sendPromise, sendTimeoutPromise]);
       
-      logger.info('Password reset email sent successfully', {
+      logger.info(`Password reset email sent successfully${isRetry ? ' on retry' : ''}`, {
         messageId: result.messageId,
         email: email.replace(/^(.{2}).*(@.*)$/, '$1***$2'),
         configuration: this.currentConfigName,
-        isResend: options.isResend || false
+        isResend: options.isResend || false,
+        retried: isRetry
       });
 
       return { 
         success: true, 
         messageId: result.messageId,
         acceptedRecipients: result.accepted,
-        configuration: this.currentConfigName
+        configuration: this.currentConfigName,
+        retried: isRetry
       };
 
     } catch (error) {
-      logger.error(`Email send failed with ${this.currentConfigName}`, {
+      logger.error(`Email send failed (${isRetry ? 'retry' : 'initial'}) with ${this.currentConfigName}`, {
         error: error.message,
         email: email.replace(/^(.{2}).*(@.*)$/, '$1***$2'),
         isResend: options.isResend || false
       });
 
-      // Try recreating the transporter once in case of connection issues
-      if (error.message.includes('timeout') || error.message.includes('connection')) {
-        logger.info('Attempting to recreate email transporter...');
-        const recreated = this.recreateTransporter();
+      // Only attempt retry on first failure and if it's a connection issue
+      if (!isRetry && (error.message.includes('timeout') || error.message.includes('connection'))) {
+        logger.info('Connection issue detected, attempting one retry with fresh transporter...');
         
+        // Recreate transporter for retry
+        const recreated = this.recreateTransporter();
         if (recreated) {
-          try {
-            logger.info('Retrying email send with recreated transporter...');
-            const result = await this.transporter.sendMail(mailOptions);
-            
-            logger.info('Password reset email sent successfully on retry', {
-              messageId: result.messageId,
-              email: email.replace(/^(.{2}).*(@.*)$/, '$1***$2'),
-              configuration: this.currentConfigName,
-              isResend: options.isResend || false
-            });
-
-            return { 
-              success: true, 
-              messageId: result.messageId,
-              acceptedRecipients: result.accepted,
-              configuration: this.currentConfigName,
-              retried: true
-            };
-          } catch (retryError) {
-            logger.error('Email retry also failed', { error: retryError.message });
-          }
+          // Short delay before retry
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          return await this.attemptEmailSend(mailOptions, email, options, true);
         }
       }
 
-      // If all retry attempts failed
+      // Final failure
       return { 
         success: false, 
         error: error.message || 'Email send failed',
-        configuration: this.currentConfigName
+        configuration: this.currentConfigName,
+        finalAttempt: true
       };
     }
   }
