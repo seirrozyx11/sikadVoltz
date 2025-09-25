@@ -39,11 +39,13 @@ class RenderAPIEmailService {
     this.provider = 'SendGrid API';
     this.isConfigured = true;
     this.apiKey = process.env.SENDGRID_API_KEY;
+    
+    // Prioritize EMAIL_FROM for SendGrid, fallback to verified sender
     this.fromEmail = process.env.EMAIL_FROM || 'noreply-support@sikadvoltz.com';
     
     logger.info('SendGrid API email service configured (Render-compatible)', {
-      fromEmail: this.fromEmail,
-      hasApiKey: !!this.apiKey
+      fromEmail: this.fromEmail.replace(/^(.{8}).*(@.*)$/, '$1***$2'),
+      provider: 'SendGrid API'
     });
   }
 
