@@ -339,31 +339,70 @@ class RenderAPIEmailService {
                     </div>
                 </div>
                 
-                <!-- Cross-Platform Instructions -->
+                <!-- Alternative Verification Methods -->
                 <div style="background-color: #f8f9ff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin: 20px 0;">
-                    <h4 style="color: #333; margin-top: 0;">📱 Reading this on PC/Web?</h4>
-                    <p style="color: #666; font-size: 14px; margin-bottom: 15px;">
-                        The button above only works when clicked from your mobile device. Here are your options:
-                    </p>
+                    <h3 style="color: #333; margin-top: 0;">� Multiple Ways to Reset Your Password</h3>
                     
+                    ${options.replyCode ? `
+                    <!-- Method 1: Email Reply -->
+                    <div style="background-color: #ffffff; border-left: 4px solid #4CAF50; padding: 15px; margin: 10px 0;">
+                        <strong style="color: #333;">✉️ Method 1: Reply to this Email (Recommended)</strong><br>
+                        <span style="color: #666; font-size: 13px;">Simply reply to this email with ONLY this code:</span><br>
+                        <div style="background-color: #f0f8f0; border: 2px solid #4CAF50; border-radius: 8px; padding: 10px; margin: 8px 0; text-align: center;">
+                            <code style="font-size: 18px; font-weight: bold; color: #2E7D32; font-family: monospace;">
+                                ${options.replyCode}
+                            </code>
+                        </div>
+                        <span style="color: #666; font-size: 12px;">
+                            • Don't change the subject line<br>
+                            • Include only the 6-digit code above<br>
+                            • Reply from the same email address
+                        </span>
+                    </div>
+                    ` : ''}
+                    
+                    <!-- Method 2: Manual Token Entry -->
                     <div style="background-color: #ffffff; border-left: 4px solid #92A3FD; padding: 15px; margin: 10px 0;">
-                        <strong style="color: #333;">Option 1: Forward this email</strong><br>
-                        <span style="color: #666; font-size: 13px;">Forward this email to your mobile device and click the button there</span>
+                        <strong style="color: #333;">📱 Method 2: Manual Token Entry</strong><br>
+                        <span style="color: #666; font-size: 13px;">Open this webpage on any device to get your reset token:</span><br>
+                        ${options.manualVerifyUrl ? `
+                        <div style="margin: 8px 0;">
+                            <a href="${options.manualVerifyUrl}" 
+                               style="color: #92A3FD; text-decoration: underline; font-size: 13px; word-break: break-all;">
+                                Manual Reset Page →
+                            </a>
+                        </div>
+                        ` : ''}
+                        <span style="color: #666; font-size: 12px;">
+                            • Works on any device (PC, mobile, tablet)<br>
+                            • Copy token and paste in SikadVoltz app<br>
+                            • No email client issues
+                        </span>
                     </div>
                     
-                    <div style="background-color: #ffffff; border-left: 4px solid #92A3FD; padding: 15px; margin: 10px 0;">
-                        <strong style="color: #333;">Option 2: Copy this link to your mobile browser</strong><br>
-                        <code style="background-color: #f0f0f0; padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 11px; word-break: break-all; display: inline-block; margin-top: 5px;">
-                            ${resetUrl}
-                        </code>
+                    <!-- Method 3: Forward Email -->
+                    <div style="background-color: #ffffff; border-left: 4px solid #FF9800; padding: 15px; margin: 10px 0;">
+                        <strong style="color: #333;">📧 Method 3: Forward This Email</strong><br>
+                        <span style="color: #666; font-size: 13px;">Forward this email to your mobile device and try the button again</span><br>
+                        <span style="color: #666; font-size: 12px;">
+                            • Sometimes works better on different email apps<br>
+                            • Try Gmail mobile app if using web version<br>
+                            • Button works better on mobile devices
+                        </span>
                     </div>
                     
-                    <div style="background-color: #ffffff; border-left: 4px solid #92A3FD; padding: 15px; margin: 10px 0;">
-                        <strong style="color: #333;">Option 3: Manual reset</strong><br>
-                        <span style="color: #666; font-size: 13px;">Open SikadVoltz app → "Forgot Password?" → Contact support with token: </span>
+                    <!-- Method 4: Contact Support -->
+                    <div style="background-color: #ffffff; border-left: 4px solid #9E9E9E; padding: 15px; margin: 10px 0;">
+                        <strong style="color: #333;">🆘 Method 4: Contact Support</strong><br>
+                        <span style="color: #666; font-size: 13px;">If none of the above work, contact support with this reference:</span><br>
                         <code style="background-color: #f0f0f0; padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 11px;">
-                            ${resetToken.substring(0, 16)}...
-                        </code>
+                            REF: ${resetToken.substring(0, 16)}...
+                        </code><br>
+                        <span style="color: #666; font-size: 12px;">
+                            • Include this reference number<br>
+                            • We can manually verify your identity<br>
+                            • Available 24/7 through the app
+                        </span>
                     </div>
                 </div>
                 

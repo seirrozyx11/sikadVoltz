@@ -9,6 +9,7 @@ import express from 'express';
 import User from '../models/User.js';
 import passwordResetService from '../services/passwordResetService.js';
 import emailService from '../services/renderAPIEmailService.js'; // Use Render-compatible API service
+import emailReplyService from '../services/emailReplyVerificationService.js';
 import logger from '../utils/logger.js';
 import { body, validationResult } from 'express-validator';
 
@@ -179,12 +180,17 @@ router.post('/forgot-password',
       // Save user with new token
       await user.save();
       
-      // Send reset email (this will be implemented in emailService)
+      // Generate email reply verification code
+      const replyCode = emailReplyService.generateReplyCode(user.email, resetToken);
+      
+      // Send reset email with multiple verification options
       const emailResult = await emailService.sendPasswordResetEmail(user.email, resetToken, {
         firstName: user.firstName,
         clientIP,
         userAgent,
-        suspiciousActivity: suspiciousActivity.riskLevel
+        suspiciousActivity: suspiciousActivity.riskLevel,
+        replyCode,
+        manualVerifyUrl: `${req.protocol}://${req.get('host')}/api/password-reset/manual-verify/${resetToken}`
       });
       
       if (emailResult.success) {
@@ -536,10 +542,15 @@ router.post('/resend-reset',
       const resetToken = passwordResetService.generateResetToken(user);
       await user.save();
       
-      // Resend email
+      // Generate new reply code for resend
+      const replyCode = emailReplyService.generateReplyCode(user.email, resetToken);
+      
+      // Resend email with all verification options
       const emailResult = await emailService.sendPasswordResetEmail(user.email, resetToken, {
         firstName: user.firstName,
-        isResend: true
+        isResend: true,
+        replyCode,
+        manualVerifyUrl: `${req.protocol}://${req.get('host')}/api/password-reset/manual-verify/${resetToken}`
       });
       
       if (emailResult.success) {
@@ -570,6 +581,190 @@ router.post('/resend-reset',
     }
   }
 );
+
+/**
+ * POST /api/password-reset/verify-email-code
+ * Verify password reset using email reply code (Alternative method)
+ */
+router.post('/verify-email-code',
+  [
+    body('email').isEmail().normalizeEmail(),
+    body('token').isLength({ min: 64, max: 64 }).isAlphanumeric(),
+    body('code').isLength({ min: 6, max: 6 }).isNumeric(),
+  ],
+  async (req, res) => {
+    const { email, token, code } = req.body;
+    const clientIP = req.ip || req.connection.remoteAddress;
+    
+    try {
+      // Validate input
+      const errors = validationResult(req);
+      if (!errors.isEmpty()) {
+        return res.status(400).json({
+          success: false,
+          error: 'VALIDATION_ERROR',
+          message: 'Invalid input provided',
+          details: errors.array()
+        });
+      }
+      
+      // Verify the email reply code
+      const verificationResult = await emailReplyService.verifyReplyCode(email, token, code);
+      
+      if (!verificationResult.success) {
+        return res.status(400).json(verificationResult);
+      }
+      
+      // Verify that the token is still valid in the database
+      const crypto = await import('crypto');
+      const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+      
+      const user = await User.findOne({
+        email: email.toLowerCase(),
+        resetPasswordToken: hashedToken,
+        resetPasswordExpires: { $gt: new Date() }
+      });
+      
+      if (!user) {
+        return res.status(400).json({
+          success: false,
+          error: 'INVALID_RESET_REQUEST',
+          message: 'Invalid or expired password reset request.'
+        });
+      }
+      
+      logger.info('Email code verification successful', {
+        userId: user._id,
+        email: email.replace(/^(.{2}).*(@.*)$/, '$1***$2'),
+        ip: clientIP,
+        method: 'email_reply'
+      });
+      
+      res.json({
+        success: true,
+        message: 'Email verification successful. You can now reset your password.',
+        verificationMethod: 'email_reply',
+        tokenValid: true
+      });
+      
+    } catch (error) {
+      logger.error('Email code verification failed', {
+        error: error.message,
+        email: email.replace(/^(.{2}).*(@.*)$/, '$1***$2'),
+        ip: clientIP
+      });
+      
+      res.status(500).json({
+        success: false,
+        error: 'SERVER_ERROR',
+        message: 'Error verifying email code.'
+      });
+    }
+  }
+);
+
+/**
+ * GET /api/password-reset/manual-verify/:token
+ * Web page for manual token entry (Alternative method)
+ */
+router.get('/manual-verify/:token', async (req, res) => {
+  const { token } = req.params;
+  
+  try {
+    if (!token || token.length !== 64) {
+      return res.status(400).send(`
+        <html>
+          <head><title>Invalid Reset Link - SikadVoltz</title></head>
+          <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+            <h2>❌ Invalid Reset Link</h2>
+            <p>The password reset link is invalid or malformed.</p>
+            <a href="sikadvoltz://app" style="color: #92A3FD;">Open SikadVoltz App</a>
+          </body>
+        </html>
+      `);
+    }
+    
+    // Check token validity
+    const crypto = await import('crypto');
+    const hashedToken = crypto.createHash('sha256').update(token).digest('hex');
+    
+    const user = await User.findOne({
+      resetPasswordToken: hashedToken,
+      resetPasswordExpires: { $gt: new Date() }
+    });
+    
+    if (!user) {
+      return res.send(`
+        <html>
+          <head><title>Expired Reset Link - SikadVoltz</title></head>
+          <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+            <h2>⏰ Reset Link Expired</h2>
+            <p>This password reset link has expired or is invalid.</p>
+            <p>Please request a new password reset from the app.</p>
+            <a href="sikadvoltz://app" style="color: #92A3FD;">Open SikadVoltz App</a>
+          </body>
+        </html>
+      `);
+    }
+    
+    // Display manual verification page
+    res.send(`
+      <html>
+        <head>
+          <title>Manual Password Reset - SikadVoltz</title>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            body { font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; padding: 20px; }
+            .container { background: #f8f9ff; border-radius: 10px; padding: 30px; text-align: center; }
+            .token { background: #e8f0ff; border: 2px solid #92A3FD; border-radius: 8px; padding: 15px; margin: 20px 0; word-break: break-all; font-family: monospace; }
+            .instructions { text-align: left; background: white; padding: 20px; border-radius: 8px; margin: 20px 0; }
+            .app-link { display: inline-block; background: #92A3FD; color: white; text-decoration: none; padding: 12px 24px; border-radius: 25px; margin: 10px; }
+          </style>
+        </head>
+        <body>
+          <div class="container">
+            <h2>🔐 Manual Password Reset</h2>
+            <p>Copy the token below and paste it in your SikadVoltz mobile app:</p>
+            
+            <div class="token">${token}</div>
+            
+            <div class="instructions">
+              <h3>📱 Instructions:</h3>
+              <ol>
+                <li><strong>Open SikadVoltz App</strong> on your mobile device</li>
+                <li>Go to <strong>"Forgot Password?"</strong></li>
+                <li>Select <strong>"I have a reset token"</strong></li>
+                <li><strong>Copy and paste</strong> the token above</li>
+                <li>Create your new password</li>
+              </ol>
+            </div>
+            
+            <a href="sikadvoltz://reset-password?token=${token}" class="app-link">
+              📱 Open in App (if on mobile)
+            </a>
+            
+            <p style="font-size: 14px; color: #666; margin-top: 30px;">
+              This token expires in 15 minutes for security.
+            </p>
+          </div>
+        </body>
+      </html>
+    `);
+    
+  } catch (error) {
+    logger.error('Manual verification page error', { error: error.message });
+    res.status(500).send(`
+      <html>
+        <head><title>Error - SikadVoltz</title></head>
+        <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
+          <h2>❌ Error</h2>
+          <p>An error occurred while loading the password reset page.</p>
+          <a href="sikadvoltz://app" style="color: #92A3FD;">Open SikadVoltz App</a>
+        </body>
+      </html>
+    `);
+  }
+});
 
 // Cleanup blacklisted tokens periodically (every hour)
 setInterval(() => {
