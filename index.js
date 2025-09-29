@@ -352,7 +352,8 @@ const startServer = async () => {
     // Make telemetry service available to routes
     app.locals.telemetryService = telemetryService;
     
-    server.listen(PORT, () => {
+    // Listen on all interfaces (0.0.0.0) to support ADB port forwarding for USB debugging
+    server.listen(PORT, '0.0.0.0', () => {
       const startupMessage = `
       ============================================
        ${IS_RENDER ? 'Render Production' : 'Local Development'} Server
