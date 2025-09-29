@@ -1,7 +1,7 @@
 // routes/profileRoutes.js
 import express from 'express';
 // import multer from 'multer'; // Temporarily commented out
-import { completeProfile, getProfileStatus, getProfile } from '../controllers/profileController.js'; // Removed uploadProfileImage temporarily
+import { completeProfile, updateProfile, getProfileStatus, getProfile } from '../controllers/profileController.js'; // Removed uploadProfileImage temporarily
 import authenticateToken from '../middleware/authenticateToken.js';
 
 const router = express.Router();
@@ -22,6 +22,7 @@ const router = express.Router();
 // });
 
 router.post('/complete', authenticateToken, completeProfile);
+router.put('/update', authenticateToken, updateProfile); // NEW: Flexible profile updates
 router.get('/status', authenticateToken, getProfileStatus);
 router.get('/me', authenticateToken, getProfile);
 // router.post('/upload-image', authenticateToken, upload.single('profileImage'), uploadProfileImage); // Temporarily disabled

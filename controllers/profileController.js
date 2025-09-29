@@ -2,6 +2,11 @@ import User from '../models/User.js';
 // import { v2 as cloudinary } from 'cloudinary';
 import { Readable } from 'stream';
 
+// Helper function to check if profile is complete
+const checkProfileComplete = (profile) => {
+  return !!(profile.gender && profile.birthDate && profile.weight && profile.height && profile.activityLevel);
+};
+
 // Configure Cloudinary (you'll need to set these environment variables)
 // cloudinary.config({
 //   cloud_name: process.env.CLOUDINARY_CLOUD_NAME,
@@ -86,6 +91,101 @@ export const completeProfile = async (req, res) => {
     res.status(500).json({
       success: false,
       error: 'Server error during profile completion',
+      details: process.env.NODE_ENV === 'development' ? error.message : undefined,
+    });
+  }
+};
+
+// NEW: Flexible profile update for progressive profiling
+export const updateProfile = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    const updates = req.body;
+
+    // Check if userId exists
+    if (!userId) {
+      return res.status(401).json({
+        success: false,
+        error: 'Unauthorized: User ID not found in token',
+      });
+    }
+
+    // Find user first
+    const existingUser = await User.findById(userId);
+    if (!existingUser) {
+      return res.status(404).json({
+        success: false,
+        error: 'User not found',
+      });
+    }
+
+    // Allow partial updates - only validate provided fields
+    const allowedFields = ['gender', 'birthDate', 'weight', 'height', 'activityLevel'];
+    const profileUpdates = {};
+    
+    for (const field of allowedFields) {
+      if (updates[field] !== undefined && updates[field] !== null) {
+        if (field === 'birthDate') {
+          profileUpdates[field] = new Date(updates[field]);
+        } else if (field === 'weight' || field === 'height') {
+          profileUpdates[field] = Number(updates[field]);
+        } else {
+          profileUpdates[field] = updates[field];
+        }
+      }
+    }
+
+    if (Object.keys(profileUpdates).length === 0) {
+      return res.status(400).json({
+        success: false,
+        error: 'No valid profile fields provided',
+        allowedFields,
+      });
+    }
+
+    // Build update object with dot notation for nested fields
+    const updateObject = {};
+    for (const [key, value] of Object.entries(profileUpdates)) {
+      updateObject[`profile.${key}`] = value;
+    }
+
+    // Check if profile will be complete after this update
+    const currentProfile = existingUser.profile || {};
+    const updatedProfile = { ...currentProfile.toObject?.() || currentProfile, ...profileUpdates };
+    const willBeComplete = checkProfileComplete(updatedProfile);
+    
+    if (willBeComplete) {
+      updateObject.profileCompleted = true;
+    }
+
+    // Update user with new profile data
+    const updatedUser = await User.findByIdAndUpdate(
+      userId,
+      { $set: updateObject },
+      { new: true }
+    );
+
+    if (!updatedUser) {
+      return res.status(500).json({
+        success: false,
+        error: 'Failed to update profile',
+      });
+    }
+
+    // Success response
+    res.status(200).json({
+      success: true,
+      message: 'Profile updated successfully',
+      data: updatedUser.profile,
+      profileCompleted: updatedUser.profileCompleted,
+      updatedFields: Object.keys(profileUpdates),
+    });
+
+  } catch (error) {
+    console.error('Profile update error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Server error during profile update',
       details: process.env.NODE_ENV === 'development' ? error.message : undefined,
     });
   }
