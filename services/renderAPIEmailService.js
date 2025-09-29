@@ -253,7 +253,24 @@ class RenderAPIEmailService {
     <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
+        <meta name="x-apple-disable-message-reformatting">
+        <meta name="format-detection" content="telephone=no">
         <title>Reset Your SikadVoltz Password</title>
+        <style>
+            /* Mobile-specific styles */
+            @media only screen and (max-width: 600px) {
+                .mobile-center { text-align: center !important; }
+                .mobile-padding { padding: 10px !important; }
+                .mobile-font { font-size: 16px !important; }
+            }
+            /* Ensure links are clickable */
+            a { color: #92A3FD !important; }
+            .button-link { 
+                color: white !important; 
+                text-decoration: none !important;
+                -webkit-text-size-adjust: none;
+            }
+        </style>
     </head>
     <body style="font-family: Arial, sans-serif; line-height: 1.6; margin: 0; padding: 0; background-color: #f4f4f4;">
         <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
@@ -285,14 +302,41 @@ class RenderAPIEmailService {
                     </p>
                 </div>
                 
-                <!-- Reset Button -->
+                <!-- Reset Button - Mobile Optimized -->
                 <div style="text-align: center; margin: 30px 0;">
-                    <a href="${resetUrl}" 
-                       style="display: inline-block; background: linear-gradient(135deg, #92A3FD 0%, #9DCEFF 100%); 
-                              color: white; text-decoration: none; padding: 15px 30px; border-radius: 25px; 
-                              font-weight: bold; font-size: 16px;">
-                        Reset Password in App
-                    </a>
+                    <!-- Wrapper table for better email client compatibility -->
+                    <table role="presentation" style="margin: 0 auto;">
+                        <tr>
+                            <td style="background: linear-gradient(135deg, #92A3FD 0%, #9DCEFF 100%); 
+                                       background-color: #92A3FD; border-radius: 25px; text-align: center;">
+                                <a href="${resetUrl}" 
+                                   class="button-link"
+                                   style="display: inline-block; color: white !important; text-decoration: none !important; 
+                                          padding: 18px 35px; border-radius: 25px; font-weight: bold; 
+                                          font-size: 18px; line-height: 1.2; mso-hide: all; 
+                                          -webkit-text-size-adjust: none; -webkit-touch-callout: default;">
+                                    🔐 Reset Password in App
+                                </a>
+                            </td>
+                        </tr>
+                    </table>
+                </div>
+                
+                <!-- Fallback Link for Email Clients -->
+                <div style="text-align: center; margin: 15px 0;">
+                    <p style="color: #666; font-size: 14px; margin-bottom: 10px;">
+                        <strong>Can't click the button above?</strong>
+                    </p>
+                    <div style="background-color: #f8f9ff; border: 1px solid #92A3FD; border-radius: 8px; 
+                                padding: 15px; margin: 10px 0; word-break: break-all;">
+                        <p style="color: #333; font-size: 14px; margin: 0 0 8px 0;">
+                            Copy and open this link in your mobile browser:
+                        </p>
+                        <a href="${resetUrl}" style="color: #92A3FD; text-decoration: underline; 
+                                                    font-family: monospace; font-size: 13px; word-break: break-all;">
+                            ${resetUrl}
+                        </a>
+                    </div>
                 </div>
                 
                 <!-- Cross-Platform Instructions -->
