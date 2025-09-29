@@ -282,7 +282,7 @@ router.post('/verify-reset-token',
       const user = await User.findOne({
         resetPasswordToken: hashedToken,
         resetPasswordExpires: { $gt: new Date() }
-      });
+      }).select('+resetPasswordToken +resetPasswordExpires');
       
       if (!user) {
         logger.warn('Invalid or expired reset token verification attempt', {
@@ -299,6 +299,23 @@ router.post('/verify-reset-token',
       
       // Calculate time remaining
       const expiresAt = new Date(user.resetPasswordExpires);
+      
+      // Check if the date is valid
+      if (isNaN(expiresAt.getTime())) {
+        logger.error('Invalid resetPasswordExpires date', {
+          userId: user._id,
+          resetPasswordExpires: user.resetPasswordExpires,
+          tokenHash: hashedToken.substring(0, 8) + '...',
+          ip: clientIP
+        });
+        
+        return res.status(400).json({
+          success: false,
+          error: 'INVALID_TOKEN_DATA',
+          message: 'Reset token data is corrupted. Please request a new password reset.'
+        });
+      }
+      
       const timeRemaining = Math.max(0, expiresAt.getTime() - Date.now());
       const minutesRemaining = Math.ceil(timeRemaining / 60000);
       
