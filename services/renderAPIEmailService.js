@@ -243,6 +243,10 @@ class RenderAPIEmailService {
   getPasswordResetTemplate(resetUrl, email, options = {}) {
     const isResend = options.isResend || false;
     
+    // Extract token from resetUrl for fallback display
+    const tokenMatch = resetUrl.match(/token=([^&]+)/);
+    const resetToken = tokenMatch ? tokenMatch[1] : 'TOKEN_NOT_FOUND';
+    
     return `
     <!DOCTYPE html>
     <html>
