@@ -291,6 +291,19 @@ class RenderAPIEmailService {
                     </a>
                 </div>
                 
+                <!-- Manual Token Option (Fallback) -->
+                <div style="background-color: #f8f9ff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin: 20px 0;">
+                    <h4 style="color: #333; margin-top: 0;">📱 If the button doesn't work:</h4>
+                    <p style="color: #666; font-size: 14px; margin-bottom: 10px;">
+                        1. Open your SikadVoltz app manually<br>
+                        2. Go to "Forgot Password?"<br>
+                        3. If needed, contact support with this token:
+                    </p>
+                    <code style="background-color: #f0f0f0; padding: 8px; border-radius: 4px; font-family: monospace; font-size: 12px; word-break: break-all;">
+                        ${resetToken.substring(0, 16)}...
+                    </code>
+                </div>
+                
                 <!-- Security Notice -->
                 <div style="border-top: 1px solid #eee; padding-top: 20px; margin-top: 30px;">
                     <p style="color: #999; font-size: 14px; margin-bottom: 10px;">
