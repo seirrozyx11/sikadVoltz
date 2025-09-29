@@ -295,17 +295,32 @@ class RenderAPIEmailService {
                     </a>
                 </div>
                 
-                <!-- Manual Token Option (Fallback) -->
+                <!-- Cross-Platform Instructions -->
                 <div style="background-color: #f8f9ff; border: 1px solid #e0e0e0; border-radius: 8px; padding: 20px; margin: 20px 0;">
-                    <h4 style="color: #333; margin-top: 0;">📱 If the button doesn't work:</h4>
-                    <p style="color: #666; font-size: 14px; margin-bottom: 10px;">
-                        1. Open your SikadVoltz app manually<br>
-                        2. Go to "Forgot Password?"<br>
-                        3. If needed, contact support with this token:
+                    <h4 style="color: #333; margin-top: 0;">📱 Reading this on PC/Web?</h4>
+                    <p style="color: #666; font-size: 14px; margin-bottom: 15px;">
+                        The button above only works when clicked from your mobile device. Here are your options:
                     </p>
-                    <code style="background-color: #f0f0f0; padding: 8px; border-radius: 4px; font-family: monospace; font-size: 12px; word-break: break-all;">
-                        ${resetToken.substring(0, 16)}...
-                    </code>
+                    
+                    <div style="background-color: #ffffff; border-left: 4px solid #92A3FD; padding: 15px; margin: 10px 0;">
+                        <strong style="color: #333;">Option 1: Forward this email</strong><br>
+                        <span style="color: #666; font-size: 13px;">Forward this email to your mobile device and click the button there</span>
+                    </div>
+                    
+                    <div style="background-color: #ffffff; border-left: 4px solid #92A3FD; padding: 15px; margin: 10px 0;">
+                        <strong style="color: #333;">Option 2: Copy this link to your mobile browser</strong><br>
+                        <code style="background-color: #f0f0f0; padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 11px; word-break: break-all; display: inline-block; margin-top: 5px;">
+                            ${resetUrl}
+                        </code>
+                    </div>
+                    
+                    <div style="background-color: #ffffff; border-left: 4px solid #92A3FD; padding: 15px; margin: 10px 0;">
+                        <strong style="color: #333;">Option 3: Manual reset</strong><br>
+                        <span style="color: #666; font-size: 13px;">Open SikadVoltz app → "Forgot Password?" → Contact support with token: </span>
+                        <code style="background-color: #f0f0f0; padding: 4px 8px; border-radius: 4px; font-family: monospace; font-size: 11px;">
+                            ${resetToken.substring(0, 16)}...
+                        </code>
+                    </div>
                 </div>
                 
                 <!-- Security Notice -->
