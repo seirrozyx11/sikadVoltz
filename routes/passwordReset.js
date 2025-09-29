@@ -398,12 +398,12 @@ router.post('/reset-password',
       // Save user (password will be hashed, reset fields cleared)
       await user.save();
       
-      // Send confirmation email
-      await emailService.sendPasswordChangedConfirmation(user.email, {
-        firstName: user.firstName,
-        resetIP: clientIP,
-        resetTime: new Date()
-      });
+      // TODO: Send confirmation email (function not implemented yet)
+      // await emailService.sendPasswordChangedConfirmation(user.email, {
+      //   firstName: user.firstName,
+      //   resetIP: clientIP,
+      //   resetTime: new Date()
+      // });
       
       logger.info('Password reset completed successfully', {
         userId: user._id,
