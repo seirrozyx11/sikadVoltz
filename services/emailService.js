@@ -28,7 +28,7 @@ class EmailService {
       const emailPort = parseInt(process.env.EMAIL_PORT) || 587;
       const isSSL = emailPort === 465;
       
-      this.transporter = nodemailer.createTransporter({
+      this.transporter = nodemailer.createTransport({
         host: process.env.EMAIL_HOST || 'smtp.gmail.com',
         port: emailPort,
         secure: isSSL, // true for 465 (SSL), false for 587 (TLS)

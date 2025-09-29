@@ -37,7 +37,7 @@ class EnhancedEmailService {
   setupSendGrid() {
     try {
       // Use SendGrid API via nodemailer
-      this.transporter = nodemailer.createTransporter({
+      this.transporter = nodemailer.createTransport({
         service: 'SendGrid',
         auth: {
           user: 'apikey',
@@ -64,7 +64,7 @@ class EnhancedEmailService {
       const emailPort = parseInt(process.env.EMAIL_PORT) || 587;
       const isSSL = emailPort === 465;
       
-      this.transporter = nodemailer.createTransporter({
+      this.transporter = nodemailer.createTransport({
         host: process.env.EMAIL_HOST || 'smtp.gmail.com',
         port: emailPort,
         secure: isSSL, // true for 465 (SSL), false for 587 (TLS)
