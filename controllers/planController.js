@@ -56,7 +56,7 @@ export const createPlan = async (req, res) => {
     // --- Plan Classification Framework ---
     // Classify plan type based on daily cycling hours
     // --- Plan Classification Framework ---
-    // Specific ranges: 0.75-1hr=Safe, 1.1-2hr=Recommended, >2hr=Risky
+    // Specific ranges: 0.75-1hr=Safe, 1.1-2hr=Recommended, 2.1-3hr=Risky
     let planType = "Recommended";
     if (planData.planSummary && planData.planSummary.dailyCyclingHours) {
       const hours = planData.planSummary.dailyCyclingHours;
@@ -64,8 +64,10 @@ export const createPlan = async (req, res) => {
         planType = "Safe (45min - 1hr)";
       } else if (hours > 1.0 && hours <= 2.0) {
         planType = "Recommended (1.1hr - 2hr)";
-      } else if (hours > 2.0) {
-        planType = "Risky (2.1hr and above)";
+      } else if (hours > 2.0 && hours <= 3.0) {
+        planType = "Risky (2.1hr - 3hr)";
+      } else if (hours > 3.0) {
+        planType = "Unsafe (above 3hr limit)";
       } else {
         planType = "Below healthy minimum (<45min)";
       }

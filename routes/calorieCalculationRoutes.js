@@ -74,10 +74,10 @@ router.post('/calculate-plan', authenticateToken, async (req, res) => {
         const caloriesPerHour = calculateCyclingCaloriesDirect(user.profile.weight, 1, 'moderate');
         const dailyCyclingHours = dailyCalorieGoal / caloriesPerHour;
         
-        if (dailyCyclingHours > 4) {
+        if (dailyCyclingHours > 3) {
             return res.status(400).json({
                 success: false,
-                error: 'Daily cycling hours exceed 4 hours - unsafe limit',
+                error: 'Daily cycling hours exceed 3 hours - unsafe limit',
                 recommendation: 'Please extend the plan duration or reduce weight loss goal'
             });
         }

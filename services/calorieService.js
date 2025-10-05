@@ -199,9 +199,9 @@ export async function generateCyclingPlan(userId, goalId) {
     const caloriesPerHour = calculateCyclingCaloriesDirect(user.profile.weight, 1, 'moderate');
     const dailyCyclingHours = dailyCalorieGoal / caloriesPerHour;
     
-    // Feasibility Check: Fail if daily_cycling_hours > 4 (exceeds safe limits)
-    if (dailyCyclingHours > 4) {
-        throw new Error('Daily cycling hours exceed 4 hours - unsafe limit');
+    // Feasibility Check: Fail if daily_cycling_hours > 3 (exceeds safe limits)
+    if (dailyCyclingHours > 3) {
+        throw new Error('Daily cycling hours exceed 3 hours - unsafe limit');
     }
     
     const totalCyclingHours = dailyCyclingHours * totalDays;
@@ -270,7 +270,7 @@ export function getDailyHours(plan, dayIndex) {
     
     // Calculate today's requirement: planned + carried over missed hours
     const hoursToday = session.plannedHours + session.adjustedHours;
-    return Math.min(hoursToday, 4); // Cap at 4 hours max per day
+    return Math.min(hoursToday, 3); // Cap at 3 hours max per day
 }
 
 // Update session progress in real-time during cycling
@@ -387,7 +387,7 @@ export async function emergencyCatchUp(planId) {
     const hoursPerSession = plan.totalMissedHours / pendingSessions.length;
     
     pendingSessions.forEach(session => {
-        const additionalHours = Math.min(hoursPerSession, 4 - session.plannedHours);
+        const additionalHours = Math.min(hoursPerSession, 3 - session.plannedHours);
         session.adjustedHours += additionalHours;
     });
     
