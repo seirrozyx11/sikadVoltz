@@ -12,7 +12,7 @@ import logger from './utils/logger.js';
 import environmentValidator from './utils/environmentValidator.js';
 import SecurityMiddleware from './middleware/security.js';
 import { initWebSocket, getWebSocketService } from './services/websocketService.js';
-// import esp32BLEBridge from './services/esp32_ble_bridge.js'; // Disabled for testing
+import esp32BLEBridge from './services/esp32_ble_bridge.js'; // Enabled for real-time ESP32 communication
 
 // Import routes
 import authRouter from './routes/auth.js';
@@ -488,13 +488,22 @@ const startServer = async () => {
         }
       })();
       
-      // Initialize ESP32 BLE Bridge on a separate port (disabled for now)
+      // Initialize ESP32 BLE Bridge for real-time communication
       try {
-        // esp32BLEBridge.initialize(server, PORT + 1);
-        console.log('⚠️  ESP32 BLE Bridge disabled for testing');
+        if (IS_RENDER) {
+          // On Render: Use the same server instance for WebSocket (port sharing)
+          esp32BLEBridge.initialize(server, PORT);
+          console.log('✅ ESP32 BLE Bridge enabled on same port as main server:', PORT);
+          logger.info(`ESP32 BLE Bridge WebSocket server active on port ${PORT} (Render production)`);
+        } else {
+          // Local development: Use separate port
+          esp32BLEBridge.initialize(server, PORT + 1);
+          console.log('✅ ESP32 BLE Bridge enabled on port', PORT + 1);
+          logger.info(`ESP32 BLE Bridge WebSocket server active on port ${PORT + 1} (local development)`);
+        }
       } catch (error) {
-        logger.warn('ESP32 BLE Bridge failed to start:', error);
-        console.warn('⚠️  ESP32 BLE Bridge not available');
+        logger.error('ESP32 BLE Bridge failed to start:', error);
+        console.error('❌ ESP32 BLE Bridge startup failed:', error.message);
       }
     });
 

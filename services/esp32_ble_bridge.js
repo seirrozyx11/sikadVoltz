@@ -18,17 +18,31 @@ class ESP32BLEBridge {
    */
   initialize(server, port = 3001) {
     try {
-      this.wss = new WebSocketServer({ 
-        port,
-        perMessageDeflate: false
-      });
+      // Check if we should use the existing server (for Render) or create new one (local dev)
+      const isRender = process.env.RENDER;
+      
+      if (isRender && server) {
+        // Production (Render): Attach to existing HTTP server
+        this.wss = new WebSocketServer({ 
+          server,  // Use existing HTTP server
+          path: '/esp32-bridge',  // Specific path for ESP32 WebSocket connections
+          perMessageDeflate: false
+        });
+        logger.info(`ESP32 BLE Bridge attached to main server on path /esp32-bridge`);
+        console.log(`🔗 ESP32 BLE Bridge WebSocket server running on main server path /esp32-bridge`);
+      } else {
+        // Local development: Create separate WebSocket server
+        this.wss = new WebSocketServer({ 
+          port,
+          perMessageDeflate: false
+        });
+        logger.info(`ESP32 BLE Bridge started on port ${port}`);
+        console.log(`🔗 ESP32 BLE Bridge WebSocket server running on port ${port}`);
+      }
 
       this.wss.on('connection', (ws, req) => {
         this.handleConnection(ws, req);
       });
-
-      logger.info(`ESP32 BLE Bridge started on port ${port}`);
-      console.log(`🔗 ESP32 BLE Bridge WebSocket server running on port ${port}`);
       
     } catch (error) {
       logger.error('Failed to start ESP32 BLE Bridge:', error);
