@@ -64,8 +64,8 @@ export const createPlan = async (req, res) => {
         plan: plan._id,
         startDate: plan.dailySessions[0]?.date || plan.createdAt,
         endDate: new Date(),
-        status: 'replaced', // Status indicating plan was replaced by new plan
-        resetReason: 'New plan created',
+        status: 'abandoned', // Status indicating plan was replaced by new plan
+        resetReason: 'user_request',
         notes: 'Plan automatically archived when user created a new plan',
         statistics: {
           totalSessions: plan.dailySessions.length,
@@ -93,7 +93,7 @@ export const createPlan = async (req, res) => {
       
       // Deactivate the plan
       plan.isActive = false;
-      plan.status = 'replaced';
+      plan.status = 'abandoned';
       await plan.save();
     }
 
