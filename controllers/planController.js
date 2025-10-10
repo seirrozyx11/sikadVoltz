@@ -19,6 +19,7 @@ import {
   getMissedSessionSummary
 } from '../services/missedSessionDetector.js';
 import CyclingPlan from '../models/CyclingPlan.js';
+import WorkoutHistory from '../models/WorkoutHistory.js';
 import User from '../models/User.js'; // 🚨 ADD: User model import for profile access
 import SessionTrackerService from '../services/session_tracker_service.js';
 import logger from '../utils/logger.js'; // 🚨 ADD: Logger import for real-time session updates
@@ -45,11 +46,56 @@ export const createPlan = async (req, res) => {
       return errorResponse(res, 401, 'Authentication required');
     }
 
-    // Deactivate all existing active plans for this user before creating a new one
-    await CyclingPlan.updateMany(
-      { user: userId, isActive: true },
-      { $set: { isActive: false } }
-    );
+    // Find and archive all existing active plans for this user before creating a new one
+    const existingActivePlans = await CyclingPlan.find({ 
+      user: userId, 
+      isActive: true 
+    }).populate('goal');
+
+    // Archive each existing active plan to WorkoutHistory
+    for (const plan of existingActivePlans) {
+      const completedSessions = plan.dailySessions.filter(s => s.status === 'completed');
+      const missedSessions = plan.dailySessions.filter(s => s.status === 'missed');
+      const totalCaloriesBurned = plan.dailySessions.reduce((sum, s) => sum + (s.caloriesBurned || 0), 0);
+
+      // Create workout history entry
+      const workoutHistory = new WorkoutHistory({
+        user: userId,
+        plan: plan._id,
+        startDate: plan.dailySessions[0]?.date || plan.createdAt,
+        endDate: new Date(),
+        status: 'replaced', // Status indicating plan was replaced by new plan
+        resetReason: 'New plan created',
+        notes: 'Plan automatically archived when user created a new plan',
+        statistics: {
+          totalSessions: plan.dailySessions.length,
+          completedSessions: completedSessions.length,
+          missedSessions: missedSessions.length,
+          totalHours: plan.planSummary.totalCyclingHours,
+          completedHours: plan.completedHours || 0,
+          caloriesBurned: totalCaloriesBurned,
+          averageIntensity: plan.planSummary.averageIntensity || 2,
+          originalGoal: {
+            type: plan.goal.type,
+            targetValue: plan.goal.targetValue,
+            timeframe: plan.goal.timeframe
+          }
+        },
+        planSummary: {
+          planType: plan.planType,
+          dailyCyclingHours: plan.planSummary.dailyCyclingHours,
+          totalPlanDays: plan.planSummary.totalPlanDays,
+          completionRate: plan.dailySessions.length > 0 ? (completedSessions.length / plan.dailySessions.length) * 100 : 0
+        }
+      });
+
+      await workoutHistory.save();
+      
+      // Deactivate the plan
+      plan.isActive = false;
+      plan.status = 'replaced';
+      await plan.save();
+    }
 
     const planData = await generateCyclingPlan(userId, goalId);
 
@@ -71,7 +117,10 @@ export const createPlan = async (req, res) => {
     planObj.planType = cyclingPlan.planType;
     res.status(201).json({
       success: true,
-      data: planObj
+      data: planObj,
+      message: existingActivePlans.length > 0 ? 
+        `Successfully created new plan and archived ${existingActivePlans.length} previous plan(s)` :
+        'Successfully created new plan'
     });
   } catch (error) {
     console.error('Error creating plan:', error);
