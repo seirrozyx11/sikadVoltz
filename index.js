@@ -31,6 +31,7 @@ import adminTokenRoutes from './routes/adminTokenRetrieval.js';
 // Import services
 import RealTimeTelemetryService from './services/realTimeTelemetryService.js';
 import ScheduledTasksService from './services/scheduledTasksService.js';
+import SessionManager from './services/sessionManager.js';
 
 // Environment setup
 const __filename = fileURLToPath(import.meta.url);
@@ -59,15 +60,25 @@ if (!MONGODB_URI) {
   process.exit(1);
 }
 
-// Render-optimized MongoDB connection
+// PHASE 1 OPTIMIZATION: Enhanced MongoDB connection with pooling
 const connectDB = async () => {
   try {
-    console.log('Connecting to MongoDB...');
+    console.log('Connecting to MongoDB with connection pooling...');
     await mongoose.connect(MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-      serverSelectionTimeoutMS: IS_RENDER ? 3000 : 5000, // Faster timeout for Render
-      socketTimeoutMS: 30000
+      // REMOVED: Deprecated options
+      // useNewUrlParser: true,
+      // useUnifiedTopology: true, 
+      
+      // PHASE 1: Connection pooling for scalability
+      maxPoolSize: IS_RENDER ? 20 : 50,        // Max concurrent connections
+      minPoolSize: IS_RENDER ? 2 : 5,          // Min connections to maintain
+      maxIdleTimeMS: 30000,                    // Close connections after 30s idle
+      serverSelectionTimeoutMS: IS_RENDER ? 3000 : 5000,
+      socketTimeoutMS: 30000,
+      
+      // PHASE 1: Performance optimizations  
+      bufferCommands: false,                   // Disable buffering for immediate fails
+      heartbeatFrequencyMS: 10000,            // Check server health every 10s
     });
     
     logger.info('MongoDB connected successfully');
@@ -120,27 +131,43 @@ app.use(cors({
   optionsSuccessStatus: 200
 }));
 
-// Enhanced request logging
+// PHASE 1 OPTIMIZATION: Enhanced request logging with performance monitoring
+app.use(logger.requestLogger);
+
+// PHASE 1: Performance monitoring middleware
 app.use((req, res, next) => {
-  const start = Date.now();
-  const { method, originalUrl, ip } = req;
-
+  // Track slow requests
+  const timer = logger.performance.startTimer(`${req.method} ${req.originalUrl}`);
+  
   res.on('finish', () => {
-    const duration = Date.now() - start;
-    const logMessage = `${method} ${originalUrl} ${res.statusCode} - ${duration}ms`;
-    const logMeta = { ip, statusCode: res.statusCode, duration };
-
-    if (res.statusCode >= 500) {
-      logger.error(logMessage, logMeta);
-    } else if (res.statusCode >= 400) {
-      logger.warn(logMessage, logMeta);
-    } else {
-      logger.http(logMessage, logMeta);
+    const duration = timer.end({
+      method: req.method,
+      endpoint: req.originalUrl,
+      statusCode: res.statusCode,
+      ip: req.ip,
+      userAgent: req.get('User-Agent'),
+      contentLength: res.get('Content-Length')
+    });
+    
+    // Alert on very slow requests
+    if (duration > 5000) {
+      logger.warn('Very slow request detected', {
+        method: req.method,
+        endpoint: req.originalUrl,
+        duration,
+        statusCode: res.statusCode,
+        ip: req.ip
+      });
     }
   });
-
+  
   next();
 });
+
+// PHASE 1: Memory monitoring (every 5 minutes)
+setInterval(() => {
+  logger.performance.trackMemory();
+}, 5 * 60 * 1000);
 
 // API routes
 app.use('/api/auth', authRouter);
@@ -157,23 +184,86 @@ app.use('/api/profile', healthScreeningRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminTokenRoutes);
 
-// Render-compatible health check (essential for deployment)
-app.get('/health', (req, res) => {
+// PHASE 1 OPTIMIZATION: Enhanced health check with detailed metrics
+app.get('/health', async (req, res) => {
+  const startTime = Date.now();
   const dbHealthy = mongoose.connection.readyState === 1;
   const status = dbHealthy ? 200 : 503;
   
-  res.status(status).json({
-    status: dbHealthy ? 'healthy' : 'unhealthy',
-    database: dbHealthy ? 'connected' : 'disconnected',
-    timestamp: new Date().toISOString(),
-    environment: NODE_ENV,
-    nodeVersion: process.version,
-    uptime: process.uptime(),
-    ...(IS_RENDER && { 
-      renderInstance: process.env.RENDER_INSTANCE_ID,
-      service: process.env.RENDER_SERVICE_NAME 
-    })
-  });
+  try {
+    // Get memory usage
+    const memoryUsage = process.memoryUsage();
+    
+    // Get session manager stats
+    const sessionStats = await SessionManager.getStats();
+    
+    // Calculate response time for health check
+    const responseTime = Date.now() - startTime;
+    
+    const healthData = {
+      status: dbHealthy ? 'healthy' : 'unhealthy',
+      timestamp: new Date().toISOString(),
+      environment: NODE_ENV,
+      uptime: Math.floor(process.uptime()),
+      responseTime: responseTime,
+      
+      // Database health
+      database: {
+        status: dbHealthy ? 'connected' : 'disconnected',
+        readyState: mongoose.connection.readyState,
+        name: mongoose.connection.name || 'unknown'
+      },
+      
+      // System metrics
+      system: {
+        nodeVersion: process.version,
+        platform: process.platform,
+        arch: process.arch,
+        pid: process.pid,
+        memory: {
+          heapUsed: Math.round(memoryUsage.heapUsed / 1024 / 1024),
+          heapTotal: Math.round(memoryUsage.heapTotal / 1024 / 1024),
+          external: Math.round(memoryUsage.external / 1024 / 1024),
+          rss: Math.round(memoryUsage.rss / 1024 / 1024)
+        }
+      },
+      
+      // Session management health
+      sessions: sessionStats,
+      
+      // Deployment info
+      ...(IS_RENDER && {
+        deployment: {
+          platform: 'render',
+          instance: process.env.RENDER_INSTANCE_ID,
+          service: process.env.RENDER_SERVICE_NAME,
+          region: process.env.RENDER_REGION
+        }
+      })
+    };
+    
+    // Log health check
+    logger.debug('Health check completed', {
+      status: healthData.status,
+      responseTime,
+      activeSessions: sessionStats.activeSessions,
+      memoryUsage: healthData.system.memory.heapUsed + 'MB'
+    });
+    
+    res.status(status).json(healthData);
+    
+  } catch (error) {
+    logger.error('Health check failed', { error: error.message });
+    
+    res.status(503).json({
+      status: 'unhealthy',
+      error: 'Health check failed',
+      timestamp: new Date().toISOString(),
+      database: {
+        status: dbHealthy ? 'connected' : 'disconnected'
+      }
+    });
+  }
 });
 
 // WebSocket connection info endpoint for Flutter app
@@ -337,10 +427,21 @@ process.on('uncaughtException', (error) => {
   process.exit(1);
 });
 
-// Render-optimized server startup
+// PHASE 1: Render-optimized server startup with monitoring
 const startServer = async () => {
   try {
+    // Track startup time
+    const startupStart = Date.now();
+    logger.info('Starting SikadVoltz Backend Server...');
+
+    // Connect to database with timing
+    const dbStart = Date.now();
     await connectDB();
+    const dbConnectionTime = Date.now() - dbStart;
+    logger.health.logDatabaseConnection('connected', dbConnectionTime);
+    
+    // PHASE 1: Initialize session manager
+    await SessionManager.initialize();
     
     // Initialize telemetry service after DB connection
     await telemetryService.initialize(server);
@@ -371,7 +472,11 @@ const startServer = async () => {
       `;
       
       console.log(startupMessage);
-      logger.info(`Server started on port ${PORT}`);
+      
+      // PHASE 1: Log successful startup with metrics
+      const startupTime = Date.now() - startupStart;
+      logger.health.logStartup(startupTime);
+      logger.info(`Server started on port ${PORT} (startup: ${startupTime}ms)`);
       
       // **ENHANCED**: Initialize scheduled tasks for real-time notifications
       (async () => {

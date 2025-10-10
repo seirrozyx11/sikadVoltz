@@ -9,7 +9,12 @@
     "dev": "nodemon --inspect index.js",
     "ble-bridge": "node services/esp32_ble_bridge.js",
     "lint": "eslint .",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "redis:up": "docker-compose -f docker-compose.redis.yml up -d",
+    "redis:down": "docker-compose -f docker-compose.redis.yml down",
+    "redis:setup": "node scripts/redis-setup.js",
+    "redis:test": "node scripts/redis-health-check.js",
+    "redis:monitor": "docker-compose -f docker-compose.redis.yml exec redis redis-cli monitor"
   },
   "keywords": [
     "cycling",
@@ -38,6 +43,7 @@
     "node-cron": "^3.0.3",
     "node-fetch": "^3.3.2",
     "nodemailer": "^7.0.6",
+    "redis": "^4.7.1",
     "winston": "^3.11.0",
     "ws": "^8.18.3"
   },

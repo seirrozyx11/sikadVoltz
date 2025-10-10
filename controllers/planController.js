@@ -54,24 +54,8 @@ export const createPlan = async (req, res) => {
     const planData = await generateCyclingPlan(userId, goalId);
 
     // --- Plan Classification Framework ---
-    // Classify plan type based on daily cycling hours
-    // --- Plan Classification Framework ---
-    // Specific ranges: 0.75-1hr=Safe, 1.1-2hr=Recommended, 2.1-3hr=Risky
-    let planType = "Recommended";
-    if (planData.planSummary && planData.planSummary.dailyCyclingHours) {
-      const hours = planData.planSummary.dailyCyclingHours;
-      if (hours >= 0.75 && hours <= 1.0) {
-        planType = "Safe (45min - 1hr)";
-      } else if (hours > 1.0 && hours <= 2.0) {
-        planType = "Recommended (1.1hr - 2hr)";
-      } else if (hours > 2.0 && hours <= 3.0) {
-        planType = "Risky (2.1hr - 3hr)";
-      } else if (hours > 3.0) {
-        planType = "Unsafe (above 3hr limit)";
-      } else {
-        planType = "Below healthy minimum (<45min)";
-      }
-    }
+    // Classify plan type based on daily cycling hours using helper function
+    const planType = calculatePlanType(planData.planSummary?.dailyCyclingHours);
 
     const cyclingPlan = new CyclingPlan({
       ...planData,
@@ -287,6 +271,24 @@ export const missedSession = async (req, res) => {
 };
 
 // Get user's current plan
+// Helper function to calculate plan type based on daily cycling hours
+const calculatePlanType = (dailyCyclingHours) => {
+  if (!dailyCyclingHours) return "Recommended";
+  
+  const hours = dailyCyclingHours;
+  if (hours >= 0.75 && hours <= 1.0) {
+    return "Safe (45min - 1hr)";
+  } else if (hours > 1.0 && hours <= 2.0) {
+    return "Recommended (1.1hr - 2hr)";
+  } else if (hours > 2.0 && hours <= 3.0) {
+    return "Risky (2.1hr - 3hr)";
+  } else if (hours > 3.0) {
+    return "Unsafe (above 3hr limit)";
+  } else {
+    return "Below healthy minimum (<45min)";
+  }
+};
+
 export const getCurrentPlan = async (req, res) => {
   try {
     const userId = req.user?.userId; // Fixed: use userId instead of _id
@@ -322,8 +324,24 @@ export const getCurrentPlan = async (req, res) => {
       return sessionDate.getTime() === today.getTime();
     });
 
+    // Calculate and update planType if missing
+    let currentPlanType = plan.planType;
+    if (!currentPlanType || currentPlanType === "N/A") {
+      const dailyCyclingHours = plan.planSummary?.dailyCyclingHours;
+      currentPlanType = calculatePlanType(dailyCyclingHours);
+      
+      // Update the plan in database for future requests
+      try {
+        await CyclingPlan.findByIdAndUpdate(plan._id, { planType: currentPlanType });
+        console.log(`Updated planType for plan ${plan._id}: ${currentPlanType}`);
+      } catch (updateError) {
+        console.warn('Failed to update planType in database:', updateError);
+      }
+    }
+
     const responseData = {
       ...plan.toObject(),
+      planType: currentPlanType, // Ensure planType is always present
       realtimeStats: {
         totalCompletedHours: (plan.completedHours || 0) + activeSessionHours,
         totalCaloriesBurned: activeSessionCalories,

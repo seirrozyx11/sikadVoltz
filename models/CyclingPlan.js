@@ -42,6 +42,7 @@ const sessionSchema = new mongoose.Schema({
     totalMissedHours: { type: Number, default: 0 }, // Track total accumulated missed hours
     emergencyCatchUp: { type: Boolean, default: false }, // Emergency catch-up flag
     isActive: { type: Boolean, default: true }, // Plan status
+    planType: { type: String, default: "Recommended" }, // Safety classification for plan intensity
     
     // NEW: Smart Plan Adjustment features
     originalPlan: {

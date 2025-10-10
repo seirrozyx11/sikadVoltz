@@ -18,6 +18,7 @@ SikadVoltz backend is a comprehensive Node.js/Express server that powers the Sik
 - **Runtime**: Node.js 18+
 - **Framework**: Express.js
 - **Database**: MongoDB Atlas
+- **Session Storage**: Redis (with memory fallback)
 - **Authentication**: JWT tokens
 - **Email**: Nodemailer with Gmail SMTP
 - **Validation**: express-validator
@@ -29,6 +30,9 @@ SikadVoltz backend is a comprehensive Node.js/Express server that powers the Sik
 sv_backend/
 ├── controllers/          # Request handlers and business logic
 ├── middleware/           # Express middleware
+├── scripts/              # Setup and maintenance scripts
+│   ├── redis-setup.js    # Redis initialization
+│   └── redis-health-check.js # Redis testing
 ├── migrations/           # Database migration scripts
 ├── models/              # Mongoose data models
 ├── routes/              # API route definitions
@@ -99,6 +103,36 @@ npm start
 - **CORS Configuration**: Cross-origin resource sharing setup
 - **Token Blacklisting**: Logout token invalidation
 - **Password Reset Security**: Time-limited, single-use reset tokens
+
+## 🗄️ Redis Session Management (Phase 1 Optimization)
+
+Scalable session storage using Redis with automatic fallback to memory storage.
+
+### Quick Setup
+```bash
+# Start Redis (Docker)
+npm run redis:up
+
+# Test Redis connection
+npm run redis:test
+
+# Initialize Redis
+npm run redis:setup
+```
+
+### Environment Configuration
+```env
+REDIS_URL=redis://localhost:6379
+```
+
+### Features
+- ✅ Horizontal session scaling
+- ✅ Session persistence across server restarts
+- ✅ Automatic fallback to memory storage
+- ✅ Production-ready configuration
+- ✅ Zero breaking changes
+
+See `REDIS_SETUP.md` and `REDIS_PRODUCTION_GUIDE.md` for detailed documentation.
 
 ## 📧 Email Integration
 

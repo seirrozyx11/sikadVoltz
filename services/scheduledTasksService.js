@@ -2,6 +2,9 @@ import cron from 'node-cron';
 import logger from '../utils/logger.js';
 import NotificationService from './notificationService.js';
 import mongoose from 'mongoose';
+// Import models to ensure they are registered
+import '../models/CyclingPlan.js';
+import '../models/User.js';
 
 /**
  * Scheduled Tasks Service
@@ -85,8 +88,7 @@ class ScheduledTasksService {
   static async detectAndNotifyMissedSessions() {
     try {
       const User = mongoose.model('User');
-      const Plan = mongoose.model('Plan');
-      const SessionProgress = mongoose.model('SessionProgress');
+      const CyclingPlan = mongoose.model('CyclingPlan');
       
       // Get all active users with cycling plans
       const activeUsers = await User.find({ 
@@ -99,7 +101,7 @@ class ScheduledTasksService {
       for (const user of activeUsers) {
         if (!user.currentPlan) continue;
 
-        const plan = await Plan.findById(user.currentPlan._id);
+        const plan = await CyclingPlan.findById(user.currentPlan._id);
         if (!plan || plan.status === 'completed') continue;
 
         // **ENHANCED**: Check if user missed yesterday's session
@@ -110,15 +112,12 @@ class ScheduledTasksService {
         const endOfYesterday = new Date(yesterday);
         endOfYesterday.setHours(23, 59, 59, 999);
 
-        // Check if user had any session yesterday
-        const yesterdaySession = await SessionProgress.findOne({
-          userId: user._id,
-          planId: plan._id,
-          createdAt: {
-            $gte: yesterday,
-            $lte: endOfYesterday
-          },
-          completedHours: { $gt: 0 } // Only count sessions with actual activity
+        // Check if user had any session yesterday in the daily sessions
+        const yesterdaySession = plan.dailySessions.find(session => {
+          const sessionDate = new Date(session.date);
+          sessionDate.setHours(0, 0, 0, 0);
+          return sessionDate.getTime() === yesterday.getTime() && 
+                 (session.completedHours > 0 || session.status === 'completed');
         });
 
         // **NEW**: Check consecutive missed days
@@ -156,7 +155,10 @@ class ScheduledTasksService {
    */
   static async calculateConsecutiveMissedDays(userId, planId) {
     try {
-      const SessionProgress = mongoose.model('SessionProgress');
+      const CyclingPlan = mongoose.model('CyclingPlan');
+      
+      const plan = await CyclingPlan.findById(planId);
+      if (!plan) return 0;
       
       let missedDays = 0;
       const today = new Date();
@@ -167,23 +169,18 @@ class ScheduledTasksService {
         checkDate.setDate(checkDate.getDate() - i);
         checkDate.setHours(0, 0, 0, 0);
         
-        const endOfDay = new Date(checkDate);
-        endOfDay.setHours(23, 59, 59, 999);
-        
-        const daySession = await SessionProgress.findOne({
-          userId,
-          planId,
-          createdAt: {
-            $gte: checkDate,
-            $lte: endOfDay
-          },
-          completedHours: { $gt: 0 }
+        // Find session for this date in the plan's dailySessions
+        const daySession = plan.dailySessions.find(session => {
+          const sessionDate = new Date(session.date);
+          sessionDate.setHours(0, 0, 0, 0);
+          return sessionDate.getTime() === checkDate.getTime();
         });
         
-        if (!daySession) {
+        // Check if session was missed (exists but not completed)
+        if (!daySession || (daySession.completedHours === 0 && daySession.status !== 'completed')) {
           missedDays++;
         } else {
-          break; // Stop counting when we find a session
+          break; // Stop counting when we find a completed session
         }
       }
       
