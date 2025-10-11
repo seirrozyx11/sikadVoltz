@@ -1,6 +1,6 @@
 import express from 'express';
 import GoogleOAuthService from '../services/google_oauth_service.js';
-import { authenticateToken } from '../middleware/auth.js';
+import authenticateToken from '../middleware/authenticateToken.js';
 import User from '../models/User.js';
 
 const router = express.Router();
