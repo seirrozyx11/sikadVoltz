@@ -136,7 +136,7 @@ class SecurityMiddleware {
     // Stricter rate limiting for authentication endpoints
     const authLimiter = rateLimit({
       windowMs: 15 * 60 * 1000, // 15 minutes
-      max: 20, // Much stricter for auth endpoints
+      max: process.env.NODE_ENV === 'production' ? 20 : 100, // More lenient for development
       message: {
         success: false,
         error: 'AUTH_RATE_LIMITED',
