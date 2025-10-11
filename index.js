@@ -28,6 +28,7 @@ import healthScreeningRoutes from './routes/healthScreeningRoutes.js';
 import notificationRoutes from './routes/notificationRoutes.js';
 import passwordResetRoutes from './routes/passwordReset.js';
 import adminTokenRoutes from './routes/adminTokenRetrieval.js';
+import oauthRoutes from './routes/oauth.js';
 // Import services
 import RealTimeTelemetryService from './services/realTimeTelemetryService.js';
 import ScheduledTasksService from './services/scheduledTasksService.js';
@@ -183,6 +184,7 @@ app.use('/api/progress', progressRoutes);
 app.use('/api/profile', healthScreeningRoutes);
 app.use('/api/notifications', notificationRoutes);
 app.use('/api/admin', adminTokenRoutes);
+app.use('/api/oauth', oauthRoutes);
 
 // PHASE 1 OPTIMIZATION: Enhanced health check with detailed metrics
 app.get('/health', async (req, res) => {

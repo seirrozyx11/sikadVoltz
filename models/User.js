@@ -109,6 +109,21 @@ const userSchema = new mongoose.Schema({
   },
   isEmailVerified: { type: Boolean, default: false },
   
+  // Google Calendar Integration
+  googleCalendar: {
+    accessToken: { type: String, select: false },
+    refreshToken: { type: String, select: false },
+    expiryDate: { type: Date, select: false },
+    connectedAt: { type: Date },
+    lastRefresh: { type: Date },
+    userInfo: {
+      id: String,
+      email: String,
+      name: String,
+      picture: String
+    }
+  },
+  
   // Password Reset Fields
   resetPasswordToken: { type: String, select: false },
   resetPasswordExpires: { type: Date, select: false },
