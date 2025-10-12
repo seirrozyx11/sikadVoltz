@@ -187,85 +187,50 @@ app.use('/api/admin', adminTokenRoutes);
 app.use('/api/oauth', oauthRoutes);
 
 // PHASE 1 OPTIMIZATION: Enhanced health check with detailed metrics
+// **RENDER FREE TIER OPTIMIZATION**: Ultra-fast health check endpoint
 app.get('/health', async (req, res) => {
-  const startTime = Date.now();
-  const dbHealthy = mongoose.connection.readyState === 1;
-  const status = dbHealthy ? 200 : 503;
-  
   try {
-    // Get memory usage
-    const memoryUsage = process.memoryUsage();
-    
-    // Get session manager stats
-    const sessionStats = await SessionManager.getStats();
-    
-    // Calculate response time for health check
-    const responseTime = Date.now() - startTime;
-    
-    const healthData = {
-      status: dbHealthy ? 'healthy' : 'unhealthy',
+    // **CRITICAL**: Only check database connection status - no heavy operations
+    const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
+
+    // **CRITICAL**: Return immediately with minimal data
+    res.status(200).json({
+      status: 'healthy',
       timestamp: new Date().toISOString(),
+      uptime: process.uptime(),
+      database: dbStatus,
       environment: NODE_ENV,
-      uptime: Math.floor(process.uptime()),
-      responseTime: responseTime,
-      
-      // Database health
-      database: {
-        status: dbHealthy ? 'connected' : 'disconnected',
-        readyState: mongoose.connection.readyState,
-        name: mongoose.connection.name || 'unknown'
-      },
-      
-      // System metrics
-      system: {
-        nodeVersion: process.version,
-        platform: process.platform,
-        arch: process.arch,
-        pid: process.pid,
-        memory: {
-          heapUsed: Math.round(memoryUsage.heapUsed / 1024 / 1024),
-          heapTotal: Math.round(memoryUsage.heapTotal / 1024 / 1024),
-          external: Math.round(memoryUsage.external / 1024 / 1024),
-          rss: Math.round(memoryUsage.rss / 1024 / 1024)
-        }
-      },
-      
-      // Session management health
-      sessions: sessionStats,
-      
-      // Deployment info
-      ...(IS_RENDER && {
-        deployment: {
-          platform: 'render',
-          instance: process.env.RENDER_INSTANCE_ID,
-          service: process.env.RENDER_SERVICE_NAME,
-          region: process.env.RENDER_REGION
-        }
-      })
-    };
-    
-    // Log health check
-    logger.debug('Health check completed', {
-      status: healthData.status,
-      responseTime,
-      activeSessions: sessionStats.activeSessions,
-      memoryUsage: healthData.system.memory.heapUsed + 'MB'
+      platform: IS_RENDER ? 'render' : 'local',
+      version: process.env.npm_package_version || '1.0.0'
     });
-    
-    res.status(status).json(healthData);
-    
   } catch (error) {
-    logger.error('Health check failed', { error: error.message });
-    
+    // **CRITICAL**: Even on error, respond quickly
     res.status(503).json({
       status: 'unhealthy',
-      error: 'Health check failed',
       timestamp: new Date().toISOString(),
-      database: {
-        status: dbHealthy ? 'connected' : 'disconnected'
-      }
+      error: error.message,
+      uptime: process.uptime()
     });
   }
+});
+
+// **RENDER FREE TIER OPTIMIZATION**: External keep-alive endpoint
+app.get('/keep-alive', (req, res) => {
+  res.status(200).json({
+    status: 'alive',
+    timestamp: new Date().toISOString(),
+    message: 'Server is active'
+  });
+});
+
+// **RENDER DEPLOYMENT**: Simple ready check for deployment
+app.get('/ready', (req, res) => {
+  res.status(200).json({
+    status: 'ready',
+    timestamp: new Date().toISOString(),
+    uptime: process.uptime(),
+    message: 'Server is ready to accept requests'
+  });
 });
 
 // WebSocket connection info endpoint for Flutter app
@@ -313,7 +278,7 @@ app.get('/', (req, res) => {
   const dbStatus = mongoose.connection.readyState === 1 ? 'connected' : 'disconnected';
   res.status(200).json({
     success: true,
-    message: "SikadVoltz API is running. BOSHET",
+    message: "SikadVoltz API is running. MAG BAYAD KA MUNA",
     deployment: IS_RENDER ? "Render" : "Local",
     status: {
       environment: NODE_ENV,
@@ -342,7 +307,7 @@ app.get('/', (req, res) => {
     },
     meta: {
       version: process.env.npm_package_version || "1.0.0",
-      docs: "https://docs.your-api.com"
+      docs: "https://docs.sikadvoltz.com"
     }
   });
 });
@@ -376,7 +341,7 @@ app.use((err, req, res, next) => {
     error: 'Internal Server Error',
     message: NODE_ENV === 'development' ? err.message : 'Something went wrong',
     ...(NODE_ENV === 'development' && { stack: err.stack }),
-    support: "sln32166@gmail.com"
+    support: "sikadvoltz.app@gmail.com"
   });
 });
 
@@ -441,18 +406,10 @@ const startServer = async () => {
     await connectDB();
     const dbConnectionTime = Date.now() - dbStart;
     logger.health.logDatabaseConnection('connected', dbConnectionTime);
-    
-    // PHASE 1: Initialize session manager
-    await SessionManager.initialize();
-    
-    // Initialize telemetry service after DB connection
-    await telemetryService.initialize(server);
-    
-    // Make telemetry service available to routes
-    app.locals.telemetryService = telemetryService;
-    
+
     // Listen on all interfaces (0.0.0.0) to support ADB port forwarding for USB debugging
-    server.listen(PORT, '0.0.0.0', () => {
+    // **RENDER DEPLOYMENT FIX**: Start server FIRST, then initialize heavy services
+    server.listen(PORT, '0.0.0.0', async () => {
       const startupMessage = `
       ============================================
        ${IS_RENDER ? 'Render Production' : 'Local Development'} Server
@@ -460,35 +417,81 @@ const startServer = async () => {
        WebSocket Base: ${WS_BASE_URL}
        Environment: ${NODE_ENV}
        Database: ${mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected'}
-       
+
        🌐 API Endpoints:
        - REST API: ${BASE_URL}/api/*
        - Health Check: ${BASE_URL}/health
-       
+
        📡 WebSocket Endpoints:
        - Telemetry: ${WS_BASE_URL}/ws/telemetry
        - Legacy: ${WS_BASE_URL}/ws/legacy
-       
+
        Startup Time: ${process.uptime().toFixed(2)}s
       ============================================
       `;
-      
+
       console.log(startupMessage);
-      
+
       // PHASE 1: Log successful startup with metrics
       const startupTime = Date.now() - startupStart;
       logger.health.logStartup(startupTime);
       logger.info(`Server started on port ${PORT} (startup: ${startupTime}ms)`);
-      
-      // **ENHANCED**: Initialize scheduled tasks for real-time notifications
-      (async () => {
+
+      // **RENDER DEPLOYMENT FIX**: Initialize heavy services AFTER server is listening
+      // This prevents Render deployment timeouts
+      setTimeout(async () => {
+        try {
+          logger.info('🔄 Starting post-deployment initialization...');
+          
+          // PHASE 1: Initialize session manager
+          await SessionManager.initialize();
+          logger.info('✅ Session manager initialized');
+
+          // Initialize telemetry service after DB connection
+          await telemetryService.initialize(server);
+          logger.info('✅ Telemetry service initialized');
+
+          // Make telemetry service available to routes
+          app.locals.telemetryService = telemetryService;
+
+          logger.info('✅ All post-deployment services initialized successfully');
+        } catch (initError) {
+          logger.error('❌ Post-deployment initialization failed:', initError);
+        }
+      }, 1000); // 1 second delay to ensure server is fully ready
+
+      // **RENDER FREE TIER OPTIMIZATION**: Keep-alive mechanism
+      if (IS_RENDER) {
+        console.log('🔄 Render free tier detected - enabling keep-alive mechanism');
+
+        // Ping health endpoint every 10 minutes to prevent sleep
+        setInterval(async () => {
+          try {
+            const response = await fetch(`${BASE_URL}/health`);
+            if (response.ok) {
+              console.log('🔄 Keep-alive ping successful');
+            }
+          } catch (error) {
+            console.log('⚠️ Keep-alive ping failed (expected on free tier):', error.message);
+          }
+        }, 10 * 60 * 1000); // 10 minutes
+
+        // Log Render-specific info
+        console.log('📊 Render Environment Info:');
+        console.log(`   Instance ID: ${process.env.RENDER_INSTANCE_ID || 'Not set'}`);
+        console.log(`   Service Name: ${process.env.RENDER_SERVICE_NAME || 'Not set'}`);
+        console.log(`   Region: ${process.env.RENDER_REGION || 'Not set'}`);
+      }
+
+      // **ENHANCED**: Initialize scheduled tasks for real-time notifications (non-blocking)
+      setTimeout(async () => {
         try {
           await ScheduledTasksService.initialize();
           logger.info('✅ Real-time notification system initialized successfully');
         } catch (taskError) {
           logger.error('❌ Failed to initialize scheduled tasks:', taskError);
         }
-      })();
+      }, 5000); // 5 second delay to ensure everything else is ready
       
       // Initialize ESP32 BLE Bridge for real-time communication
       try {

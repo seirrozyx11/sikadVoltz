@@ -119,16 +119,19 @@ class SecurityMiddleware {
         // Skip rate limiting for health checks
         return req.path === '/health' || req.path === '/ws-health';
       },
-      keyGenerator: (req) => {
-        // Use forwarded IP if available (for reverse proxies)
-        return req.ip || req.connection.remoteAddress;
-      },
-      onLimitReached: (req, res, options) => {
+      // Use default keyGenerator for proper IPv6 support
+      handler: (req, res) => {
         logger.warn('Rate limit exceeded', {
           ip: req.ip,
           userAgent: req.get('User-Agent'),
           path: req.path,
           method: req.method
+        });
+        res.status(429).json({
+          success: false,
+          error: 'TOO_MANY_REQUESTS',
+          message: 'Too many requests from this IP, please try again later.',
+          retryAfter: 15 * 60
         });
       }
     });
@@ -145,12 +148,18 @@ class SecurityMiddleware {
       },
       standardHeaders: true,
       legacyHeaders: false,
-      onLimitReached: (req, res, options) => {
+      handler: (req, res) => {
         logger.error('Authentication rate limit exceeded', {
           ip: req.ip,
           userAgent: req.get('User-Agent'),
           path: req.path,
           email: req.body?.email?.replace(/^(.{2}).*(@.*)$/, '$1***$2') || 'unknown'
+        });
+        res.status(429).json({
+          success: false,
+          error: 'AUTH_RATE_LIMITED',
+          message: 'Too many authentication attempts, please try again later.',
+          retryAfter: 15 * 60
         });
       }
     });
@@ -165,16 +174,17 @@ class SecurityMiddleware {
         message: 'Too many password reset attempts, please try again later.',
         retryAfter: 60 * 60
       },
-      keyGenerator: (req) => {
-        // Rate limit by IP and email combination
-        // Handle cases where body might not be parsed yet
-        const email = req.body?.email || 'unknown';
-        return `${req.ip}-${email}`;
-      },
-      onLimitReached: (req, res, options) => {
+      // Use default keyGenerator for IPv6 compatibility, customize in handler
+      handler: (req, res) => {
         logger.error('Password reset rate limit exceeded', {
           ip: req.ip,
           email: req.body?.email?.replace(/^(.{2}).*(@.*)$/, '$1***$2') || 'unknown'
+        });
+        res.status(429).json({
+          success: false,
+          error: 'PASSWORD_RESET_RATE_LIMITED',
+          message: 'Too many password reset attempts, please try again later.',
+          retryAfter: 60 * 60
         });
       }
     });
