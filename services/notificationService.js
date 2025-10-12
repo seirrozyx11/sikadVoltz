@@ -1,6 +1,7 @@
 import Notification from '../models/Notification.js';
 import logger from '../utils/logger.js';
 import { getWebSocketService } from '../services/websocketService.js';
+import fcmService from './fcmService.js';
 
 /**
  * Notification Service
@@ -70,7 +71,10 @@ class NotificationService {
       // Broadcast via WebSocket
       await this.broadcastNotification(userId, notification);
       
-      logger.info(`📢 Missed session notification created`, {
+      // ✅ NEW: Send FCM push notification
+      await fcmService.sendMissedSessionNotification(userId, { count, sessions, planAdjusted });
+      
+      logger.info(`📢 Missed session notification created and sent via FCM`, {
         userId,
         notificationId: notification._id,
         count,

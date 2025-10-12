@@ -164,6 +164,35 @@ const userSchema = new mongoose.Schema({
     lastSuccessfulReset: { type: Date },
     suspiciousActivity: { type: Boolean, default: false }
   },
+
+  // Push Notification Fields (FCM)
+  fcmToken: { 
+    type: String, 
+    select: false // Keep token private for security
+  },
+  platform: {
+    type: String,
+    enum: ['android', 'ios', 'web', 'unknown'],
+    default: 'unknown'
+  },
+  appVersion: {
+    type: String,
+    default: '1.0.0'
+  },
+  fcmTokenUpdatedAt: {
+    type: Date
+  },
+  notificationPreferences: {
+    missedSessions: { type: Boolean, default: true },
+    sessionReminders: { type: Boolean, default: true },
+    dailyMotivation: { type: Boolean, default: true },
+    weeklyProgress: { type: Boolean, default: true },
+    quietHours: {
+      enabled: { type: Boolean, default: false },
+      startTime: { type: String, default: '22:00' },
+      endTime: { type: String, default: '07:00' }
+    }
+  },
 }, { 
   timestamps: true,
   toJSON: { virtuals: true },

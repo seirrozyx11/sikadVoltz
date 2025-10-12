@@ -22,7 +22,10 @@
     "redis:test": "node scripts/redis-health-check.js",
     "redis:monitor": "docker-compose -f docker-compose.redis.yml exec redis redis-cli monitor",
     "db:indexes": "node scripts/add-critical-indexes.js",
-    "apm:setup": "node scripts/setup-apm.js"
+    "apm:setup": "node scripts/setup-apm.js",
+    "firebase:setup": "node scripts/setup-firebase.js",
+    "test:fcm": "cross-env NODE_ENV=development node scripts/test-fcm.js",
+    "verify:production": "node scripts/verify-production-ready.js"
   },
   "keywords": [
     "cycling",
@@ -44,6 +47,7 @@
     "express": "^5.1.0",
     "express-rate-limit": "^8.1.0",
     "express-validator": "^7.0.1",
+    "firebase-admin": "^13.5.0",
     "google-auth-library": "^9.15.1",
     "googleapis": "^144.0.0",
     "helmet": "^8.1.0",

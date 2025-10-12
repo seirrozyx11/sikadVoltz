@@ -514,4 +514,123 @@ router.post('/refresh-token', async (req, res) => {
   }
 });
 
+// ============================================================================
+// FCM TOKEN MANAGEMENT
+// ============================================================================
+
+/**
+ * POST /api/auth/fcm-token
+ * Update user's FCM token for push notifications
+ */
+router.post('/fcm-token', authenticateUser, async (req, res) => {
+  try {
+    const { fcm_token, platform, app_version } = req.body;
+    const userId = req.user.userId;
+
+    // Validate required fields
+    if (!fcm_token) {
+      return res.status(400).json({
+        success: false,
+        message: 'FCM token is required'
+      });
+    }
+
+    // Update user with FCM token
+    const user = await User.findByIdAndUpdate(
+      userId, 
+      { 
+        fcmToken: fcm_token,
+        platform: platform || 'unknown',
+        appVersion: app_version || '1.0.0',
+        fcmTokenUpdatedAt: new Date()
+      }, 
+      { new: true, select: '-password' }
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    logger.info(`📱 FCM token updated for user`, {
+      userId,
+      platform: platform || 'unknown',
+      tokenPrefix: fcm_token.substring(0, 20) + '...',
+      appVersion: app_version || '1.0.0'
+    });
+
+    res.json({
+      success: true,
+      message: 'FCM token updated successfully',
+      data: {
+        userId: user._id,
+        fcmTokenUpdated: true,
+        platform: user.platform,
+        updatedAt: user.fcmTokenUpdatedAt
+      }
+    });
+
+  } catch (error) {
+    logger.error('❌ Error updating FCM token:', { 
+      error: error.message, 
+      userId: req.user?.userId 
+    });
+    
+    res.status(500).json({
+      success: false,
+      message: 'Failed to update FCM token'
+    });
+  }
+});
+
+/**
+ * DELETE /api/auth/fcm-token
+ * Remove user's FCM token (e.g., on logout)
+ */
+router.delete('/fcm-token', authenticateUser, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+
+    const user = await User.findByIdAndUpdate(
+      userId, 
+      { 
+        $unset: { 
+          fcmToken: 1,
+          platform: 1,
+          appVersion: 1,
+          fcmTokenUpdatedAt: 1
+        }
+      }, 
+      { new: true, select: '-password' }
+    );
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: 'User not found'
+      });
+    }
+
+    logger.info(`🗑️ FCM token removed for user`, { userId });
+
+    res.json({
+      success: true,
+      message: 'FCM token removed successfully'
+    });
+
+  } catch (error) {
+    logger.error('❌ Error removing FCM token:', { 
+      error: error.message, 
+      userId: req.user?.userId 
+    });
+    
+    res.status(500).json({
+      success: false,
+      message: 'Failed to remove FCM token'
+    });
+  }
+});
+
 export default router;
