@@ -1,3 +1,6 @@
+// 📊 MONITORING: Initialize New Relic APM first (must be first import)
+import './newrelic.cjs';
+
 import dotenv from 'dotenv';
 dotenv.config();
 import express from 'express';
@@ -8,6 +11,7 @@ import { fileURLToPath } from 'url';
 import { dirname } from 'path';
 import http from 'http';
 import { WebSocketServer } from 'ws';
+import compression from 'compression';
 import logger from './utils/logger.js';
 import environmentValidator from './utils/environmentValidator.js';
 import SecurityMiddleware from './middleware/security.js';
@@ -110,6 +114,22 @@ app.use(express.urlencoded({ extended: true }));
 // Note: Rate limiting now runs after body parsing
 SecurityMiddleware.applyAll(app);
 
+// 🚀 PERFORMANCE: Enable response compression
+app.use(compression({
+  // Only compress responses that are larger than 1kb
+  threshold: 1024,
+  // Don't compress responses with this request header
+  filter: (req, res) => {
+    if (req.headers['x-no-compression']) {
+      return false;
+    }
+    // fallback to standard filter function
+    return compression.filter(req, res);
+  },
+  // Compression level (1=fastest, 9=best compression)
+  level: 6
+}));
+
 // Enhanced CORS configuration
 const allowedOrigins = [
   ...(process.env.ALLOWED_ORIGINS?.split(',') || []).map(o => o.trim()),
@@ -170,21 +190,49 @@ setInterval(() => {
   logger.performance.trackMemory();
 }, 5 * 60 * 1000);
 
-// API routes
-app.use('/api/auth', authRouter);
-app.use('/api/password-reset', passwordResetRoutes);
-app.use('/api/plans', planRoutes);
-app.use('/api/calories', calorieRoutes);
-app.use('/api/calorie-calculation', calorieCalculationRoutes);
-app.use('/api/profile', profileRoutes);
-app.use('/api/goals', goalsRoutes);
-app.use('/api/esp32', esp32Routes);
-app.use('/api/workout-history', workoutHistoryRoutes);
-app.use('/api/progress', progressRoutes);
-app.use('/api/profile', healthScreeningRoutes);
-app.use('/api/notifications', notificationRoutes);
-app.use('/api/admin', adminTokenRoutes);
-app.use('/api/oauth', oauthRoutes);
+// 🚀 API VERSIONING: v1 API routes with future-proof structure
+const v1Router = express.Router();
+
+// Mount all v1 routes
+v1Router.use('/auth', authRouter);
+v1Router.use('/password-reset', passwordResetRoutes);
+v1Router.use('/plans', planRoutes);
+v1Router.use('/calories', calorieRoutes);
+v1Router.use('/calorie-calculation', calorieCalculationRoutes);
+v1Router.use('/profile', profileRoutes);
+v1Router.use('/goals', goalsRoutes);
+v1Router.use('/esp32', esp32Routes);
+v1Router.use('/workout-history', workoutHistoryRoutes);
+v1Router.use('/progress', progressRoutes);
+v1Router.use('/health-screening', healthScreeningRoutes); // Fixed duplicate profile route
+v1Router.use('/notifications', notificationRoutes);
+v1Router.use('/admin', adminTokenRoutes);
+v1Router.use('/oauth', oauthRoutes);
+
+// Mount versioned API
+app.use('/api/v1', v1Router);
+
+// 🔄 BACKWARD COMPATIBILITY: Legacy routes (deprecated - use /api/v1/)
+// Add deprecation warning for legacy routes
+const deprecationWarning = (req, res, next) => {
+  res.set('X-API-Warning', 'This endpoint is deprecated. Use /api/v1/ instead.');
+  logger.warn(`Deprecated API used: ${req.method} ${req.originalUrl}`);
+  next();
+};
+
+app.use('/api/auth', deprecationWarning, authRouter);
+app.use('/api/password-reset', deprecationWarning, passwordResetRoutes);
+app.use('/api/plans', deprecationWarning, planRoutes);
+app.use('/api/calories', deprecationWarning, calorieRoutes);
+app.use('/api/calorie-calculation', deprecationWarning, calorieCalculationRoutes);
+app.use('/api/profile', deprecationWarning, profileRoutes);
+app.use('/api/goals', deprecationWarning, goalsRoutes);
+app.use('/api/esp32', deprecationWarning, esp32Routes);
+app.use('/api/workout-history', deprecationWarning, workoutHistoryRoutes);
+app.use('/api/progress', deprecationWarning, progressRoutes);
+app.use('/api/notifications', deprecationWarning, notificationRoutes);
+app.use('/api/admin', deprecationWarning, adminTokenRoutes);
+app.use('/api/oauth', deprecationWarning, oauthRoutes);
 
 // PHASE 1 OPTIMIZATION: Enhanced health check with detailed metrics
 // **RENDER FREE TIER OPTIMIZATION**: Ultra-fast health check endpoint

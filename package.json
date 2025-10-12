@@ -8,13 +8,21 @@
     "start": "node index.js",
     "dev": "nodemon --inspect index.js",
     "ble-bridge": "node services/esp32_ble_bridge.js",
+    "test": "cross-env NODE_ENV=test jest",
+    "test:watch": "cross-env NODE_ENV=test jest --watch",
+    "test:coverage": "cross-env NODE_ENV=test jest --coverage",
+    "test:ci": "cross-env NODE_ENV=test jest --ci --coverage --watchAll=false",
+    "test:integration": "cross-env NODE_ENV=test jest --testPathPattern=integration",
+    "test:unit": "cross-env NODE_ENV=test jest --testPathPattern=unit",
     "lint": "eslint .",
     "format": "prettier --write .",
     "redis:up": "docker-compose -f docker-compose.redis.yml up -d",
     "redis:down": "docker-compose -f docker-compose.redis.yml down",
     "redis:setup": "node scripts/redis-setup.js",
     "redis:test": "node scripts/redis-health-check.js",
-    "redis:monitor": "docker-compose -f docker-compose.redis.yml exec redis redis-cli monitor"
+    "redis:monitor": "docker-compose -f docker-compose.redis.yml exec redis redis-cli monitor",
+    "db:indexes": "node scripts/add-critical-indexes.js",
+    "apm:setup": "node scripts/setup-apm.js"
   },
   "keywords": [
     "cycling",
@@ -30,6 +38,7 @@
     "axios": "^1.11.0",
     "bcrypt": "^6.0.0",
     "cloudinary": "^2.5.1",
+    "compression": "^1.8.1",
     "cors": "^2.8.5",
     "dotenv": "^16.6.1",
     "express": "^5.1.0",
@@ -41,6 +50,7 @@
     "jsonwebtoken": "^9.0.2",
     "mongoose": "^8.16.3",
     "multer": "^1.4.5-lts.1",
+    "newrelic": "^13.4.0",
     "node-cron": "^3.0.3",
     "node-fetch": "^3.3.2",
     "nodemailer": "^7.0.6",
@@ -49,11 +59,16 @@
     "ws": "^8.18.3"
   },
   "devDependencies": {
+    "@jest/globals": "^30.2.0",
+    "cross-env": "^10.1.0",
     "eslint": "^8.56.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.1.3",
+    "jest": "^30.2.0",
+    "jest-environment-node": "^30.2.0",
     "nodemon": "^3.1.0",
-    "prettier": "^3.2.4"
+    "prettier": "^3.2.4",
+    "supertest": "^7.1.4"
   },
   "engines": {
     "node": ">=16.0.0"
