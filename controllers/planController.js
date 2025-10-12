@@ -388,12 +388,34 @@ export const getCurrentPlan = async (req, res) => {
       }
     }
 
+    // 🔧 CALORIE FIX: Calculate total target calories from all sessions
+    const totalTargetCalories = plan.dailySessions.reduce((sum, session) => {
+      // Each session should have a target calorie amount based on planned hours
+      const sessionTargetCalories = (session.plannedHours || 0) * 400; // 400 cal/hour average
+      return sum + sessionTargetCalories;
+    }, 0);
+
+    // 🔧 CALORIE FIX: Calculate total burned calories from completed sessions
+    const totalBurnedCalories = plan.dailySessions
+      .filter(session => session.status === 'completed')
+      .reduce((sum, session) => sum + (session.caloriesBurned || 0), 0);
+
+    // 🔧 CALORIE FIX: Calculate calorie progress percentage
+    const calorieProgress = totalTargetCalories > 0 ? (totalBurnedCalories / totalTargetCalories) * 100 : 0;
+
     const responseData = {
       ...plan.toObject(),
       planType: currentPlanType, // Ensure planType is always present
+      // 🔧 ENHANCED: Add calorie information to plan summary
+      planSummary: {
+        ...plan.planSummary,
+        totalCaloriesToBurn: totalTargetCalories,
+        totalCaloriesBurned: totalBurnedCalories,
+        calorieProgress: Math.round(calorieProgress * 100) / 100 // Round to 2 decimal places
+      },
       realtimeStats: {
         totalCompletedHours: (plan.completedHours || 0) + activeSessionHours,
-        totalCaloriesBurned: activeSessionCalories,
+        totalCaloriesBurned: totalBurnedCalories + activeSessionCalories, // Include active session calories
         activeSessionCount: plan.activeSessions?.filter(s => s.isActive)?.length || 0
       },
       todaySession: todaySession ? {
