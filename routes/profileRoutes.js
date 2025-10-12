@@ -48,4 +48,58 @@ router.get('/', authenticateToken, async (req, res) => {
   }
 });
 
+// Add health screening endpoint to profile routes
+router.get('/health-screening', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    if (!userId) {
+      return res.status(401).json({ success: false, error: 'Unauthorized: User ID not found in token' });
+    }
+    
+    const User = (await import('../models/User.js')).default;
+    const user = await User.findById(userId);
+    
+    if (!user) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+    
+    // Check if health screening is completed
+    if (!user.healthScreening) {
+      return res.json({
+        success: true,
+        data: {
+          screening_completed: false,
+          has_complete_data: false,
+          can_proceed: false,
+          requires_screening: true
+        }
+      });
+    }
+    
+    const screening = user.healthScreening;
+    
+    return res.json({
+      success: true,
+      data: {
+        screening_completed: true,
+        has_complete_data: true,
+        can_proceed: screening.riskLevel !== 'HIGH',
+        requires_screening: false,
+        risk_level: screening.riskLevel,
+        risk_score: screening.riskScore,
+        screening_date: screening.screeningDate,
+        is_quick_screening: screening.isQuickScreening
+      }
+    });
+    
+  } catch (error) {
+    console.error("Error fetching health screening status:", error);
+    res.status(500).json({ 
+      success: false, 
+      error: "Server error fetching health screening status",
+      message: error.message 
+    });
+  }
+});
+
 export default router;

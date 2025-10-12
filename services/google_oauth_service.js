@@ -9,26 +9,30 @@ import jwt from 'jsonwebtoken';
  */
 class GoogleOAuthService {
   constructor() {
-    // Validate required environment variables
-    this.validateConfig();
+    // Check if OAuth is configured but don't throw during construction
+    this.isConfigured = this.checkConfig();
     
-    // Initialize OAuth2 client
-    this.oauth2Client = new OAuth2Client(
-      process.env.GOOGLE_WEB_CLIENT_ID,
-      process.env.GOOGLE_CLIENT_SECRET,
-      process.env.GOOGLE_REDIRECT_URI || `${process.env.BACKEND_URL}/auth/google/callback`
-    );
+    if (this.isConfigured) {
+      // Initialize OAuth2 client
+      this.oauth2Client = new OAuth2Client(
+        process.env.GOOGLE_WEB_CLIENT_ID,
+        process.env.GOOGLE_CLIENT_SECRET,
+        process.env.GOOGLE_REDIRECT_URI || `${process.env.BACKEND_URL}/auth/google/callback`
+      );
 
-    // Scopes for Google Calendar access
-    this.scopes = [
-      'https://www.googleapis.com/auth/calendar',
-      'https://www.googleapis.com/auth/calendar.events',
-      'https://www.googleapis.com/auth/userinfo.email',
-      'https://www.googleapis.com/auth/userinfo.profile'
-    ];
+      // Scopes for Google Calendar access
+      this.scopes = [
+        'https://www.googleapis.com/auth/calendar',
+        'https://www.googleapis.com/auth/calendar.events',
+        'https://www.googleapis.com/auth/userinfo.email',
+        'https://www.googleapis.com/auth/userinfo.profile'
+      ];
+    } else {
+      console.log('⚠️ Google OAuth not configured - OAuth features disabled');
+    }
   }
 
-  validateConfig() {
+  checkConfig() {
     const required = [
       'GOOGLE_WEB_CLIENT_ID',
       'GOOGLE_CLIENT_SECRET',
@@ -36,7 +40,17 @@ class GoogleOAuthService {
     ];
 
     const missing = required.filter(key => !process.env[key]);
-    if (missing.length > 0) {
+    return missing.length === 0;
+  }
+
+  validateConfig() {
+    if (!this.isConfigured) {
+      const required = [
+        'GOOGLE_WEB_CLIENT_ID',
+        'GOOGLE_CLIENT_SECRET',
+        'JWT_SECRET'
+      ];
+      const missing = required.filter(key => !process.env[key]);
       throw new Error(`❌ Missing Google OAuth configuration: ${missing.join(', ')}`);
     }
   }
@@ -45,6 +59,8 @@ class GoogleOAuthService {
    * Generate OAuth authorization URL for mobile app
    */
   getAuthUrl(userId) {
+    this.validateConfig();
+    
     const state = jwt.sign({ userId, timestamp: Date.now() }, process.env.JWT_SECRET, { expiresIn: '10m' });
     
     return this.oauth2Client.generateAuthUrl({
