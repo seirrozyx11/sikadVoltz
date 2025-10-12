@@ -1,0 +1,54 @@
+# SikadVoltz Backend - Ultra-Secure Production Dockerfile
+# Multi-stage build with distroless for maximum security
+
+# Stage 1: Build dependencies
+FROM node:20.18.0-alpine3.20 AS builder
+
+# Set working directory
+WORKDIR /app
+
+# Copy package files
+COPY package*.json ./
+
+# Install ALL dependencies (including dev dependencies for build)
+RUN npm ci && npm cache clean --force
+
+# Copy application code
+COPY . .
+
+# Stage 2: Ultra-secure production image (Distroless)
+FROM gcr.io/distroless/nodejs20-debian12 AS production
+
+# Set working directory
+WORKDIR /app
+
+# Copy dependencies and app from builder
+COPY --from=builder /app/node_modules ./node_modules
+COPY --from=builder /app/package*.json ./
+
+# Copy application code (excluding unnecessary files)
+COPY --from=builder /app/*.js ./
+COPY --from=builder /app/controllers ./controllers
+COPY --from=builder /app/models ./models
+COPY --from=builder /app/routes ./routes
+COPY --from=builder /app/services ./services
+COPY --from=builder /app/middleware ./middleware
+COPY --from=builder /app/utils ./utils
+COPY --from=builder /app/config ./config
+COPY --from=builder /app/migrations ./migrations
+COPY --from=builder /app/scripts ./scripts
+COPY --from=builder /app/newrelic.cjs ./
+COPY --from=builder /app/.env.example ./
+
+# Expose port
+EXPOSE 3000
+
+# Start application
+CMD ["index.js"]
+
+# Metadata
+LABEL \
+    org.opencontainers.image.title="SikadVoltz Backend" \
+    org.opencontainers.image.description="Enterprise-grade cycling training backend with Redis Cloud integration" \
+    org.opencontainers.image.version="2.0.0" \
+    org.opencontainers.image.vendor="SikadVoltz Team"
