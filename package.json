@@ -25,6 +25,7 @@
     "apm:setup": "node scripts/setup-apm.js",
     "firebase:setup": "node scripts/setup-firebase.js",
     "test:fcm": "cross-env NODE_ENV=development node scripts/test-fcm.js",
+    "test:fcm:live": "node scripts/test-fcm-live.js",
     "verify:production": "node scripts/verify-production-ready.js"
   },
   "keywords": [
@@ -38,7 +39,7 @@
   "license": "MIT",
   "dependencies": {
     "@abandonware/noble": "^1.9.2-15",
-    "axios": "^1.11.0",
+    "axios": "^1.12.2",
     "bcrypt": "^6.0.0",
     "cloudinary": "^2.5.1",
     "compression": "^1.8.1",

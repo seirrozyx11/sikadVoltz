@@ -33,6 +33,7 @@ import notificationRoutes from './routes/notificationRoutes.js';
 import passwordResetRoutes from './routes/passwordReset.js';
 import adminTokenRoutes from './routes/adminTokenRetrieval.js';
 import oauthRoutes from './routes/oauth.js';
+import testRoutes from './routes/test.js';
 // Import services
 import RealTimeTelemetryService from './services/realTimeTelemetryService.js';
 import ScheduledTasksService from './services/scheduledTasksService.js';
@@ -233,6 +234,7 @@ app.use('/api/progress', deprecationWarning, progressRoutes);
 app.use('/api/notifications', deprecationWarning, notificationRoutes);
 app.use('/api/admin', deprecationWarning, adminTokenRoutes);
 app.use('/api/oauth', deprecationWarning, oauthRoutes);
+app.use('/api/test', deprecationWarning, testRoutes);
 
 // PHASE 1 OPTIMIZATION: Enhanced health check with detailed metrics
 // **RENDER FREE TIER OPTIMIZATION**: Ultra-fast health check endpoint
