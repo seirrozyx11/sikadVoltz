@@ -21,14 +21,17 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
-# Test files and temporary files
+# Temporary test files (but allow proper test directory structure)
 test_*.js
 *_test.js
-*.test.js
 test*.log
 phase*.js
 quick_*.js
 temp_*.js
+test_redis_connection.js
+
+# Allow proper test files in tests/ directory
+!tests/**/*.test.js
 
 # Runtime data
 pids
