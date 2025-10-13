@@ -246,6 +246,12 @@ function generateRecommendations(redisStatus, responseTime) {
  */
 router.get('/redis-health', async (req, res) => {
   try {
+    // 🔍 DEBUG: Log SessionManager state when health check is called
+    console.log('🏥 HEALTH CHECK DEBUG:');
+    console.log(`   SessionManager.isRedisAvailable: ${SessionManager.isRedisAvailable}`);
+    console.log(`   SessionManager.redisClient exists: ${!!SessionManager.redisClient}`);
+    console.log(`   SessionManager.redisClient.isOpen: ${SessionManager.redisClient?.isOpen}`);
+    
     const health = {
       timestamp: new Date().toISOString(),
       redis_available: SessionManager.isRedisAvailable,
@@ -257,9 +263,11 @@ router.get('/redis-health', async (req, res) => {
       await SessionManager.redisClient.ping();
       health.ping_response_ms = Date.now() - pingStart;
       health.status = 'healthy';
+      console.log(`✅ Health check PING successful: ${health.ping_response_ms}ms`);
     } else {
       health.status = 'degraded';
       health.message = 'Using memory fallback - Redis not available';
+      console.log(`❌ Health check: Redis marked as unavailable`);
     }
 
     res.json(health);

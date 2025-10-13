@@ -589,6 +589,25 @@ const startServer = async () => {
             console.log('✅ SessionManager initialization completed');
             console.log(`   Redis Available: ${SessionManager.isRedisAvailable}`);
             console.log(`   Redis Client Exists: ${!!SessionManager.redisClient}`);
+            
+            // 🔍 IMMEDIATE STATUS CHECK - Check status right after init
+            console.log('🔍 IMMEDIATE POST-INIT CHECK:');
+            setTimeout(() => {
+              console.log(`   [+1s] Redis Available: ${SessionManager.isRedisAvailable}`);
+              console.log(`   [+1s] Redis Client Exists: ${!!SessionManager.redisClient}`);
+              if (SessionManager.redisClient) {
+                console.log(`   [+1s] Redis Client Status: ${SessionManager.redisClient.isOpen ? 'OPEN' : 'CLOSED'}`);
+              }
+            }, 1000);
+            
+            setTimeout(() => {
+              console.log(`   [+3s] Redis Available: ${SessionManager.isRedisAvailable}`);
+              console.log(`   [+3s] Redis Client Exists: ${!!SessionManager.redisClient}`);
+              if (SessionManager.redisClient) {
+                console.log(`   [+3s] Redis Client Status: ${SessionManager.redisClient.isOpen ? 'OPEN' : 'CLOSED'}`);
+              }
+            }, 3000);
+            
             logger.info('✅ Session manager initialized');
           } catch (sessionError) {
             console.error('❌ SessionManager initialization failed:');

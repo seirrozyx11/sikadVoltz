@@ -97,6 +97,23 @@ class SessionManager {
         // 🔧 FINAL FIX: Ensure Redis is marked as available after successful initialization
         this.isRedisAvailable = true;
         console.log(`🎯 Final Redis status: isRedisAvailable = ${this.isRedisAvailable}`);
+        console.log(`🎯 Redis client exists: ${!!this.redisClient}`);
+        console.log(`🎯 Redis client open: ${this.redisClient?.isOpen}`);
+        
+        // 🔍 VERIFICATION: Test Redis immediately after setting status
+        setTimeout(async () => {
+          console.log('🧪 POST-INIT VERIFICATION (5s later):');
+          console.log(`   isRedisAvailable: ${this.isRedisAvailable}`);
+          console.log(`   redisClient exists: ${!!this.redisClient}`);
+          if (this.redisClient && this.isRedisAvailable) {
+            try {
+              const testPong = await this.redisClient.ping();
+              console.log(`   PING test: ${testPong} ✅`);
+            } catch (pingError) {
+              console.log(`   PING test failed: ${pingError.message} ❌`);
+            }
+          }
+        }, 5000);
         
         logger.info('✅ Redis session manager initialized successfully');
         console.log('🎉 SessionManager initialization completed successfully');
