@@ -20,12 +20,17 @@ class SessionManager {
    */
   async initialize() {
     try {
+      console.log('🔧 SessionManager.initialize() called');
+      console.log(`   REDIS_URL exists: ${!!process.env.REDIS_URL}`);
+      
       // Try to initialize Redis if REDIS_URL is provided
       if (process.env.REDIS_URL) {
+        console.log('📦 Importing redis client...');
         const { createClient } = await import('redis');
+        console.log('✅ Redis module imported successfully');
         
         // 🔧 RENDER FIX: Use explicit configuration matching Redis Cloud format
-        // This matches your working Redis Cloud connection exactly
+        console.log('🔗 Creating Redis client with explicit config...');
         this.redisClient = createClient({
           username: 'default',
           password: 'MzcxWsuM3beem2R2fEW7ju8cHT4CnF2R',
@@ -41,34 +46,52 @@ class SessionManager {
           enable_offline_queue: false
         });
 
+        console.log('📡 Setting up Redis event handlers...');
         this.redisClient.on('error', (err) => {
+          console.error('❌ Redis session client error:', err.code, err.message);
           logger.warn('Redis session client error:', err);
           this.isRedisAvailable = false;
         });
 
         this.redisClient.on('connect', () => {
+          console.log('🔗 Redis session manager connected');
           logger.info('✅ Redis session manager connected');
           this.isRedisAvailable = true;
         });
 
         this.redisClient.on('ready', () => {
+          console.log('✅ Redis session manager ready');
           logger.info('✅ Redis session manager ready');
         });
 
+        console.log('🚀 Attempting Redis connection...');
         logger.info('🔗 Connecting to Redis Cloud...');
         await this.redisClient.connect();
+        console.log('✅ Redis connection established');
         
-        // Test Redis connection
-        await this.redisClient.ping();
+        console.log('🏓 Testing Redis PING...');
+        const pong = await this.redisClient.ping();
+        console.log(`✅ Redis PING successful: ${pong}`);
+        
+        this.isRedisAvailable = true;
         logger.info('✅ Redis session manager initialized successfully');
+        console.log('🎉 SessionManager initialization completed successfully');
         
       } else {
+        console.log('📝 No REDIS_URL found - using memory storage');
         logger.info('📝 Using in-memory session storage (development mode)');
       }
     } catch (error) {
+      console.error('💥 SessionManager initialization failed:');
+      console.error(`   Error: ${error.message}`);
+      console.error(`   Code: ${error.code}`);
+      console.error(`   Stack: ${error.stack?.split('\n').slice(0, 3).join('\n')}`);
+      
       logger.warn('⚠️ Redis unavailable, falling back to memory store:', error.message);
       logger.warn('Error details:', error.code, error.stack?.split('\n')[0]);
       this.isRedisAvailable = false;
+      
+      // Don't throw the error - just log it and continue with memory fallback
     }
   }
 

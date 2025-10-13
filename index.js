@@ -582,9 +582,23 @@ const startServer = async () => {
         try {
           logger.info('🔄 Starting post-deployment initialization...');
           
-          // PHASE 1: Initialize session manager
-          await SessionManager.initialize();
-          logger.info('✅ Session manager initialized');
+          // PHASE 1: Initialize session manager with detailed error handling
+          console.log('🔥 Initializing SessionManager...');
+          try {
+            await SessionManager.initialize();
+            console.log('✅ SessionManager initialization completed');
+            console.log(`   Redis Available: ${SessionManager.isRedisAvailable}`);
+            console.log(`   Redis Client Exists: ${!!SessionManager.redisClient}`);
+            logger.info('✅ Session manager initialized');
+          } catch (sessionError) {
+            console.error('❌ SessionManager initialization failed:');
+            console.error(`   Error: ${sessionError.message}`);
+            console.error(`   Code: ${sessionError.code}`);
+            console.error(`   Stack: ${sessionError.stack?.split('\n')[0]}`);
+            logger.error('❌ Session manager initialization failed:', sessionError);
+            
+            // Continue with other services even if Redis fails
+          }
 
           // Initialize telemetry service after DB connection
           await telemetryService.initialize(server);
@@ -593,9 +607,10 @@ const startServer = async () => {
           // Make telemetry service available to routes
           app.locals.telemetryService = telemetryService;
 
-          logger.info('✅ All post-deployment services initialized successfully');
+          logger.info('✅ Post-deployment initialization completed (Redis status logged above)');
         } catch (initError) {
           logger.error('❌ Post-deployment initialization failed:', initError);
+          console.error('💥 Critical initialization error:', initError.message);
         }
       }, 1000); // 1 second delay to ensure server is fully ready
 
