@@ -244,6 +244,47 @@ app.use('/api/oauth', deprecationWarning, oauthRoutes);
 app.use('/api/test', deprecationWarning, testRoutes);
 app.use('/api/dashboard', deprecationWarning, dashboardRoutes);
 
+// 🔍 TEMPORARY REDIS DEBUG ENDPOINT
+app.get('/redis-debug', async (req, res) => {
+  const debug = {
+    timestamp: new Date().toISOString(),
+    environment: NODE_ENV,
+    redis_url_exists: !!process.env.REDIS_URL,
+    session_manager: {
+      available: SessionManager.isRedisAvailable,
+      client_exists: !!SessionManager.redisClient
+    }
+  };
+
+  if (process.env.REDIS_URL) {
+    debug.redis_url_preview = process.env.REDIS_URL.replace(/:([^:@]{4})[^:@]*@/, ':$1***@');
+    
+    try {
+      const { createClient } = await import('redis');
+      const testClient = createClient({
+        username: 'default',
+        password: 'MzcxWsuM3beem2R2fEW7ju8cHT4CnF2R',
+        socket: {
+          host: 'redis-19358.c295.ap-southeast-1-1.ec2.redns.redis-cloud.com',
+          port: 19358,
+          connectTimeout: 5000
+        }
+      });
+      
+      await testClient.connect();
+      await testClient.ping();
+      await testClient.quit();
+      
+      debug.direct_test = 'SUCCESS';
+    } catch (error) {
+      debug.direct_test = 'FAILED';
+      debug.error = { code: error.code, message: error.message };
+    }
+  }
+
+  res.json(debug);
+});
+
 // PHASE 1 OPTIMIZATION: Enhanced health check with detailed metrics
 // **RENDER FREE TIER OPTIMIZATION**: Ultra-fast health check endpoint
 app.get('/health', async (req, res) => {
