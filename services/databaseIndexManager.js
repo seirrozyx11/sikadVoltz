@@ -8,6 +8,15 @@
 import mongoose from 'mongoose';
 import logger from '../utils/logger.js';
 
+// Import models to ensure they are registered
+import User from '../models/User.js';
+import CyclingPlan from '../models/CyclingPlan.js';
+import Goal from '../models/Goal.js';
+import { Telemetry } from '../models/Telemetry.js';
+import Notification from '../models/Notification.js';
+import TokenBlacklist from '../models/TokenBlacklist.js';
+import WorkoutHistory from '../models/WorkoutHistory.js';
+
 /**
  * Creates all necessary indexes for optimal query performance
  */

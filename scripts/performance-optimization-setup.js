@@ -19,6 +19,15 @@ import DatabaseIndexManager from '../services/databaseIndexManager.js';
 import EnhancedCacheService from '../services/enhancedCacheService.js';
 import SessionManager from '../services/sessionManager.js';
 
+// Import all models to register schemas
+import User from '../models/User.js';
+import CyclingPlan from '../models/CyclingPlan.js';
+import Goal from '../models/Goal.js';
+import { Telemetry } from '../models/Telemetry.js';
+import Notification from '../models/Notification.js';
+import TokenBlacklist from '../models/TokenBlacklist.js';
+import WorkoutHistory from '../models/WorkoutHistory.js';
+
 class PerformanceOptimizationSetup {
   
   async run() {
@@ -31,16 +40,19 @@ class PerformanceOptimizationSetup {
       // Step 1: Connect to database
       await this.connectDatabase();
       
-      // Step 2: Initialize Redis session manager
+      // Step 2: Load all models (register schemas)
+      await this.loadModels();
+      
+      // Step 3: Initialize Redis session manager
       await this.initializeRedis();
       
-      // Step 3: Create database indexes
+      // Step 4: Create database indexes
       await this.setupDatabaseIndexes();
       
-      // Step 4: Initialize enhanced caching
+      // Step 5: Initialize enhanced caching
       await this.initializeEnhancedCaching();
       
-      // Step 5: Verify optimizations
+      // Step 6: Verify optimizations
       await this.verifyOptimizations();
       
       const totalTime = Date.now() - startTime;
@@ -60,9 +72,19 @@ class PerformanceOptimizationSetup {
       
     } catch (error) {
       console.error('❌ Setup failed:', error);
-      process.exit(1);
+      console.log('⚠️  Continuing without full optimization setup...');
+      
+      // In production, don't fail the build - just log and continue
+      if (process.env.NODE_ENV === 'production') {
+        console.log('🚀 Production mode: Server will start without full optimization');
+        process.exit(0);
+      } else {
+        process.exit(1);
+      }
     } finally {
-      await mongoose.disconnect();
+      if (mongoose.connection.readyState !== 0) {
+        await mongoose.disconnect();
+      }
       process.exit(0);
     }
   }
@@ -89,6 +111,28 @@ class PerformanceOptimizationSetup {
       
     } catch (error) {
       console.error('❌ Database connection failed:', error.message);
+      throw error;
+    }
+  }
+  
+  /**
+   * Load and register all Mongoose models
+   */
+  async loadModels() {
+    console.log('📚 Loading Mongoose models...');
+    
+    try {
+      // Models are imported at the top, which registers them with Mongoose
+      // Verify they are properly registered
+      const registeredModels = mongoose.modelNames();
+      console.log('✅ Registered models:', registeredModels.join(', '));
+      
+      if (registeredModels.length === 0) {
+        throw new Error('No models registered - check model imports');
+      }
+      
+    } catch (error) {
+      console.error('❌ Model loading failed:', error.message);
       throw error;
     }
   }
