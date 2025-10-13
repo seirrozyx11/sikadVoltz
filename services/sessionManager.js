@@ -50,7 +50,17 @@ class SessionManager {
         this.redisClient.on('error', (err) => {
           console.error('❌ Redis session client error:', err.code, err.message);
           logger.warn('Redis session client error:', err);
-          this.isRedisAvailable = false;
+          
+          // 🔧 FIX: Only disable Redis for critical connection errors
+          // Don't disable for minor operational errors that don't break connection
+          const criticalErrors = ['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'ECONNRESET'];
+          if (criticalErrors.includes(err.code)) {
+            console.log(`💥 Critical Redis error detected: ${err.code} - Disabling Redis`);
+            this.isRedisAvailable = false;
+          } else {
+            console.log(`⚠️ Non-critical Redis error: ${err.code} - Keeping Redis enabled`);
+            // Keep Redis available for non-critical errors
+          }
         });
 
         this.redisClient.on('connect', () => {
@@ -62,6 +72,17 @@ class SessionManager {
         this.redisClient.on('ready', () => {
           console.log('✅ Redis session manager ready');
           logger.info('✅ Redis session manager ready');
+          this.isRedisAvailable = true; // Ensure this is set to true on ready
+        });
+
+        this.redisClient.on('end', () => {
+          console.log('🔚 Redis connection ended');
+          this.isRedisAvailable = false;
+        });
+
+        this.redisClient.on('reconnecting', () => {
+          console.log('🔄 Redis reconnecting...');
+          // Don't disable Redis during reconnection
         });
 
         console.log('🚀 Attempting Redis connection...');
@@ -73,7 +94,10 @@ class SessionManager {
         const pong = await this.redisClient.ping();
         console.log(`✅ Redis PING successful: ${pong}`);
         
+        // 🔧 FINAL FIX: Ensure Redis is marked as available after successful initialization
         this.isRedisAvailable = true;
+        console.log(`🎯 Final Redis status: isRedisAvailable = ${this.isRedisAvailable}`);
+        
         logger.info('✅ Redis session manager initialized successfully');
         console.log('🎉 SessionManager initialization completed successfully');
         
