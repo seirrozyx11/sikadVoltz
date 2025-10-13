@@ -5,7 +5,7 @@
 
 import express from 'express';
 import SessionManager from '../services/sessionManager.js';
-import { authenticateToken } from '../middleware/auth.js';
+import authenticateToken from '../middleware/authenticateToken.js';
 
 const router = express.Router();
 
@@ -241,7 +241,7 @@ function generateRecommendations(redisStatus, responseTime) {
 }
 
 /**
- * 🚀 Quick Redis Health Check
+ * 🚀 Quick Redis Health Check (No Auth Required)
  * GET /api/v1/monitor/redis-health
  */
 router.get('/redis-health', async (req, res) => {
