@@ -35,6 +35,7 @@ import passwordResetRoutes from './routes/passwordReset.js';
 import adminTokenRoutes from './routes/adminTokenRetrieval.js';
 import oauthRoutes from './routes/oauth.js';
 import testRoutes from './routes/test.js';
+import monitoringRoutes from './routes/monitoringRoutes.js';
 // Import services
 import RealTimeTelemetryService from './services/realTimeTelemetryService.js';
 import ScheduledTasksService from './services/scheduledTasksService.js';
@@ -210,6 +211,7 @@ v1Router.use('/health-screening', healthScreeningRoutes); // Fixed duplicate pro
 v1Router.use('/notifications', notificationRoutes);
 v1Router.use('/admin', adminTokenRoutes);
 v1Router.use('/oauth', oauthRoutes);
+v1Router.use('/monitor', monitoringRoutes);
 
 // 🚀 OPTIMIZATION: Ultra-fast unified dashboard endpoint
 import dashboardRoutes from './routes/dashboardRoutes.js';
