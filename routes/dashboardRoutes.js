@@ -331,13 +331,15 @@ router.delete('/cache/:userId', authenticateToken, async (req, res) => {
 /**
  * 🚀 HEALTH CHECK: Dashboard endpoint performance
  */
-router.get('/health', (req, res) => {
+router.get('/health', async (req, res) => {
   const stats = {
     status: 'healthy',
     redis: SessionManager.isRedisAvailable ? 'connected' : 'unavailable',
     endpoints: {
-      dashboard: '/api/dashboard/home',
-      cacheManagement: '/api/dashboard/cache/:userId'
+      dashboard: '/api/v1/dashboard/home',
+      cacheManagement: '/api/v1/dashboard/cache/:userId',
+      health: '/api/v1/dashboard/health',
+      cacheStats: '/api/v1/dashboard/cache-stats'
     },
     caching: {
       dashboardTTL: CACHE_TTL.dashboard,
@@ -346,7 +348,166 @@ router.get('/health', (req, res) => {
     }
   };
   
+  // Add Redis performance metrics if available
+  if (SessionManager.isRedisAvailable) {
+    try {
+      const redisInfo = await SessionManager.redisClient.info('stats');
+      const statsLines = redisInfo.split('\r\n');
+      
+      const redisStats = {};
+      statsLines.forEach(line => {
+        if (line.includes(':')) {
+          const [key, value] = line.split(':');
+          if (key.includes('keyspace_hits') || key.includes('keyspace_misses') || 
+              key.includes('instantaneous_ops_per_sec') || key.includes('total_commands_processed')) {
+            redisStats[key] = value;
+          }
+        }
+      });
+      
+      stats.redis_performance = redisStats;
+    } catch (error) {
+      logger.warn('Could not fetch Redis performance stats:', error.message);
+    }
+  }
+  
   res.json(stats);
 });
+
+/**
+ * 📊 CACHE STATISTICS: Detailed cache performance metrics
+ */
+router.get('/cache-stats', async (req, res) => {
+  try {
+    if (!SessionManager.isRedisAvailable) {
+      return res.json({
+        success: false,
+        error: 'Redis not available',
+        stats: null
+      });
+    }
+
+    // Get comprehensive cache statistics
+    const [info, keyspaceInfo, memoryInfo] = await Promise.all([
+      SessionManager.redisClient.info('stats'),
+      SessionManager.redisClient.info('keyspace'),
+      SessionManager.redisClient.info('memory')
+    ]);
+
+    // Parse Redis info
+    const parseRedisInfo = (infoString) => {
+      const result = {};
+      infoString.split('\r\n').forEach(line => {
+        if (line.includes(':')) {
+          const [key, value] = line.split(':');
+          result[key] = isNaN(value) ? value : Number(value);
+        }
+      });
+      return result;
+    };
+
+    const statsData = parseRedisInfo(info);
+    const keyspaceData = parseRedisInfo(keyspaceInfo);
+    const memoryData = parseRedisInfo(memoryInfo);
+
+    // Count keys by pattern
+    const keyPatterns = {
+      'dashboard_keys': 'home_dashboard:*',
+      'plan_keys': 'user_plan:*', 
+      'stats_keys': 'user_stats:*',
+      'session_keys': 'session:*'
+    };
+
+    const keyCounts = {};
+    for (const [name, pattern] of Object.entries(keyPatterns)) {
+      try {
+        const keys = await SessionManager.redisClient.keys(pattern);
+        keyCounts[name] = keys.length;
+      } catch (error) {
+        keyCounts[name] = 0;
+      }
+    }
+
+    // Calculate performance metrics
+    const totalCommands = statsData.total_commands_processed || 0;
+    const hits = statsData.keyspace_hits || 0;
+    const misses = statsData.keyspace_misses || 0;
+    const hitRate = (hits + misses) > 0 ? ((hits / (hits + misses)) * 100).toFixed(2) : '0.00';
+
+    const cacheStats = {
+      success: true,
+      timestamp: new Date().toISOString(),
+      performance: {
+        hit_rate: `${hitRate}%`,
+        total_commands: totalCommands,
+        ops_per_second: statsData.instantaneous_ops_per_sec || 0,
+        hits: hits,
+        misses: misses,
+        connected_clients: statsData.connected_clients || 0
+      },
+      memory: {
+        used_memory: memoryData.used_memory_human || 'N/A',
+        used_memory_rss: memoryData.used_memory_rss_human || 'N/A',
+        mem_fragmentation_ratio: memoryData.mem_fragmentation_ratio || 'N/A',
+        maxmemory: memoryData.maxmemory_human || 'unlimited'
+      },
+      keys: keyCounts,
+      keyspace: keyspaceData,
+      cache_efficiency: {
+        status: hitRate >= 80 ? 'excellent' : 
+                hitRate >= 60 ? 'good' :
+                hitRate >= 40 ? 'fair' : 'poor',
+        recommendations: _getCacheRecommendations(parseFloat(hitRate), keyCounts)
+      }
+    };
+
+    res.json(cacheStats);
+    
+    // Log cache performance for monitoring
+    logger.info('📊 Cache Performance:', {
+      hitRate: `${hitRate}%`,
+      totalKeys: Object.values(keyCounts).reduce((a, b) => a + b, 0),
+      memoryUsed: memoryData.used_memory_human
+    });
+
+  } catch (error) {
+    logger.error('Failed to fetch cache statistics:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch cache statistics',
+      details: error.message
+    });
+  }
+});
+
+/**
+ * Generate cache optimization recommendations
+ */
+function _getCacheRecommendations(hitRate, keyCounts) {
+  const recommendations = [];
+  
+  if (hitRate < 50) {
+    recommendations.push('🔴 Low hit rate detected - consider increasing cache TTL');
+  }
+  
+  if (hitRate > 95) {
+    recommendations.push('🟡 Very high hit rate - data might be stale, consider reducing TTL');
+  }
+  
+  const totalKeys = Object.values(keyCounts).reduce((a, b) => a + b, 0);
+  if (totalKeys > 10000) {
+    recommendations.push('⚠️ High key count - consider implementing cache cleanup');
+  }
+  
+  if (keyCounts.session_keys > keyCounts.dashboard_keys * 3) {
+    recommendations.push('💡 More session keys than cache keys - optimize session management');
+  }
+  
+  if (recommendations.length === 0) {
+    recommendations.push('✅ Cache performance is optimal');
+  }
+  
+  return recommendations;
+}
 
 export default router;

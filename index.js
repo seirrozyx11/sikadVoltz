@@ -17,6 +17,7 @@ import environmentValidator from './utils/environmentValidator.js';
 import SecurityMiddleware from './middleware/security.js';
 import { initWebSocket, getWebSocketService } from './services/websocketService.js';
 import esp32BLEBridge from './services/esp32_ble_bridge.js'; // Enabled for real-time ESP32 communication
+import HTTP2ServerManager from './services/http2ServerManager.js';
 
 // Import routes
 import authRouter from './routes/auth.js';
@@ -400,8 +401,22 @@ app.use((err, req, res, next) => {
   });
 });
 
-// Create HTTP server
-const server = http.createServer(app);
+// 🚀 HTTP/2 OPTIMIZATION: Create enhanced server with HTTP/2 support
+const http2ServerManager = new HTTP2ServerManager();
+let server;
+
+// Enable HTTP/2 performance optimizations
+if (process.env.ENABLE_HTTP2 === 'true') {
+  logger.info('🚀 HTTP/2 optimization enabled');
+  http2ServerManager.enablePerformanceOptimizations(app);
+  
+  // Initialize HTTP/2 server (with fallback to HTTP/1.1)
+  server = await http2ServerManager.initializeServer(app, PORT);
+} else {
+  // Standard HTTP/1.1 server
+  server = http.createServer(app);
+  logger.info('🌐 Using standard HTTP/1.1 server');
+}
 
 // Initialize WebSocket service
 initWebSocket(server);
@@ -464,7 +479,25 @@ const startServer = async () => {
 
     // Listen on all interfaces (0.0.0.0) to support ADB port forwarding for USB debugging
     // **RENDER DEPLOYMENT FIX**: Start server FIRST, then initialize heavy services
-    server.listen(PORT, '0.0.0.0', async () => {
+    
+    // 🚀 HTTP/2 SERVER: Start enhanced server based on configuration
+    const startServerWithCallback = () => new Promise((resolve) => {
+      if (process.env.ENABLE_HTTP2 === 'true' && http2ServerManager.server) {
+        // HTTP/2 server is already started by initializeServer
+        resolve();
+      } else {
+        // Start HTTP/1.1 server
+        server.listen(PORT, '0.0.0.0', resolve);
+      }
+    });
+    
+    await startServerWithCallback();
+    
+    // Server startup callback
+    (async () => {
+      // 🚀 Get server performance stats
+      const serverStats = http2ServerManager.getServerStats();
+      
       const startupMessage = `
       ============================================
        ${IS_RENDER ? 'Render Production' : 'Local Development'} Server
@@ -473,9 +506,17 @@ const startServer = async () => {
        Environment: ${NODE_ENV}
        Database: ${mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected'}
 
+       🚀 Server Protocol: ${serverStats.protocol}
+       ${serverStats.ssl ? '🔒 SSL: Enabled' : '🌐 SSL: Disabled'}
+       ${serverStats.serverPush ? '📤 Server Push: Enabled' : '📦 Server Push: Disabled'}
+       ${serverStats.multiplexing ? '⚡ HTTP/2 Multiplexing: Enabled' : '🔄 HTTP/2 Multiplexing: Disabled'}
+       ${serverStats.compression ? '🗜️ Compression: Enabled' : '📄 Compression: Disabled'}
+
        🌐 API Endpoints:
        - REST API: ${BASE_URL}/api/*
-       - Health Check: ${BASE_URL}/health
+       - Dashboard: ${BASE_URL}/api/v1/dashboard/home
+       - Health Check: ${BASE_URL}/api/v1/dashboard/health
+       - Cache Stats: ${BASE_URL}/api/v1/dashboard/cache-stats
 
        📡 WebSocket Endpoints:
        - Telemetry: ${WS_BASE_URL}/ws/telemetry
