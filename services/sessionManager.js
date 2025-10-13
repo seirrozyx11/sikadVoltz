@@ -13,14 +13,37 @@ class SessionManager {
     this.redisClient = null;
     this.memoryStore = new Map(); // Fallback for development
     this.sessionTTL = 7 * 24 * 60 * 60; // 7 days in seconds
+    this.isInitialized = false; // 🚨 Guard against multiple initializations
+    this.initializationPromise = null; // Store initialization promise
   }
 
   /**
    * Initialize session manager with Redis if available
    */
   async initialize() {
+    // 🚨 GUARD: Prevent multiple initializations
+    if (this.isInitialized) {
+      console.log('⚡ SessionManager already initialized - skipping');
+      return;
+    }
+    
+    // If initialization is already in progress, wait for it
+    if (this.initializationPromise) {
+      console.log('⏳ SessionManager initialization in progress - waiting...');
+      return await this.initializationPromise;
+    }
+    
+    // Mark initialization in progress and store promise
+    this.initializationPromise = this._performInitialization();
+    return await this.initializationPromise;
+  }
+
+  /**
+   * Perform the actual initialization (called only once)
+   */
+  async _performInitialization() {
     try {
-      console.log('🔧 SessionManager.initialize() called');
+      console.log('🔧 SessionManager._performInitialization() called');
       console.log(`   REDIS_URL exists: ${!!process.env.REDIS_URL}`);
       
       // Try to initialize Redis if REDIS_URL is provided
@@ -118,9 +141,15 @@ class SessionManager {
         logger.info('✅ Redis session manager initialized successfully');
         console.log('🎉 SessionManager initialization completed successfully');
         
+        // 🚨 Mark as initialized
+        this.isInitialized = true;
+        
       } else {
         console.log('📝 No REDIS_URL found - using memory storage');
         logger.info('📝 Using in-memory session storage (development mode)');
+        
+        // 🚨 Mark as initialized (memory fallback)
+        this.isInitialized = true;
       }
     } catch (error) {
       console.error('💥 SessionManager initialization failed:');
@@ -132,8 +161,14 @@ class SessionManager {
       logger.warn('Error details:', error.code, error.stack?.split('\n')[0]);
       this.isRedisAvailable = false;
       
+      // 🚨 Mark as initialized (memory fallback due to error)
+      this.isInitialized = true;
+      
       // Don't throw the error - just log it and continue with memory fallback
     }
+    
+    // 🎯 Return Redis availability status
+    return this.isRedisAvailable;
   }
 
   /**
