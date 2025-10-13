@@ -311,6 +311,133 @@ app.get('/redis-debug', async (req, res) => {
   res.json(debug);
 });
 
+// 🔍 COMPREHENSIVE REDIS TEST ENDPOINT
+app.get('/redis-comprehensive-test', async (req, res) => {
+  const testResults = {
+    timestamp: new Date().toISOString(),
+    environment: NODE_ENV,
+    platform: process.platform,
+    node_version: process.version,
+    tests: []
+  };
+
+  try {
+    console.log('🚀 Starting comprehensive Redis test...');
+    
+    // TEST 1: Basic Redis client creation and connection
+    console.log('🔥 TEST 1: Basic Redis Connection...');
+    const test1 = { name: 'Basic Redis Connection', status: 'running' };
+    
+    try {
+      const { createClient } = await import('redis');
+      const client = createClient({
+        username: 'default',
+        password: 'MzcxWsuM3beem2R2fEW7ju8cHT4CnF2R',
+        socket: {
+          host: 'redis-19358.c295.ap-southeast-1-1.ec2.redns.redis-cloud.com',
+          port: 19358,
+          connectTimeout: 8000,
+          commandTimeout: 5000,
+          lazyConnect: false
+        }
+      });
+
+      // Capture connection events
+      const events = [];
+      client.on('error', (err) => events.push(`ERROR: ${err.message}`));
+      client.on('connect', () => events.push('CONNECTED'));
+      client.on('ready', () => events.push('READY'));
+      client.on('end', () => events.push('ENDED'));
+
+      await client.connect();
+      const pong = await client.ping();
+      
+      // Test operations
+      const testKey = `render-test-${Date.now()}`;
+      await client.set(testKey, 'success');
+      const getValue = await client.get(testKey);
+      
+      await client.del(testKey);
+      await client.quit();
+      
+      test1.status = 'PASSED';
+      test1.ping_result = pong;
+      test1.set_get_result = getValue;
+      test1.events = events;
+      
+      console.log('✅ TEST 1 PASSED');
+      
+    } catch (error) {
+      test1.status = 'FAILED';
+      test1.error = { message: error.message, code: error.code };
+      console.error('❌ TEST 1 FAILED:', error.message);
+    }
+    
+    testResults.tests.push(test1);
+
+    // TEST 2: SessionManager initialization simulation
+    console.log('🔥 TEST 2: SessionManager Initialization Simulation...');
+    const test2 = { name: 'SessionManager Init Simulation', status: 'running' };
+    
+    try {
+      // Simulate what SessionManager does
+      await SessionManager.initialize();
+      
+      test2.status = SessionManager.isRedisAvailable ? 'PASSED' : 'FAILED';
+      test2.redis_available = SessionManager.isRedisAvailable;
+      test2.client_exists = !!SessionManager.redisClient;
+      test2.client_open = SessionManager.redisClient?.isOpen;
+      
+      if (SessionManager.isRedisAvailable && SessionManager.redisClient) {
+        const pingResult = await SessionManager.redisClient.ping();
+        test2.ping_result = pingResult;
+      }
+      
+      console.log(test2.status === 'PASSED' ? '✅ TEST 2 PASSED' : '❌ TEST 2 FAILED');
+      
+    } catch (error) {
+      test2.status = 'FAILED';
+      test2.error = { message: error.message, code: error.code };
+      console.error('❌ TEST 2 FAILED:', error.message);
+    }
+    
+    testResults.tests.push(test2);
+
+    // TEST 3: SimpleRedisClient test
+    console.log('🔥 TEST 3: SimpleRedisClient Test...');
+    const test3 = { name: 'SimpleRedisClient Test', status: 'running' };
+    
+    try {
+      await simpleRedisClient.initialize();
+      
+      test3.status = simpleRedisClient.getStatus().connected ? 'PASSED' : 'FAILED';
+      test3.client_status = simpleRedisClient.getStatus();
+      
+      if (simpleRedisClient.getStatus().connected) {
+        const pingResult = await simpleRedisClient.ping();
+        test3.ping_result = pingResult;
+      }
+      
+      console.log(test3.status === 'PASSED' ? '✅ TEST 3 PASSED' : '❌ TEST 3 FAILED');
+      
+    } catch (error) {
+      test3.status = 'FAILED';
+      test3.error = { message: error.message, code: error.code };
+      console.error('❌ TEST 3 FAILED:', error.message);
+    }
+    
+    testResults.tests.push(test3);
+
+    console.log('🏁 Comprehensive Redis test completed');
+    res.json(testResults);
+    
+  } catch (error) {
+    console.error('❌ Comprehensive Redis test crashed:', error.message);
+    testResults.error = { message: error.message, code: error.code };
+    res.status(500).json(testResults);
+  }
+});
+
 // PHASE 1 OPTIMIZATION: Enhanced health check with detailed metrics
 // **RENDER FREE TIER OPTIMIZATION**: Ultra-fast health check endpoint
 app.get('/health', async (req, res) => {
