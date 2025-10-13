@@ -210,6 +210,10 @@ v1Router.use('/notifications', notificationRoutes);
 v1Router.use('/admin', adminTokenRoutes);
 v1Router.use('/oauth', oauthRoutes);
 
+// 🚀 OPTIMIZATION: Ultra-fast unified dashboard endpoint
+import dashboardRoutes from './routes/dashboardRoutes.js';
+v1Router.use('/dashboard', dashboardRoutes);
+
 // Mount versioned API
 app.use('/api/v1', v1Router);
 
@@ -235,6 +239,7 @@ app.use('/api/notifications', deprecationWarning, notificationRoutes);
 app.use('/api/admin', deprecationWarning, adminTokenRoutes);
 app.use('/api/oauth', deprecationWarning, oauthRoutes);
 app.use('/api/test', deprecationWarning, testRoutes);
+app.use('/api/dashboard', deprecationWarning, dashboardRoutes);
 
 // PHASE 1 OPTIMIZATION: Enhanced health check with detailed metrics
 // **RENDER FREE TIER OPTIMIZATION**: Ultra-fast health check endpoint

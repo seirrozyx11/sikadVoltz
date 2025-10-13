@@ -26,7 +26,13 @@
     "firebase:setup": "node scripts/setup-firebase.js",
     "test:fcm": "cross-env NODE_ENV=development node scripts/test-fcm.js",
     "test:fcm:live": "node scripts/test-fcm-live.js",
-    "verify:production": "node scripts/verify-production-ready.js"
+    "verify:production": "node scripts/verify-production-ready.js",
+    "optimize:setup": "node scripts/performance-optimization-setup.js",
+    "optimize:indexes": "node -e \"import('./services/databaseIndexManager.js').then(m => m.DatabaseIndexManager.createOptimizedIndexes())\"",
+    "optimize:cache-test": "node -e \"import('./services/enhancedCacheService.js').then(m => m.default.getCacheStatistics().then(console.log))\"",
+    "dashboard:test": "curl -H 'Authorization: Bearer YOUR_JWT_TOKEN' http://localhost:3000/api/v1/dashboard/home",
+    "render:optimize": "node scripts/render-optimizer.js",
+    "render:check": "node scripts/render-optimizer.js"
   },
   "keywords": [
     "cycling",
