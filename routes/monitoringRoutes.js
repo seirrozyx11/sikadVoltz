@@ -259,7 +259,14 @@ router.get('/redis-health', async (req, res) => {
     const health = {
       timestamp: new Date().toISOString(),
       
-      // 🔥 SessionManager Redis Status  
+      // � Initialization Status Tracker
+      initialization_status: global.REDIS_INITIALIZATION_STATUS || {
+        sessionManager: 'unknown',
+        simpleRedis: 'unknown',
+        startTime: 'unknown'
+      },
+      
+      // �🔥 SessionManager Redis Status  
       session_manager: {
         available: SessionManager.isRedisAvailable,
         client_exists: !!SessionManager.redisClient,

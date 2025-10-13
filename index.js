@@ -51,6 +51,13 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 const MONGODB_URI = process.env.MONGODB_URI;
 const IS_RENDER = process.env.RENDER; // Render environment detection
 
+// 🚀 Initialization status tracker to prevent conflicts
+global.REDIS_INITIALIZATION_STATUS = {
+  sessionManager: 'pending',
+  simpleRedis: 'pending',
+  startTime: Date.now()
+};
+
 // Base URL configuration for WebSocket and API
 const BASE_URL = IS_RENDER 
   ? 'https://sikadvoltz-backend.onrender.com'
@@ -311,22 +318,23 @@ app.get('/redis-debug', async (req, res) => {
   res.json(debug);
 });
 
-// 🔍 COMPREHENSIVE REDIS TEST ENDPOINT
+// 🔍 SAFE REDIS TEST ENDPOINT (No re-initialization)
 app.get('/redis-comprehensive-test', async (req, res) => {
   const testResults = {
     timestamp: new Date().toISOString(),
     environment: NODE_ENV,
     platform: process.platform,
     node_version: process.version,
+    initialization_delay_info: 'Redis clients initialize 1 second after server start',
     tests: []
   };
 
   try {
-    console.log('🚀 Starting comprehensive Redis test...');
+    console.log('🚀 Starting SAFE Redis test...');
     
-    // TEST 1: Basic Redis client creation and connection
-    console.log('🔥 TEST 1: Basic Redis Connection...');
-    const test1 = { name: 'Basic Redis Connection', status: 'running' };
+    // TEST 1: Fresh Redis client (safe, independent connection)
+    console.log('🔥 TEST 1: Fresh Redis Connection...');
+    const test1 = { name: 'Fresh Redis Connection', status: 'running' };
     
     try {
       const { createClient } = await import('redis');
@@ -336,36 +344,29 @@ app.get('/redis-comprehensive-test', async (req, res) => {
         socket: {
           host: 'redis-19358.c295.ap-southeast-1-1.ec2.redns.redis-cloud.com',
           port: 19358,
-          connectTimeout: 8000,
-          commandTimeout: 5000,
+          connectTimeout: 5000,
+          commandTimeout: 3000,
           lazyConnect: false
         }
       });
 
-      // Capture connection events
-      const events = [];
-      client.on('error', (err) => events.push(`ERROR: ${err.message}`));
-      client.on('connect', () => events.push('CONNECTED'));
-      client.on('ready', () => events.push('READY'));
-      client.on('end', () => events.push('ENDED'));
-
       await client.connect();
       const pong = await client.ping();
       
-      // Test operations
-      const testKey = `render-test-${Date.now()}`;
-      await client.set(testKey, 'success');
+      // Quick test operations
+      const testKey = `safe-test-${Date.now()}`;
+      await client.set(testKey, 'working');
       const getValue = await client.get(testKey);
-      
       await client.del(testKey);
+      
+      // Ensure proper cleanup
       await client.quit();
       
       test1.status = 'PASSED';
       test1.ping_result = pong;
       test1.set_get_result = getValue;
-      test1.events = events;
       
-      console.log('✅ TEST 1 PASSED');
+      console.log('✅ TEST 1 PASSED - Redis Cloud is working!');
       
     } catch (error) {
       test1.status = 'FAILED';
@@ -375,25 +376,27 @@ app.get('/redis-comprehensive-test', async (req, res) => {
     
     testResults.tests.push(test1);
 
-    // TEST 2: SessionManager initialization simulation
-    console.log('🔥 TEST 2: SessionManager Initialization Simulation...');
-    const test2 = { name: 'SessionManager Init Simulation', status: 'running' };
+    // TEST 2: Check existing SessionManager status (no re-init)
+    console.log('🔥 TEST 2: SessionManager Status Check...');
+    const test2 = { name: 'SessionManager Status Check', status: 'running' };
     
     try {
-      // Simulate what SessionManager does
-      await SessionManager.initialize();
-      
-      test2.status = SessionManager.isRedisAvailable ? 'PASSED' : 'FAILED';
       test2.redis_available = SessionManager.isRedisAvailable;
       test2.client_exists = !!SessionManager.redisClient;
-      test2.client_open = SessionManager.redisClient?.isOpen;
+      test2.client_open = SessionManager.redisClient?.isOpen || false;
+      test2.status = 'CHECKED';
       
+      // Only test ping if available
       if (SessionManager.isRedisAvailable && SessionManager.redisClient) {
-        const pingResult = await SessionManager.redisClient.ping();
-        test2.ping_result = pingResult;
+        try {
+          const pingResult = await SessionManager.redisClient.ping();
+          test2.ping_result = pingResult;
+        } catch (pingError) {
+          test2.ping_error = pingError.message;
+        }
       }
       
-      console.log(test2.status === 'PASSED' ? '✅ TEST 2 PASSED' : '❌ TEST 2 FAILED');
+      console.log('✅ TEST 2 COMPLETED - Status checked');
       
     } catch (error) {
       test2.status = 'FAILED';
@@ -403,22 +406,25 @@ app.get('/redis-comprehensive-test', async (req, res) => {
     
     testResults.tests.push(test2);
 
-    // TEST 3: SimpleRedisClient test
-    console.log('🔥 TEST 3: SimpleRedisClient Test...');
-    const test3 = { name: 'SimpleRedisClient Test', status: 'running' };
+    // TEST 3: Check existing SimpleRedisClient status (no re-init)
+    console.log('🔥 TEST 3: SimpleRedisClient Status Check...');
+    const test3 = { name: 'SimpleRedisClient Status Check', status: 'running' };
     
     try {
-      await simpleRedisClient.initialize();
-      
-      test3.status = simpleRedisClient.getStatus().connected ? 'PASSED' : 'FAILED';
       test3.client_status = simpleRedisClient.getStatus();
+      test3.status = 'CHECKED';
       
+      // Only test ping if connected
       if (simpleRedisClient.getStatus().connected) {
-        const pingResult = await simpleRedisClient.ping();
-        test3.ping_result = pingResult;
+        try {
+          const pingResult = await simpleRedisClient.ping();
+          test3.ping_result = pingResult;
+        } catch (pingError) {
+          test3.ping_error = pingError.message;
+        }
       }
       
-      console.log(test3.status === 'PASSED' ? '✅ TEST 3 PASSED' : '❌ TEST 3 FAILED');
+      console.log('✅ TEST 3 COMPLETED - Status checked');
       
     } catch (error) {
       test3.status = 'FAILED';
@@ -428,11 +434,11 @@ app.get('/redis-comprehensive-test', async (req, res) => {
     
     testResults.tests.push(test3);
 
-    console.log('🏁 Comprehensive Redis test completed');
+    console.log('🏁 Safe Redis test completed');
     res.json(testResults);
     
   } catch (error) {
-    console.error('❌ Comprehensive Redis test crashed:', error.message);
+    console.error('❌ Safe Redis test crashed:', error.message);
     testResults.error = { message: error.message, code: error.code };
     res.status(500).json(testResults);
   }
@@ -735,24 +741,30 @@ const startServer = async () => {
         try {
           logger.info('🔄 Starting post-deployment initialization...');
           
-          // PHASE 1: Initialize Redis services with comparison testing
-          console.log('🔥 REDIS COMPARISON TEST - Initializing both Redis clients...');
+          // PHASE 1: Initialize Redis services with status tracking
+          console.log('🔥 REDIS INITIALIZATION - Starting both Redis clients...');
+          global.REDIS_INITIALIZATION_STATUS.startTime = Date.now();
           
-          // 🔥 TEST 1: Simple Redis Client (Direct approach)
-          console.log('🚀 Testing SimpleRedisClient...');
+          // 🔥 INIT 1: Simple Redis Client (Direct approach)
+          console.log('🚀 Initializing SimpleRedisClient...');
           try {
+            global.REDIS_INITIALIZATION_STATUS.simpleRedis = 'initializing';
             await simpleRedisClient.initialize();
+            global.REDIS_INITIALIZATION_STATUS.simpleRedis = 'completed';
             console.log('✅ SimpleRedisClient initialization completed');
             const simpleStatus = simpleRedisClient.getStatus();
             console.log('   SimpleRedis Status:', JSON.stringify(simpleStatus, null, 2));
           } catch (error) {
+            global.REDIS_INITIALIZATION_STATUS.simpleRedis = 'failed';
             console.error('❌ SimpleRedisClient failed:', error.message);
           }
           
-          // 🔥 TEST 2: SessionManager (Current approach)
-          console.log('🚀 Testing SessionManager...');
+          // 🔥 INIT 2: SessionManager (Current approach)
+          console.log('🚀 Initializing SessionManager...');
           try {
+            global.REDIS_INITIALIZATION_STATUS.sessionManager = 'initializing';
             await SessionManager.initialize();
+            global.REDIS_INITIALIZATION_STATUS.sessionManager = 'completed';
             console.log('✅ SessionManager initialization completed');
             console.log(`   Redis Available: ${SessionManager.isRedisAvailable}`);
             console.log(`   Redis Client Exists: ${!!SessionManager.redisClient}`);
@@ -775,6 +787,7 @@ const startServer = async () => {
             
             logger.info('✅ Session manager initialized');
           } catch (sessionError) {
+            global.REDIS_INITIALIZATION_STATUS.sessionManager = 'failed';
             console.error('❌ SessionManager initialization failed:');
             console.error(`   Error: ${sessionError.message}`);
             console.error(`   Code: ${sessionError.code}`);
