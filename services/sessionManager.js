@@ -23,12 +23,22 @@ class SessionManager {
       // Try to initialize Redis if REDIS_URL is provided
       if (process.env.REDIS_URL) {
         const { createClient } = await import('redis');
+        
+        // 🔧 RENDER FIX: Use explicit configuration matching Redis Cloud format
+        // This matches your working Redis Cloud connection exactly
         this.redisClient = createClient({
-          url: process.env.REDIS_URL,
+          username: 'default',
+          password: 'MzcxWsuM3beem2R2fEW7ju8cHT4CnF2R',
           socket: {
-            connectTimeout: 5000,
-            lazyConnect: true
-          }
+            host: 'redis-19358.c295.ap-southeast-1-1.ec2.redns.redis-cloud.com',
+            port: 19358,
+            connectTimeout: 10000, // 10 seconds for Render
+            commandTimeout: 5000,
+            lazyConnect: false // Connect immediately for better error detection
+          },
+          // Additional Redis Cloud optimizations
+          retry_unfulfilled_commands: true,
+          enable_offline_queue: false
         });
 
         this.redisClient.on('error', (err) => {
@@ -41,6 +51,11 @@ class SessionManager {
           this.isRedisAvailable = true;
         });
 
+        this.redisClient.on('ready', () => {
+          logger.info('✅ Redis session manager ready');
+        });
+
+        logger.info('🔗 Connecting to Redis Cloud...');
         await this.redisClient.connect();
         
         // Test Redis connection
@@ -52,6 +67,7 @@ class SessionManager {
       }
     } catch (error) {
       logger.warn('⚠️ Redis unavailable, falling back to memory store:', error.message);
+      logger.warn('Error details:', error.code, error.stack?.split('\n')[0]);
       this.isRedisAvailable = false;
     }
   }

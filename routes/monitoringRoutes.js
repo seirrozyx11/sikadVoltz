@@ -272,4 +272,84 @@ router.get('/redis-health', async (req, res) => {
   }
 });
 
+/**
+ * 🔍 RENDER REDIS DIAGNOSTIC (Temporary Debug Endpoint)
+ * GET /api/v1/monitor/redis-diagnostic
+ */
+router.get('/redis-diagnostic', async (req, res) => {
+  const diagnostic = {
+    timestamp: new Date().toISOString(),
+    environment: process.env.NODE_ENV,
+    platform: process.platform,
+    node_version: process.version,
+    redis_url_configured: !!process.env.REDIS_URL,
+    redis_url_preview: process.env.REDIS_URL ? 
+      process.env.REDIS_URL.replace(/:([^:@]{8})[^:@]*@/, ':$1***@') : 'NOT SET',
+    session_manager_status: {
+      available: SessionManager.isRedisAvailable,
+      client_exists: !!SessionManager.redisClient
+    }
+  };
+
+  if (process.env.REDIS_URL) {
+    try {
+      console.log('🔍 Testing Redis connection for diagnostic...');
+      const { createClient } = await import('redis');
+      const testClient = createClient({
+        username: 'default',
+        password: 'MzcxWsuM3beem2R2fEW7ju8cHT4CnF2R',
+        socket: {
+          host: 'redis-19358.c295.ap-southeast-1-1.ec2.redns.redis-cloud.com',
+          port: 19358,
+          connectTimeout: 5000,
+          commandTimeout: 3000,
+          lazyConnect: false
+        }
+      });
+      
+      const startTime = Date.now();
+      await testClient.connect();
+      const connectTime = Date.now() - startTime;
+      
+      const pingStart = Date.now();
+      const pong = await testClient.ping();
+      const pingTime = Date.now() - pingStart;
+      
+      await testClient.quit();
+      
+      diagnostic.redis_test = 'SUCCESS';
+      diagnostic.connection_time_ms = connectTime;
+      diagnostic.ping_time_ms = pingTime;
+      diagnostic.ping_response = pong;
+      diagnostic.message = '✅ Redis connection working on Render!';
+      
+      console.log('✅ Redis diagnostic test passed');
+    } catch (error) {
+      diagnostic.redis_test = 'FAILED';
+      diagnostic.error_code = error.code;
+      diagnostic.error_message = error.message;
+      diagnostic.error_stack = error.stack?.split('\n')[0]; // First line only
+      
+      console.log('❌ Redis diagnostic test failed:', error.message);
+      
+      // Add specific troubleshooting hints
+      if (error.code === 'ENOTFOUND') {
+        diagnostic.troubleshooting = 'DNS resolution failed - check Redis hostname';
+      } else if (error.code === 'ECONNREFUSED') {
+        diagnostic.troubleshooting = 'Connection refused - check Redis server status and port';
+      } else if (error.code === 'ETIMEDOUT') {
+        diagnostic.troubleshooting = 'Connection timeout - check IP whitelist (set to 0.0.0.0/0)';
+      } else if (error.message.includes('AUTH')) {
+        diagnostic.troubleshooting = 'Authentication failed - check Redis password';
+      }
+    }
+  } else {
+    diagnostic.redis_test = 'SKIPPED';
+    diagnostic.message = '❌ REDIS_URL environment variable not set on Render';
+    diagnostic.troubleshooting = 'Add REDIS_URL to Render environment variables';
+  }
+
+  res.json(diagnostic);
+});
+
 export default router;
