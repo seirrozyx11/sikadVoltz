@@ -40,6 +40,7 @@ import monitoringRoutes from './routes/monitoringRoutes.js';
 import RealTimeTelemetryService from './services/realTimeTelemetryService.js';
 import ScheduledTasksService from './services/scheduledTasksService.js';
 import SessionManager from './services/sessionManager.js';
+import simpleRedisClient from './services/simpleRedisClient.js'; // 🔥 Simple Redis client for comparison
 
 // Environment setup
 const __filename = fileURLToPath(import.meta.url);
@@ -244,7 +245,7 @@ app.use('/api/oauth', deprecationWarning, oauthRoutes);
 app.use('/api/test', deprecationWarning, testRoutes);
 app.use('/api/dashboard', deprecationWarning, dashboardRoutes);
 
-// 🔍 TEMPORARY REDIS DEBUG ENDPOINT
+// 🔍 REDIS COMPARISON DEBUG ENDPOINT
 app.get('/redis-debug', async (req, res) => {
   const debug = {
     timestamp: new Date().toISOString(),
@@ -252,10 +253,35 @@ app.get('/redis-debug', async (req, res) => {
     redis_url_exists: !!process.env.REDIS_URL,
     session_manager: {
       available: SessionManager.isRedisAvailable,
-      client_exists: !!SessionManager.redisClient
-    }
+      client_exists: !!SessionManager.redisClient,
+      client_open: SessionManager.redisClient?.isOpen || false
+    },
+    simple_redis_client: simpleRedisClient.getStatus()
   };
 
+  // 🔥 TEST 1: SimpleRedisClient
+  try {
+    debug.simple_redis_ping = await simpleRedisClient.ping();
+    debug.simple_redis_test = 'SUCCESS';
+  } catch (error) {
+    debug.simple_redis_error = error.message;
+    debug.simple_redis_test = 'FAILED';
+  }
+
+  // 🔥 TEST 2: SessionManager Redis
+  try {
+    if (SessionManager.redisClient && SessionManager.isRedisAvailable) {
+      debug.session_manager_ping = await SessionManager.redisClient.ping();
+      debug.session_manager_test = 'SUCCESS';
+    } else {
+      debug.session_manager_test = 'CLIENT_NOT_AVAILABLE';
+    }
+  } catch (error) {
+    debug.session_manager_error = error.message;
+    debug.session_manager_test = 'FAILED';
+  }
+
+  // 🔥 TEST 3: Direct connection test
   if (process.env.REDIS_URL) {
     debug.redis_url_preview = process.env.REDIS_URL.replace(/:([^:@]{4})[^:@]*@/, ':$1***@');
     
@@ -582,30 +608,42 @@ const startServer = async () => {
         try {
           logger.info('🔄 Starting post-deployment initialization...');
           
-          // PHASE 1: Initialize session manager with detailed error handling
-          console.log('🔥 Initializing SessionManager...');
+          // PHASE 1: Initialize Redis services with comparison testing
+          console.log('🔥 REDIS COMPARISON TEST - Initializing both Redis clients...');
+          
+          // 🔥 TEST 1: Simple Redis Client (Direct approach)
+          console.log('🚀 Testing SimpleRedisClient...');
+          try {
+            await simpleRedisClient.initialize();
+            console.log('✅ SimpleRedisClient initialization completed');
+            const simpleStatus = simpleRedisClient.getStatus();
+            console.log('   SimpleRedis Status:', JSON.stringify(simpleStatus, null, 2));
+          } catch (error) {
+            console.error('❌ SimpleRedisClient failed:', error.message);
+          }
+          
+          // 🔥 TEST 2: SessionManager (Current approach)
+          console.log('🚀 Testing SessionManager...');
           try {
             await SessionManager.initialize();
             console.log('✅ SessionManager initialization completed');
             console.log(`   Redis Available: ${SessionManager.isRedisAvailable}`);
             console.log(`   Redis Client Exists: ${!!SessionManager.redisClient}`);
             
-            // 🔍 IMMEDIATE STATUS CHECK - Check status right after init
-            console.log('🔍 IMMEDIATE POST-INIT CHECK:');
+            // 🔍 COMPARISON CHECK - Check both clients over time
+            console.log('🔍 REDIS COMPARISON - STATUS TRACKING:');
             setTimeout(() => {
-              console.log(`   [+1s] Redis Available: ${SessionManager.isRedisAvailable}`);
-              console.log(`   [+1s] Redis Client Exists: ${!!SessionManager.redisClient}`);
-              if (SessionManager.redisClient) {
-                console.log(`   [+1s] Redis Client Status: ${SessionManager.redisClient.isOpen ? 'OPEN' : 'CLOSED'}`);
-              }
+              console.log('--- [+1s] STATUS CHECK ---');
+              console.log(`SessionManager - Available: ${SessionManager.isRedisAvailable}, Client: ${!!SessionManager.redisClient}`);
+              const simpleStatus = simpleRedisClient.getStatus();
+              console.log(`SimpleRedis - Status:`, JSON.stringify(simpleStatus, null, 2));
             }, 1000);
             
             setTimeout(() => {
-              console.log(`   [+3s] Redis Available: ${SessionManager.isRedisAvailable}`);
-              console.log(`   [+3s] Redis Client Exists: ${!!SessionManager.redisClient}`);
-              if (SessionManager.redisClient) {
-                console.log(`   [+3s] Redis Client Status: ${SessionManager.redisClient.isOpen ? 'OPEN' : 'CLOSED'}`);
-              }
+              console.log('--- [+3s] STATUS CHECK ---');
+              console.log(`SessionManager - Available: ${SessionManager.isRedisAvailable}, Client: ${!!SessionManager.redisClient}`);
+              const simpleStatus = simpleRedisClient.getStatus();
+              console.log(`SimpleRedis - Status:`, JSON.stringify(simpleStatus, null, 2));
             }, 3000);
             
             logger.info('✅ Session manager initialized');

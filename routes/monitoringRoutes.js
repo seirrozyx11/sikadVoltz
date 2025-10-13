@@ -5,6 +5,7 @@
 
 import express from 'express';
 import SessionManager from '../services/sessionManager.js';
+import simpleRedisClient from '../services/simpleRedisClient.js'; // 🔥 Simple Redis client for comparison
 import authenticateToken from '../middleware/authenticateToken.js';
 
 const router = express.Router();
@@ -246,28 +247,67 @@ function generateRecommendations(redisStatus, responseTime) {
  */
 router.get('/redis-health', async (req, res) => {
   try {
-    // 🔍 DEBUG: Log SessionManager state when health check is called
-    console.log('🏥 HEALTH CHECK DEBUG:');
+    // � REDIS COMPARISON HEALTH CHECK
+    console.log('🏥 REDIS COMPARISON HEALTH CHECK:');
     console.log(`   SessionManager.isRedisAvailable: ${SessionManager.isRedisAvailable}`);
     console.log(`   SessionManager.redisClient exists: ${!!SessionManager.redisClient}`);
     console.log(`   SessionManager.redisClient.isOpen: ${SessionManager.redisClient?.isOpen}`);
     
+    const simpleStatus = simpleRedisClient.getStatus();
+    console.log(`   SimpleRedis Status:`, JSON.stringify(simpleStatus, null, 2));
+    
     const health = {
       timestamp: new Date().toISOString(),
-      redis_available: SessionManager.isRedisAvailable,
-      storage_type: SessionManager.isRedisAvailable ? 'redis_cloud' : 'memory_fallback'
+      
+      // 🔥 SessionManager Redis Status  
+      session_manager: {
+        available: SessionManager.isRedisAvailable,
+        client_exists: !!SessionManager.redisClient,
+        client_open: SessionManager.redisClient?.isOpen || false
+      },
+      
+      // 🔥 SimpleRedis Status
+      simple_redis: simpleStatus,
+      
+      // 🔥 Overall Status (use SimpleRedis if SessionManager fails)
+      redis_available: SessionManager.isRedisAvailable || simpleStatus.connected,
+      storage_type: SessionManager.isRedisAvailable ? 'session_manager_redis' : 
+                   simpleStatus.connected ? 'simple_redis_client' : 'memory_fallback'
     };
 
+    // Test SessionManager Redis if available
     if (SessionManager.isRedisAvailable) {
-      const pingStart = Date.now();
-      await SessionManager.redisClient.ping();
-      health.ping_response_ms = Date.now() - pingStart;
+      try {
+        const pingStart = Date.now();
+        await SessionManager.redisClient.ping();
+        health.session_manager.ping_ms = Date.now() - pingStart;
+        console.log(`✅ SessionManager PING successful: ${health.session_manager.ping_ms}ms`);
+      } catch (error) {
+        health.session_manager.ping_error = error.message;
+        console.log(`❌ SessionManager PING failed: ${error.message}`);
+      }
+    }
+
+    // Test SimpleRedis if available
+    if (simpleStatus.connected) {
+      try {
+        const pingStart = Date.now();
+        const pingResult = await simpleRedisClient.ping();
+        health.simple_redis.ping_ms = Date.now() - pingStart;
+        health.simple_redis.ping_success = pingResult;
+        console.log(`✅ SimpleRedis PING successful: ${health.simple_redis.ping_ms}ms`);
+      } catch (error) {
+        health.simple_redis.ping_error = error.message;
+        console.log(`❌ SimpleRedis PING failed: ${error.message}`);
+      }
+    }
+
+    // Determine overall health status
+    if (health.session_manager.available || health.simple_redis.connected) {
       health.status = 'healthy';
-      console.log(`✅ Health check PING successful: ${health.ping_response_ms}ms`);
     } else {
       health.status = 'degraded';
-      health.message = 'Using memory fallback - Redis not available';
-      console.log(`❌ Health check: Redis marked as unavailable`);
+      health.message = 'Both Redis clients unavailable - using memory fallback';
     }
 
     res.json(health);
