@@ -97,10 +97,19 @@ const sessionSchema = new mongoose.Schema({
       dailyCyclingHours: { type: Number },
       totalPlanDays: { type: Number },
       totalCyclingHours: { type: Number },
-      bmr: { type: Number },
-      tdee: { type: Number },
-      dailyCalorieGoal: { type: Number }
-    }
+      bmr: { type: Number }, // Basal Metabolic Rate (kcal/day)
+      tdee: { type: Number }, // Total Daily Energy Expenditure (kcal/day)
+      dailyCalorieGoal: { type: Number },
+      targetCalories: { type: Number }, // NEW: Target daily calorie intake (kcal/day)
+      dailyDeficit: { type: Number }, // NEW: Daily calorie deficit/surplus (kcal/day)
+      weeklyWeightChange: { type: Number }, // NEW: Expected weekly weight change (kg/week)
+      weeklyCalories: { type: Number }, // NEW: Weekly calorie deficit/surplus
+      activityLevel: { type: String }, // NEW: User's activity level for MET calculation
+      bodyGoal: { type: String } // NEW: 'lose', 'maintain', or 'gain'
+    },
+    
+    // NEW: Safety warnings from TDEE calculations
+    tdeeWarnings: [{ type: String }]
   }, { timestamps: true });
 
 const CyclingPlan = mongoose.model('CyclingPlan', cyclingPlanSchema);

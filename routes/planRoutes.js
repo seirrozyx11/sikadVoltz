@@ -65,6 +65,13 @@ router.post(
   updateSessionProgressRealtime
 );
 
+// ✅ FIX: Add session sync endpoint for ESP32/BLE bridge
+router.post(
+  '/session/sync',
+  authenticateToken,
+  updateSessionProgressRealtime
+);
+
 // Record a completed session
 router.post(
   '/:id/sessions',

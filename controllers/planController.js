@@ -8,6 +8,9 @@ import {
   updateSessionProgressLegacy as updateSessionProgressService,
   emergencyCatchUp
 } from '../services/calorieService.js';
+import {
+  calculateEnhancedGoalPlan
+} from '../services/tdeeService.js';
 import { 
   checkAndAdjustPlan, 
   suggestPlanReset, 
@@ -21,6 +24,7 @@ import {
 import CyclingPlan from '../models/CyclingPlan.js';
 import WorkoutHistory from '../models/WorkoutHistory.js';
 import User from '../models/User.js'; // 🚨 ADD: User model import for profile access
+import Goal from '../models/Goal.js'; // ✅ FIX: Add Goal model import for TDEE feature
 import SessionTrackerService from '../services/session_tracker_service.js';
 import logger from '../utils/logger.js'; // 🚨 ADD: Logger import for real-time session updates
 
@@ -97,7 +101,59 @@ export const createPlan = async (req, res) => {
       await plan.save();
     }
 
+    // Generate basic cycling plan structure
     const planData = await generateCyclingPlan(userId, goalId);
+    
+    // 🆕 ENHANCED: Calculate TDEE-based personalized metrics
+    const user = await User.findById(userId);
+    const goal = await Goal.findById(goalId);
+    
+    if (user && user.profile && goal) {
+      // Calculate age from birth date
+      const birthDate = new Date(user.profile.birthDate);
+      const age = new Date().getFullYear() - birthDate.getFullYear();
+      
+      // Calculate timeframe in weeks
+      const startDate = new Date(goal.startDate);
+      const targetDate = new Date(goal.targetDate);
+      const timeframeWeeks = Math.ceil((targetDate - startDate) / (1000 * 60 * 60 * 24 * 7));
+      
+      // Determine body goal from weight direction
+      let bodyGoal = 'maintain';
+      if (goal.targetWeight < goal.currentWeight) {
+        bodyGoal = 'lose';
+      } else if (goal.targetWeight > goal.currentWeight) {
+        bodyGoal = 'gain';
+      }
+      
+      // Calculate enhanced TDEE-based plan
+      const tdeeResult = calculateEnhancedGoalPlan({
+        currentWeight: goal.currentWeight,
+        height: user.profile.height,
+        age: age,
+        gender: user.profile.gender,
+        activityLevel: user.profile.activityLevel || 'moderate',
+        targetWeight: goal.targetWeight,
+        timeframeWeeks: timeframeWeeks,
+        bodyGoal: bodyGoal
+      });
+      
+      // Enhance plan summary with TDEE insights
+      if (tdeeResult.success || tdeeResult.bmr) {
+        planData.planSummary = {
+          ...planData.planSummary,
+          targetCalories: tdeeResult.targetCalories,
+          dailyDeficit: tdeeResult.dailyDeficit,
+          weeklyWeightChange: tdeeResult.weeklyWeightChange,
+          weeklyCalories: tdeeResult.weeklyCalories,
+          activityLevel: user.profile.activityLevel,
+          bodyGoal: bodyGoal
+        };
+        
+        // Store TDEE warnings if any
+        planData.tdeeWarnings = tdeeResult.warnings || [];
+      }
+    }
 
     // --- Plan Classification Framework ---
     // Classify plan type based on daily cycling hours using helper function
@@ -106,6 +162,7 @@ export const createPlan = async (req, res) => {
     const cyclingPlan = new CyclingPlan({
       ...planData,
       planSummary: planData.planSummary,
+      tdeeWarnings: planData.tdeeWarnings || [],
       planType: planType, // Store planType in the plan
       isActive: true // Ensure new plan is active
     });
@@ -115,12 +172,18 @@ export const createPlan = async (req, res) => {
     // Always include planType explicitly in the response
     const planObj = cyclingPlan.toObject();
     planObj.planType = cyclingPlan.planType;
+    
+    // Include TDEE warnings in response if present
+    const responseMessage = existingActivePlans.length > 0 ? 
+      `Successfully created new plan and archived ${existingActivePlans.length} previous plan(s)` :
+      'Successfully created new plan';
+    
     res.status(201).json({
-      success: true,
+      success: planData.tdeeWarnings && planData.tdeeWarnings.length === 0,
       data: planObj,
-      message: existingActivePlans.length > 0 ? 
-        `Successfully created new plan and archived ${existingActivePlans.length} previous plan(s)` :
-        'Successfully created new plan'
+      message: responseMessage,
+      tdeeWarnings: planData.tdeeWarnings || [],
+      tdeeEnhanced: true // Flag indicating TDEE calculations were used
     });
   } catch (error) {
     console.error('Error creating plan:', error);
