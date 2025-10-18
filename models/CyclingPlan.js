@@ -6,7 +6,7 @@ const sessionSchema = new mongoose.Schema({
     completedHours: { type: Number, default: 0 },
     status: { 
       type: String, 
-      enum: ['pending', 'completed', 'missed', 'rescheduled', 'redistributed'],
+      enum: ['pending', 'completed', 'missed', 'redistributed'],
       default: 'pending'
     },
     caloriesBurned: { type: Number, default: 0 },

@@ -302,7 +302,7 @@ class SecurityMiddleware {
     this.configureHTTPSEnforcement(app);
     this.configureAdditionalSecurity(app);
     
-    logger.info('✅ All security middleware applied successfully');
+    logger.info('All security middleware applied successfully');
   }
 }
 

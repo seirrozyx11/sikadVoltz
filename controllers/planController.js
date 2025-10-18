@@ -23,10 +23,10 @@ import {
 } from '../services/missedSessionDetector.js';
 import CyclingPlan from '../models/CyclingPlan.js';
 import WorkoutHistory from '../models/WorkoutHistory.js';
-import User from '../models/User.js'; // 🚨 ADD: User model import for profile access
-import Goal from '../models/Goal.js'; // ✅ FIX: Add Goal model import for TDEE feature
+import User from '../models/User.js'; // ADD: User model import for profile access
+import Goal from '../models/Goal.js'; // FIX: Add Goal model import for TDEE feature
 import SessionTrackerService from '../services/session_tracker_service.js';
-import logger from '../utils/logger.js'; // 🚨 ADD: Logger import for real-time session updates
+import logger from '../utils/logger.js'; // ADD: Logger import for real-time session updates
 
 // Helper function for consistent error responses
 const errorResponse = (res, status, message, details = null) => {
@@ -784,10 +784,10 @@ export const handleMissedSessions = async (req, res) => {
           return errorResponse(res, 400, `Session must be 'missed' to reschedule: ${sessionId}`);
         }
 
-        // Update session with rescheduled status and tracking
+        // Update session with rescheduled tracking (keep status as 'pending')
         const originalDate = session.date;
         session.date = new Date(newDate);
-        session.status = 'rescheduled';
+        session.status = 'pending'; // Keep as pending for the new date
         session.isRescheduled = true;
         
         // Add action history
@@ -1501,10 +1501,11 @@ export const rescheduleSession = async (req, res) => {
       });
     }
 
-    // Update session
+    // Update session (keep status as 'pending' for the new date)
     const oldDate = session.date;
     session.date = new Date(newDate);
-    session.status = 'rescheduled';
+    session.status = 'pending'; // Keep as pending for the new date
+    session.isRescheduled = true;
     session.rescheduleInfo = {
       originalDate: oldDate,
       reason: reason || 'User requested reschedule',

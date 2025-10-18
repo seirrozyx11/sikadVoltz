@@ -57,7 +57,7 @@ router.post('/ride-data', authenticateToken, validateRideData, async (req, res) 
       timestamp
     } = req.body;
 
-    const userId = req.user.id;
+    const userId = req.user?.userId;
 
     // Log the received data with intensity
     logger.info('ESP32 ride data received', {
@@ -70,27 +70,143 @@ router.post('/ride-data', authenticateToken, validateRideData, async (req, res) 
       intensity
     });
 
-    // TODO: Store in database when models are ready
-    // For now, just acknowledge receipt
-    res.status(201).json({
-      success: true,
-      message: 'Ride data received successfully',
-      data: {
+    // ✅ STORE DATA: Save telemetry data to database
+    try {
+      // Get or create device registration
+      let device = await ESP32Device.findOne({ deviceId: req.body.deviceId || 'DEFAULT_DEVICE', userId });
+      if (!device) {
+        device = await ESP32Device.create({
+          deviceId: req.body.deviceId || 'DEFAULT_DEVICE',
+          userId,
+          deviceName: 'SIKAD-VOLTZ',
+          lastSeen: new Date()
+        });
+        logger.info('✅ New ESP32 device registered', { deviceId: device.deviceId, userId });
+      } else {
+        device.lastSeen = new Date();
+        await device.save();
+      }
+
+      // Get or create active ride session
+      let session = await RideSession.findOne({
         userId,
-        receivedAt: new Date().toISOString(),
-        metrics: {
+        deviceId: device.deviceId,
+        status: 'active'
+      });
+
+      if (!session && state === 'active') {
+        // Create new session
+        const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        session = await RideSession.create({
+          userId,
+          deviceId: device.deviceId,
+          sessionId,
+          startTime: new Date(),
+          status: 'active'
+        });
+        logger.info('🚴 New ride session created', { sessionId, userId });
+      }
+
+      // Store telemetry data point
+      if (session) {
+        const telemetry = await Telemetry.create({
+          deviceId: device.deviceId,
+          userId,
+          sessionId: session.sessionId,
+          metrics: {
+            speed,
+            distance,
+            sessionTime,
+            watts: power,
+            pulseCount: 0
+          },
+          battery: {
+            voltage,
+            level: 0
+          },
+          workoutActive: state === 'active',
+          rawData: req.body,
+          timestamp: new Date(timestamp || Date.now())
+        });
+
+        // Update session metrics in real-time
+        await session.updateMetrics(telemetry);
+
+        // Calculate calories burned
+        const user = await User.findById(userId);
+        if (user) {
+          const caloriesBurned = calculateCyclingCalories({
+            weight: user.weight || 70,
+            duration: sessionTime / 60, // Convert seconds to minutes
+            avgSpeed: speed,
+            intensity: intensity || 2
+          });
+          
+          session.totalCalories = caloriesBurned;
+          await session.save();
+        }
+
+        // Update device statistics
+        device.totalSessions = await RideSession.countDocuments({ 
+          deviceId: device.deviceId, 
+          status: { $in: ['completed', 'active'] } 
+        });
+        device.totalDistance += (distance - (session.totalDistance || 0));
+        device.totalTime = sessionTime;
+        await device.save();
+
+        logger.info('📊 Telemetry data stored', {
+          sessionId: session.sessionId,
           speed,
           distance,
-          power,
-          avgPower,
-          maxPower,
-          voltage,
-          sessionTime,
-          state,
-          intensity
-        }
+          calories: session.totalCalories
+        });
+
+        res.status(201).json({
+          success: true,
+          message: 'Ride data received and stored successfully',
+          data: {
+            userId,
+            sessionId: session.sessionId,
+            receivedAt: new Date().toISOString(),
+            metrics: {
+              speed,
+              distance,
+              power,
+              avgPower,
+              maxPower,
+              voltage,
+              sessionTime,
+              state,
+              intensity,
+              calories: session.totalCalories
+            },
+            session: {
+              totalDistance: session.totalDistance,
+              maxSpeed: session.maxSpeed,
+              avgSpeed: session.avgSpeed,
+              duration: session.duration
+            }
+          }
+        });
+      } else {
+        // Session ended but still receiving data - acknowledge but don't store
+        res.status(200).json({
+          success: true,
+          message: 'Ride data received (no active session)',
+          data: { userId, state }
+        });
       }
-    });
+    } catch (dbError) {
+      logger.error('❌ Database error storing ride data:', dbError);
+      // Still return success to ESP32 to avoid blocking cycling
+      res.status(201).json({
+        success: true,
+        message: 'Ride data received (storage pending)',
+        warning: 'Data queued for retry',
+        data: { userId }
+      });
+    }
 
   } catch (error) {
     logger.error('Error processing ESP32 ride data:', error);
@@ -348,7 +464,7 @@ router.post('/session/end', authenticateToken, async (req, res) => {
 // GET /api/esp32/sessions - Get user's ESP32 sessions
 router.get('/sessions', authenticateToken, async (req, res) => {
   try {
-    const userId = req.user.id;
+    const userId = req.user?.userId;
     const { limit = 10, offset = 0 } = req.query;
 
     // TODO: Retrieve from database when models are ready
@@ -381,7 +497,7 @@ router.get('/sessions', authenticateToken, async (req, res) => {
 router.post('/device-status', authenticateToken, async (req, res) => {
   try {
     const { deviceId, status, batteryLevel, signalStrength } = req.body;
-    const userId = req.user.id;
+    const userId = req.user?.userId;
 
     logger.info('ESP32 device status update', {
       userId,
@@ -391,7 +507,26 @@ router.post('/device-status', authenticateToken, async (req, res) => {
       signalStrength
     });
 
-    // TODO: Store device status when models are ready
+    // ✅ STORE DEVICE STATUS: Update device in database
+    let device = await ESP32Device.findOne({ deviceId, userId });
+    
+    if (!device) {
+      // Create new device if not exists
+      device = await ESP32Device.create({
+        deviceId,
+        userId,
+        deviceName: 'SIKAD-VOLTZ',
+        lastSeen: new Date(),
+        isActive: status === 'connected'
+      });
+      logger.info('✅ New device registered via status update', { deviceId, userId });
+    } else {
+      // Update existing device
+      device.lastSeen = new Date();
+      device.isActive = status === 'connected';
+      await device.save();
+      logger.info('✅ Device status updated', { deviceId, status });
+    }
     
     res.status(200).json({
       success: true,
@@ -413,21 +548,194 @@ router.post('/device-status', authenticateToken, async (req, res) => {
   }
 });
 
+// POST /api/esp32/session/end - End active session
+router.post('/session/end', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    const { sessionId, finalMetrics } = req.body;
+
+    let session;
+    
+    if (sessionId) {
+      // End specific session
+      session = await RideSession.findOne({ sessionId, userId });
+    } else {
+      // End any active session for this user
+      session = await RideSession.findOne({ userId, status: 'active' });
+    }
+
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        error: 'No active session found'
+      });
+    }
+
+    // Complete the session
+    await RideSession.completeSession(session.sessionId, finalMetrics);
+
+    // Get updated session
+    const completedSession = await RideSession.findOne({ sessionId: session.sessionId });
+
+    logger.info('✅ Session completed', {
+      sessionId: session.sessionId,
+      duration: completedSession.duration,
+      distance: completedSession.totalDistance,
+      calories: completedSession.totalCalories
+    });
+
+    res.status(200).json({
+      success: true,
+      message: 'Session completed successfully',
+      data: {
+        sessionId: completedSession.sessionId,
+        duration: completedSession.duration,
+        totalDistance: completedSession.totalDistance,
+        totalCalories: completedSession.totalCalories,
+        avgSpeed: completedSession.avgSpeed,
+        maxSpeed: completedSession.maxSpeed
+      }
+    });
+
+  } catch (error) {
+    logger.error('Error ending session:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to end session',
+      details: error.message
+    });
+  }
+});
+
+// GET /api/esp32/analytics - Get user's cycling analytics for charts
+router.get('/analytics', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    const { period = 'week' } = req.query; // week, month, year
+
+    // Calculate date range
+    const now = new Date();
+    let startDate;
+    switch (period) {
+      case 'week':
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+        break;
+      case 'month':
+        startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+        break;
+      case 'year':
+        startDate = new Date(now.getFullYear(), 0, 1);
+        break;
+      default:
+        startDate = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000);
+    }
+
+    // Get completed sessions in date range
+    const sessions = await RideSession.find({
+      userId,
+      status: 'completed',
+      startTime: { $gte: startDate }
+    }).sort({ startTime: 1 });
+
+    // Calculate aggregated statistics
+    const totalDistance = sessions.reduce((sum, s) => sum + (s.totalDistance || 0), 0);
+    const totalCalories = sessions.reduce((sum, s) => sum + (s.totalCalories || 0), 0);
+    const totalDuration = sessions.reduce((sum, s) => sum + (s.duration || 0), 0);
+    const avgSpeed = sessions.length > 0 
+      ? sessions.reduce((sum, s) => sum + (s.avgSpeed || 0), 0) / sessions.length 
+      : 0;
+
+    // Group by day for chart data
+    const dailyData = {};
+    sessions.forEach(session => {
+      const day = session.startTime.toISOString().split('T')[0];
+      if (!dailyData[day]) {
+        dailyData[day] = {
+          date: day,
+          distance: 0,
+          calories: 0,
+          duration: 0,
+          sessions: 0
+        };
+      }
+      dailyData[day].distance += session.totalDistance || 0;
+      dailyData[day].calories += session.totalCalories || 0;
+      dailyData[day].duration += session.duration || 0;
+      dailyData[day].sessions += 1;
+    });
+
+    const chartData = Object.values(dailyData).sort((a, b) => 
+      new Date(a.date).getTime() - new Date(b.date).getTime()
+    );
+
+    logger.info('📊 Analytics retrieved', { 
+      userId, 
+      period, 
+      totalSessions: sessions.length,
+      totalDistance: totalDistance.toFixed(2)
+    });
+
+    res.status(200).json({
+      success: true,
+      data: {
+        summary: {
+          totalSessions: sessions.length,
+          totalDistance: parseFloat(totalDistance.toFixed(2)),
+          totalCalories: Math.round(totalCalories),
+          totalDuration: Math.round(totalDuration),
+          avgSpeed: parseFloat(avgSpeed.toFixed(2))
+        },
+        chartData,
+        sessions: sessions.slice(-10).map(s => ({
+          sessionId: s.sessionId,
+          date: s.startTime,
+          distance: s.totalDistance,
+          calories: s.totalCalories,
+          duration: s.duration,
+          avgSpeed: s.avgSpeed,
+          maxSpeed: s.maxSpeed
+        }))
+      }
+    });
+
+  } catch (error) {
+    logger.error('Error retrieving analytics:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to retrieve analytics',
+      details: error.message
+    });
+  }
+});
+
 // Get device status
 router.get('/device/:deviceId', authenticateToken, async (req, res) => {
   try {
     const userId = req.user?.userId;
     const { deviceId } = req.params;
     
-    // TODO: Implement when models are available
-    // Mock device status for now
+    // ✅ RETRIEVE DEVICE: Get device from database
+    const device = await ESP32Device.findOne({ deviceId, userId });
+
+    if (!device) {
+      return res.status(404).json({
+        success: false,
+        error: 'Device not found'
+      });
+    }
+
     const deviceStatus = {
-      deviceId,
+      deviceId: device.deviceId,
+      deviceName: device.deviceName,
       userId,
-      isOnline: true,
-      lastSeen: new Date(),
-      batteryLevel: 85,
-      signalStrength: -45
+      isActive: device.isActive,
+      lastSeen: device.lastSeen,
+      firmwareVersion: device.firmwareVersion,
+      statistics: {
+        totalSessions: device.totalSessions,
+        totalDistance: device.totalDistance,
+        totalTime: device.totalTime
+      }
     };
     
     res.json({

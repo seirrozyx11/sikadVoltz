@@ -234,10 +234,6 @@ async function _processDashboardData({ user, activePlan, recentTelemetry, curren
             result.sessionStatus[day] = 'current';
             break;
             
-          case 'rescheduled':
-            result.sessionStatus[day] = 'rescheduled';
-            break;
-            
           default:
             result.sessionStatus[day] = 'scheduled';
         }

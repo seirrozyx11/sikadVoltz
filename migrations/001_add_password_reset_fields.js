@@ -16,7 +16,7 @@ config();
 
 const runMigration = async () => {
   try {
-    console.log('🚀 Starting password reset fields migration...');
+    console.log('Starting password reset fields migration...');
     
     // Connect to MongoDB
     await mongoose.connect(process.env.MONGODB_URI, {
@@ -24,14 +24,14 @@ const runMigration = async () => {
       useUnifiedTopology: true,
     });
     
-    console.log('✅ Connected to MongoDB');
+    console.log('Connected to MongoDB');
     
     // Count existing users
     const totalUsers = await User.countDocuments();
-    console.log(`📊 Found ${totalUsers} users to migrate`);
+    console.log(`Found ${totalUsers} users to migrate`);
     
     if (totalUsers === 0) {
-      console.log('ℹ️  No users found. Migration complete.');
+      console.log('No users found. Migration complete.');
       process.exit(0);
     }
     
@@ -76,7 +76,7 @@ const runMigration = async () => {
         const result = await User.bulkWrite(bulkOperations);
         processed += users.length;
         
-        console.log(`✅ Migrated batch: ${processed}/${totalUsers} users (${result.modifiedCount} modified)`);
+        console.log(`Migrated batch: ${processed}/${totalUsers} users (${result.modifiedCount} modified)`);
       }
     }
     
@@ -86,38 +86,38 @@ const runMigration = async () => {
       resetAnalytics: { $exists: true }
     });
     
-    console.log(`🔍 Verification: ${verificationCount}/${totalUsers} users have new fields`);
+    console.log(`Verification: ${verificationCount}/${totalUsers} users have new fields`);
     
     if (verificationCount === totalUsers) {
-      console.log('✅ Migration completed successfully!');
-      console.log('📝 Summary:');
+      console.log('Migration completed successfully!');
+      console.log('Summary:');
       console.log(`   - Users migrated: ${totalUsers}`);
       console.log(`   - New fields added: resetPasswordAttempts, resetAttemptIPs, trustedIPs, securityQuestions, resetAnalytics`);
       console.log(`   - Security tokens cleared: All existing reset tokens removed`);
     } else {
-      console.error('❌ Migration incomplete. Some users may not have been updated.');
+      console.error('Migration incomplete. Some users may not have been updated.');
       console.log(`   Expected: ${totalUsers}, Got: ${verificationCount}`);
     }
     
   } catch (error) {
-    console.error('❌ Migration failed:', error);
+    console.error('Migration failed:', error);
     process.exit(1);
   } finally {
     await mongoose.disconnect();
-    console.log('🔌 Disconnected from MongoDB');
+    console.log('Disconnected from MongoDB');
     process.exit(0);
   }
 };
 
 // Handle process termination
 process.on('SIGINT', async () => {
-  console.log('\n⚠️  Migration interrupted by user');
+  console.log('\nMigration interrupted by user');
   await mongoose.disconnect();
   process.exit(1);
 });
 
 process.on('unhandledRejection', async (error) => {
-  console.error('❌ Unhandled rejection:', error);
+  console.error('Unhandled rejection:', error);
   await mongoose.disconnect();
   process.exit(1);
 });
