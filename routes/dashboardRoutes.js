@@ -123,7 +123,7 @@ router.get('/home', authenticateToken, async (req, res) => {
           JSON.stringify(cacheData)
         );
         
-        logger.info(`📦 Dashboard data cached for user ${userId}`);
+        logger.info(` Dashboard data cached for user ${userId}`);
       }
     } catch (cacheError) {
       logger.warn('Cache write error:', cacheError.message);

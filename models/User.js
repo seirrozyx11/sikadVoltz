@@ -193,6 +193,55 @@ const userSchema = new mongoose.Schema({
       endTime: { type: String, default: '07:00' }
     }
   },
+
+  // Dual-Strategy Notification System: User Status Tracking
+  isOnline: {
+    type: Boolean,
+    default: false,
+    index: true // Index for fast queries
+  },
+  lastActive: {
+    type: Date,
+    default: Date.now,
+    index: true
+  },
+  lastOnlineAt: {
+    type: Date
+  },
+  lastOfflineAt: {
+    type: Date
+  },
+  connectionCount: {
+    type: Number,
+    default: 0
+  },
+  
+  // Achievement System Fields
+  xp: {
+    type: Number,
+    default: 0,
+    min: 0,
+    index: true // For leaderboard queries
+  },
+  level: {
+    type: Number,
+    default: 1,
+    min: 1,
+    index: true
+  },
+  rank: {
+    type: String,
+    enum: ['Bronze', 'Silver', 'Gold', 'Platinum', 'Diamond', 'Master', 'Legend'],
+    default: 'Bronze'
+  },
+  streak: {
+    type: Number,
+    default: 0,
+    min: 0
+  },
+  lastActivityDate: {
+    type: Date
+  },
 }, { 
   timestamps: true,
   toJSON: { virtuals: true },
@@ -277,6 +326,54 @@ userSchema.methods.updateResetAnalytics = function() {
 userSchema.methods.addActivity = function(activityData) {
   this.activityLog.push(activityData);
   return this.save();
+};
+
+// Dual-Strategy Notification System: Status Management Methods
+userSchema.methods.setOnline = async function() {
+  this.isOnline = true;
+  this.lastActive = new Date();
+  this.lastOnlineAt = new Date();
+  this.connectionCount = (this.connectionCount || 0) + 1;
+  return this.save();
+};
+
+userSchema.methods.setOffline = async function() {
+  this.isOnline = false;
+  this.lastActive = new Date();
+  this.lastOfflineAt = new Date();
+  return this.save();
+};
+
+userSchema.methods.updateLastActive = async function() {
+  this.lastActive = new Date();
+  return this.save();
+};
+
+userSchema.methods.updateFcmToken = async function(token, platform, appVersion) {
+  this.fcmToken = token;
+  this.platform = platform || this.platform || 'unknown';
+  this.appVersion = appVersion || this.appVersion || '1.0.0';
+  this.fcmTokenUpdatedAt = new Date();
+  return this.save();
+};
+
+// Static method to check if user is online
+userSchema.statics.isUserOnline = async function(userId) {
+  const user = await this.findById(userId).select('isOnline lastActive');
+  if (!user) return false;
+  
+  // Consider user offline if no activity in last 5 minutes
+  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+  return user.isOnline && user.lastActive > fiveMinutesAgo;
+};
+
+// Static method to get online users count
+userSchema.statics.getOnlineUsersCount = async function() {
+  const fiveMinutesAgo = new Date(Date.now() - 5 * 60 * 1000);
+  return this.countDocuments({
+    isOnline: true,
+    lastActive: { $gt: fiveMinutesAgo }
+  });
 };
 
 // Static method to get user's calorie summary

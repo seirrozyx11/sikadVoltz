@@ -68,17 +68,30 @@ class NotificationService {
 
       await notification.save();
       
-      // Broadcast via WebSocket
+      // Broadcast via WebSocket (if online) or FCM (if offline)
       await this.broadcastNotification(userId, notification);
       
-      // NEW: Send FCM push notification
-      await fcmService.sendMissedSessionNotification(userId, { count, sessions, planAdjusted });
+      // DUAL-STRATEGY: Send FCM push notification ONLY if user is offline
+      const wsService = getWebSocketService();
+      const isUserOnline = wsService ? wsService.isUserConnected(userId) : false;
       
-      logger.info(`Missed session notification created and sent via FCM`, {
+      if (!isUserOnline) {
+        // User is OFFLINE - Send FCM push notification
+        await fcmService.sendMissedSessionNotification(userId, { count, sessions, planAdjusted });
+        logger.info(`FCM push notification sent (user OFFLINE)`, {
+          userId,
+          notificationId: notification._id,
+          count,
+          priority
+        });
+      }
+      
+      logger.info(`Missed session notification created`, {
         userId,
         notificationId: notification._id,
         count,
-        priority
+        priority,
+        delivery: isUserOnline ? 'websocket' : 'fcm'
       });
 
       return notification;
@@ -427,11 +440,14 @@ class NotificationService {
   static async broadcastNotification(userId, notification) {
     try {
       const wsService = getWebSocketService();
-      if (wsService) {
-        // Get updated unread count
+      
+      // DUAL-STRATEGY: Check if user is online
+      const isUserOnline = wsService ? wsService.isUserConnected(userId) : false;
+      
+      if (isUserOnline && wsService) {
+        // User is ONLINE - Send via WebSocket ONLY
         const unreadCount = await Notification.getUnreadCount(userId);
         
-        // **ENHANCED**: Send notification with proper format for Flutter
         wsService.sendToUser(userId, {
           type: 'new_notification',
           notification: {
@@ -450,14 +466,27 @@ class NotificationService {
           timestamp: new Date().toISOString()
         });
         
-        logger.info(` Notification broadcasted via WebSocket`, {
+        logger.info(`Notification sent via WebSocket (user ONLINE)`, {
           userId,
           notificationId: notification._id,
-          type: notification.type
+          type: notification.type,
+          delivery: 'websocket'
         });
+      } else {
+        // User is OFFLINE - Send via FCM Push Notification ONLY
+        logger.info(`User ${userId} is OFFLINE, sending via FCM push notification`, {
+          notificationId: notification._id,
+          type: notification.type,
+          delivery: 'fcm'
+        });
+        
+        // Send push notification via FCM
+        // FCM service will handle this in the createNotification methods above
+        // This is already handled in createMissedSessionNotification, etc.
       }
+      
     } catch (error) {
-      logger.error(' Error broadcasting notification:', { 
+      logger.error('Error broadcasting notification:', { 
         error: error.message, 
         userId,
         notificationId: notification._id 

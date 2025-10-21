@@ -25,7 +25,7 @@ function prompt(question) {
 }
 
 function installPackage(packageName) {
-  console.log(`📦 Installing ${packageName}...`);
+  console.log(` Installing ${packageName}...`);
   try {
     execSync(`npm install ${packageName}`, { stdio: 'inherit' });
     console.log(`${packageName} installed successfully`);

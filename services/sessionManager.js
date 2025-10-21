@@ -48,7 +48,7 @@ class SessionManager {
       
       // Try to initialize Redis if REDIS_URL is provided
       if (process.env.REDIS_URL) {
-        console.log('📦 Importing redis client...');
+        console.log(' Importing redis client...');
         const { createClient } = await import('redis');
         console.log('Redis module imported successfully');
         

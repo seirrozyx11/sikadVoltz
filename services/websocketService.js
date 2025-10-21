@@ -1,6 +1,7 @@
 import { WebSocketServer } from 'ws';
 import jwt from 'jsonwebtoken';
 import logger from '../utils/logger.js';
+import User from '../models/User.js'; // For user status tracking
 
 class WebSocketService {
   constructor(server) {
@@ -43,8 +44,19 @@ class WebSocketService {
   }
 
   setupHandlers() {
-    this.wss.on('connection', (ws, request, userId) => {
+    this.wss.on('connection', async (ws, request, userId) => {
       logger.info(`New WebSocket connection for user ${userId}`);
+      
+      // DUAL-STRATEGY: Set user status to ONLINE when WebSocket connects
+      try {
+        const user = await User.findById(userId);
+        if (user) {
+          await user.setOnline();
+          logger.info(`User ${userId} marked as ONLINE (WebSocket connected)`);
+        }
+      } catch (error) {
+        logger.error(`Failed to set user ${userId} online:`, error);
+      }
       
       // Add client to the map
       if (!this.clients.has(userId)) {
@@ -66,6 +78,16 @@ class WebSocketService {
               // Broadcast to all active sockets for this user (including sender)
               this.broadcastToUser(userId, event, data);
               break;
+            case 'heartbeat':
+              // DUAL-STRATEGY: Update last active timestamp on heartbeat
+              User.findById(userId).then(user => {
+                if (user) {
+                  user.updateLastActive().catch(err => 
+                    logger.error('Failed to update last active:', err)
+                  );
+                }
+              }).catch(err => logger.error('Failed to find user for heartbeat:', err));
+              break;
             default:
               // Ignore unknown events for now
               break;
@@ -76,13 +98,24 @@ class WebSocketService {
       });
 
       // Handle client disconnection
-      ws.on('close', () => {
+      ws.on('close', async () => {
         logger.info(`WebSocket disconnected for user ${userId}`);
         const userSockets = this.clients.get(userId);
         if (userSockets) {
           userSockets.delete(ws);
           if (userSockets.size === 0) {
             this.clients.delete(userId);
+            
+            // DUAL-STRATEGY: Set user status to OFFLINE when last WebSocket disconnects
+            try {
+              const user = await User.findById(userId);
+              if (user) {
+                await user.setOffline();
+                logger.info(`User ${userId} marked as OFFLINE (all WebSocket connections closed)`);
+              }
+            } catch (error) {
+              logger.error(`Failed to set user ${userId} offline:`, error);
+            }
           }
         }
       });
@@ -120,6 +153,12 @@ class WebSocketService {
   // Get user connections (for notification service compatibility)
   getUserConnections(userId) {
     return this.clients.get(userId) || new Set();
+  }
+
+  // Check if user has active WebSocket connections
+  isUserConnected(userId) {
+    const connections = this.clients.get(userId);
+    return connections && connections.size > 0;
   }
 
   // Broadcast to all connected clients

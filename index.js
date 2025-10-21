@@ -36,6 +36,8 @@ import adminTokenRoutes from './routes/adminTokenRetrieval.js';
 import oauthRoutes from './routes/oauth.js';
 import testRoutes from './routes/test.js';
 import monitoringRoutes from './routes/monitoringRoutes.js';
+import userStatusRoutes from './routes/userStatusRoutes.js'; // Dual-Strategy Notification System
+import userRoutes from './routes/userRoutes.js'; // Achievement system routes
 // Import services
 import RealTimeTelemetryService from './services/realTimeTelemetryService.js';
 import ScheduledTasksService from './services/scheduledTasksService.js';
@@ -217,6 +219,7 @@ v1Router.use('/workout-history', workoutHistoryRoutes);
 v1Router.use('/progress', progressRoutes);
 v1Router.use('/health-screening', healthScreeningRoutes); // Fixed duplicate profile route
 v1Router.use('/notifications', notificationRoutes);
+v1Router.use('/users', userRoutes); // Achievement system
 v1Router.use('/admin', adminTokenRoutes);
 v1Router.use('/oauth', oauthRoutes);
 v1Router.use('/monitor', monitoringRoutes);
@@ -247,6 +250,8 @@ app.use('/api/esp32', deprecationWarning, esp32Routes);
 app.use('/api/workout-history', deprecationWarning, workoutHistoryRoutes);
 app.use('/api/progress', deprecationWarning, progressRoutes);
 app.use('/api/notifications', deprecationWarning, notificationRoutes);
+app.use('/api/user-status', deprecationWarning, userStatusRoutes); // Dual-Strategy Notification System
+app.use('/api/users', deprecationWarning, userRoutes); // Achievement system
 app.use('/api/admin', deprecationWarning, adminTokenRoutes);
 app.use('/api/oauth', deprecationWarning, oauthRoutes);
 app.use('/api/test', deprecationWarning, testRoutes);
@@ -710,7 +715,7 @@ const startServer = async () => {
 
         Server Protocol: ${serverStats.protocol}
        ${serverStats.ssl ? 'SSL: Enabled' : 'SSL: Disabled'}
-       ${serverStats.serverPush ? ' Server Push: Enabled' : '📦 Server Push: Disabled'}
+       ${serverStats.serverPush ? ' Server Push: Enabled' : ' Server Push: Disabled'}
        ${serverStats.multiplexing ? ' HTTP/2 Multiplexing: Enabled' : 'HTTP/2 Multiplexing: Disabled'}
        ${serverStats.compression ? '🗜️ Compression: Enabled' : ' Compression: Disabled'}
 

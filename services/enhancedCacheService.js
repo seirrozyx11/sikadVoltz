@@ -158,7 +158,7 @@ class EnhancedCacheService {
       
       await pipeline.exec();
       
-      logger.info(`📦 Batch cached ${keyValuePairs.length} items`);
+      logger.info(` Batch cached ${keyValuePairs.length} items`);
       return true;
       
     } catch (error) {
