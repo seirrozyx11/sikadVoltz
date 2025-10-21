@@ -30,6 +30,7 @@ phase*.js
 quick_*.js
 temp_*.js
 test_redis_connection.js
+test-redis-render.js
 
 # Allow proper test files in tests/ directory
 !tests/**/*.test.js
