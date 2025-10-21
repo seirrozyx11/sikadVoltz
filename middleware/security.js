@@ -136,10 +136,10 @@ class SecurityMiddleware {
       }
     });
 
-    // Stricter rate limiting for authentication endpoints
+    // Stricter rate limiting for authentication endpoints (login, Google auth)
     const authLimiter = rateLimit({
       windowMs: 15 * 60 * 1000, // 15 minutes
-      max: process.env.NODE_ENV === 'production' ? 20 : 100, // More lenient for development
+      max: process.env.NODE_ENV === 'production' ? 100 : 200, // 5x increased limit for production
       message: {
         success: false,
         error: 'AUTH_RATE_LIMITED',
@@ -148,6 +148,10 @@ class SecurityMiddleware {
       },
       standardHeaders: true,
       legacyHeaders: false,
+      skip: (req) => {
+        // Exclude /register from strict rate limiting (uses general API limiter instead)
+        return req.path === '/register';
+      },
       handler: (req, res) => {
         logger.error('Authentication rate limit exceeded', {
           ip: req.ip,
@@ -196,8 +200,9 @@ class SecurityMiddleware {
 
     logger.info('Rate limiting configured', {
       apiLimit: process.env.NODE_ENV === 'production' ? 100 : 200,
-      authLimit: 20,
-      passwordResetLimit: 5
+      authLimit: process.env.NODE_ENV === 'production' ? 100 : 200,
+      passwordResetLimit: 5,
+      registerExcluded: true // Uses general API limiter instead
     });
   }
 
