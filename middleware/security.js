@@ -137,6 +137,7 @@ class SecurityMiddleware {
     });
 
     // Stricter rate limiting for authentication endpoints (login, Google auth)
+    // Uses IP + email combination to prevent users on same network from blocking each other
     const authLimiter = rateLimit({
       windowMs: 15 * 60 * 1000, // 15 minutes
       max: process.env.NODE_ENV === 'production' ? 100 : 200, // 5x increased limit for production
@@ -148,6 +149,15 @@ class SecurityMiddleware {
       },
       standardHeaders: true,
       legacyHeaders: false,
+      // Custom key generator: IP + email combination
+      // This prevents users on shared networks from blocking each other
+      keyGenerator: (req) => {
+        const ip = req.ip || 'unknown-ip';
+        const email = req.body?.email || req.body?.idToken || 'no-email';
+        // For Google OAuth, use a portion of the idToken as identifier
+        const identifier = email.length > 50 ? email.substring(0, 20) : email;
+        return `${ip}:${identifier}`;
+      },
       skip: (req) => {
         // Exclude /register from strict rate limiting (uses general API limiter instead)
         return req.path === '/register';
