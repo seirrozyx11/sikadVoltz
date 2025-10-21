@@ -1,7 +1,8 @@
-const express = require('express');
+import express from 'express';
+import * as achievementController from '../controllers/achievementController.js';
+import authenticateToken from '../middleware/authenticateToken.js';
+
 const router = express.Router();
-const achievementController = require('../controllers/achievementController');
-const { authenticateToken } = require('../middleware/authenticateToken');
 
 /**
  * All routes require authentication
@@ -23,4 +24,4 @@ router.get('/me/rank', authenticateToken, achievementController.getUserRank);
 router.get('/me/quests', authenticateToken, achievementController.getUserQuests);
 router.patch('/me/quests/:questId', authenticateToken, achievementController.updateQuestProgress);
 
-module.exports = router;
+export default router;
