@@ -10,7 +10,7 @@ import {
   getNotificationPreferences,
   getSystemStats
 } from '../controllers/userStatusController.js';
-import authMiddleware from '../middleware/authMiddleware.js';
+import { authenticateToken } from '../middleware/authenticateToken.js';
 
 const router = express.Router();
 
@@ -23,20 +23,20 @@ const router = express.Router();
  */
 
 // User Status Management
-router.post('/online', authMiddleware, setUserOnline);
-router.post('/offline', authMiddleware, setUserOffline);
-router.post('/heartbeat', authMiddleware, updateLastActive);
-router.get('/status', authMiddleware, getUserStatus);
+router.post('/online', authenticateToken, setUserOnline);
+router.post('/offline', authenticateToken, setUserOffline);
+router.post('/heartbeat', authenticateToken, updateLastActive);
+router.get('/status', authenticateToken, getUserStatus);
 
 // FCM Token Management
-router.post('/fcm-token', authMiddleware, registerFcmToken);
-router.delete('/fcm-token', authMiddleware, removeFcmToken);
+router.post('/fcm-token', authenticateToken, registerFcmToken);
+router.delete('/fcm-token', authenticateToken, removeFcmToken);
 
 // Notification Preferences
-router.get('/preferences', authMiddleware, getNotificationPreferences);
-router.put('/preferences', authMiddleware, updateNotificationPreferences);
+router.get('/preferences', authenticateToken, getNotificationPreferences);
+router.put('/preferences', authenticateToken, updateNotificationPreferences);
 
-// System Statistics (optional - for monitoring)
-router.get('/stats', authMiddleware, getSystemStats);
+// System Stats (admin/monitoring)
+router.get('/stats', authenticateToken, getSystemStats);
 
 export default router;
