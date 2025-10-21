@@ -53,7 +53,7 @@ async function fixPlanTypes() {
       updatedCount++;
     }
 
-    console.log(`\n✅ Successfully updated ${updatedCount} plans with proper planType classifications`);
+    console.log(`\nSuccessfully updated ${updatedCount} plans with proper planType classifications`);
     
     // Verify the updates
     const verifyPlans = await CyclingPlan.find({

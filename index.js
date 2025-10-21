@@ -1,4 +1,4 @@
-// 📊 MONITORING: Initialize New Relic APM first (must be first import)
+//  MONITORING: Initialize New Relic APM first (must be first import)
 import './newrelic.cjs';
 
 import dotenv from 'dotenv';
@@ -40,7 +40,7 @@ import monitoringRoutes from './routes/monitoringRoutes.js';
 import RealTimeTelemetryService from './services/realTimeTelemetryService.js';
 import ScheduledTasksService from './services/scheduledTasksService.js';
 import SessionManager from './services/sessionManager.js';
-import simpleRedisClient from './services/simpleRedisClient.js'; // 🔥 Simple Redis client for comparison
+import simpleRedisClient from './services/simpleRedisClient.js'; //  Simple Redis client for comparison
 
 // Environment setup
 const __filename = fileURLToPath(import.meta.url);
@@ -51,7 +51,7 @@ const NODE_ENV = process.env.NODE_ENV || 'development';
 const MONGODB_URI = process.env.MONGODB_URI;
 const IS_RENDER = process.env.RENDER; // Render environment detection
 
-// 🚀 Initialization status tracker to prevent conflicts
+//  Initialization status tracker to prevent conflicts
 global.REDIS_INITIALIZATION_STATUS = {
   sessionManager: 'pending',
   simpleRedis: 'pending',
@@ -68,7 +68,7 @@ const WS_BASE_URL = IS_RENDER
   ? 'wss://sikadvoltz-backend.onrender.com'
   : `ws://localhost:${PORT}`;
 
-// 🔒 SECURITY: Validate environment variables before starting server
+// SECURITY: Validate environment variables before starting server
 environmentValidator.validateOrExit();
 
 if (!MONGODB_URI) {
@@ -121,11 +121,11 @@ const app = express();
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
-// �🔒 SECURITY: Apply all security middleware (helmet, rate limiting, HTTPS enforcement)
+// �SECURITY: Apply all security middleware (helmet, rate limiting, HTTPS enforcement)
 // Note: Rate limiting now runs after body parsing
 SecurityMiddleware.applyAll(app);
 
-// 🚀 PERFORMANCE: Enable response compression
+//  PERFORMANCE: Enable response compression
 app.use(compression({
   // Only compress responses that are larger than 1kb
   threshold: 1024,
@@ -201,7 +201,7 @@ setInterval(() => {
   logger.performance.trackMemory();
 }, 5 * 60 * 1000);
 
-// 🚀 API VERSIONING: v1 API routes with future-proof structure
+//  API VERSIONING: v1 API routes with future-proof structure
 const v1Router = express.Router();
 
 // Mount all v1 routes
@@ -221,14 +221,14 @@ v1Router.use('/admin', adminTokenRoutes);
 v1Router.use('/oauth', oauthRoutes);
 v1Router.use('/monitor', monitoringRoutes);
 
-// 🚀 OPTIMIZATION: Ultra-fast unified dashboard endpoint
+//  OPTIMIZATION: Ultra-fast unified dashboard endpoint
 import dashboardRoutes from './routes/dashboardRoutes.js';
 v1Router.use('/dashboard', dashboardRoutes);
 
 // Mount versioned API
 app.use('/api/v1', v1Router);
 
-// 🔄 BACKWARD COMPATIBILITY: Legacy routes (deprecated - use /api/v1/)
+// BACKWARD COMPATIBILITY: Legacy routes (deprecated - use /api/v1/)
 // Add deprecation warning for legacy routes
 const deprecationWarning = (req, res, next) => {
   res.set('X-API-Warning', 'This endpoint is deprecated. Use /api/v1/ instead.');
@@ -252,7 +252,7 @@ app.use('/api/oauth', deprecationWarning, oauthRoutes);
 app.use('/api/test', deprecationWarning, testRoutes);
 app.use('/api/dashboard', deprecationWarning, dashboardRoutes);
 
-// 🔍 REDIS COMPARISON DEBUG ENDPOINT
+//  REDIS COMPARISON DEBUG ENDPOINT
 app.get('/redis-debug', async (req, res) => {
   const debug = {
     timestamp: new Date().toISOString(),
@@ -266,7 +266,7 @@ app.get('/redis-debug', async (req, res) => {
     simple_redis_client: simpleRedisClient.getStatus()
   };
 
-  // 🔥 TEST 1: SimpleRedisClient
+  //  TEST 1: SimpleRedisClient
   try {
     debug.simple_redis_ping = await simpleRedisClient.ping();
     debug.simple_redis_test = 'SUCCESS';
@@ -275,7 +275,7 @@ app.get('/redis-debug', async (req, res) => {
     debug.simple_redis_test = 'FAILED';
   }
 
-  // 🔥 TEST 2: SessionManager Redis
+  //  TEST 2: SessionManager Redis
   try {
     if (SessionManager.redisClient && SessionManager.isRedisAvailable) {
       debug.session_manager_ping = await SessionManager.redisClient.ping();
@@ -288,7 +288,7 @@ app.get('/redis-debug', async (req, res) => {
     debug.session_manager_test = 'FAILED';
   }
 
-  // 🔥 TEST 3: Direct connection test
+  //  TEST 3: Direct connection test
   if (process.env.REDIS_URL) {
     debug.redis_url_preview = process.env.REDIS_URL.replace(/:([^:@]{4})[^:@]*@/, ':$1***@');
     
@@ -318,7 +318,7 @@ app.get('/redis-debug', async (req, res) => {
   res.json(debug);
 });
 
-// 🔍 SAFE REDIS TEST ENDPOINT (No re-initialization)
+//  SAFE REDIS TEST ENDPOINT (No re-initialization)
 app.get('/redis-comprehensive-test', async (req, res) => {
   const testResults = {
     timestamp: new Date().toISOString(),
@@ -330,10 +330,10 @@ app.get('/redis-comprehensive-test', async (req, res) => {
   };
 
   try {
-    console.log('🚀 Starting SAFE Redis test...');
+    console.log(' Starting SAFE Redis test...');
     
     // TEST 1: Fresh Redis client (safe, independent connection)
-    console.log('🔥 TEST 1: Fresh Redis Connection...');
+    console.log(' TEST 1: Fresh Redis Connection...');
     const test1 = { name: 'Fresh Redis Connection', status: 'running' };
     
     try {
@@ -366,18 +366,18 @@ app.get('/redis-comprehensive-test', async (req, res) => {
       test1.ping_result = pong;
       test1.set_get_result = getValue;
       
-      console.log('✅ TEST 1 PASSED - Redis Cloud is working!');
+      console.log('TEST 1 PASSED - Redis Cloud is working!');
       
     } catch (error) {
       test1.status = 'FAILED';
       test1.error = { message: error.message, code: error.code };
-      console.error('❌ TEST 1 FAILED:', error.message);
+      console.error(' TEST 1 FAILED:', error.message);
     }
     
     testResults.tests.push(test1);
 
     // TEST 2: Check existing SessionManager status (no re-init)
-    console.log('🔥 TEST 2: SessionManager Status Check...');
+    console.log(' TEST 2: SessionManager Status Check...');
     const test2 = { name: 'SessionManager Status Check', status: 'running' };
     
     try {
@@ -396,18 +396,18 @@ app.get('/redis-comprehensive-test', async (req, res) => {
         }
       }
       
-      console.log('✅ TEST 2 COMPLETED - Status checked');
+      console.log('TEST 2 COMPLETED - Status checked');
       
     } catch (error) {
       test2.status = 'FAILED';
       test2.error = { message: error.message, code: error.code };
-      console.error('❌ TEST 2 FAILED:', error.message);
+      console.error(' TEST 2 FAILED:', error.message);
     }
     
     testResults.tests.push(test2);
 
     // TEST 3: Check existing SimpleRedisClient status (no re-init)
-    console.log('🔥 TEST 3: SimpleRedisClient Status Check...');
+    console.log(' TEST 3: SimpleRedisClient Status Check...');
     const test3 = { name: 'SimpleRedisClient Status Check', status: 'running' };
     
     try {
@@ -424,21 +424,21 @@ app.get('/redis-comprehensive-test', async (req, res) => {
         }
       }
       
-      console.log('✅ TEST 3 COMPLETED - Status checked');
+      console.log('TEST 3 COMPLETED - Status checked');
       
     } catch (error) {
       test3.status = 'FAILED';
       test3.error = { message: error.message, code: error.code };
-      console.error('❌ TEST 3 FAILED:', error.message);
+      console.error(' TEST 3 FAILED:', error.message);
     }
     
     testResults.tests.push(test3);
 
-    console.log('🏁 Safe Redis test completed');
+    console.log(' Safe Redis test completed');
     res.json(testResults);
     
   } catch (error) {
-    console.error('❌ Safe Redis test crashed:', error.message);
+    console.error(' Safe Redis test crashed:', error.message);
     testResults.error = { message: error.message, code: error.code };
     res.status(500).json(testResults);
   }
@@ -603,13 +603,13 @@ app.use((err, req, res, next) => {
   });
 });
 
-// 🚀 HTTP/2 OPTIMIZATION: Create enhanced server with HTTP/2 support
+//  HTTP/2 OPTIMIZATION: Create enhanced server with HTTP/2 support
 const http2ServerManager = new HTTP2ServerManager();
 let server;
 
 // Enable HTTP/2 performance optimizations
 if (process.env.ENABLE_HTTP2 === 'true') {
-  logger.info('🚀 HTTP/2 optimization enabled');
+  logger.info(' HTTP/2 optimization enabled');
   http2ServerManager.enablePerformanceOptimizations(app);
   
   // Initialize HTTP/2 server (with fallback to HTTP/1.1)
@@ -617,7 +617,7 @@ if (process.env.ENABLE_HTTP2 === 'true') {
 } else {
   // Standard HTTP/1.1 server
   server = http.createServer(app);
-  logger.info('🌐 Using standard HTTP/1.1 server');
+  logger.info('Using standard HTTP/1.1 server');
 }
 
 // Initialize WebSocket service
@@ -682,7 +682,7 @@ const startServer = async () => {
     // Listen on all interfaces (0.0.0.0) to support ADB port forwarding for USB debugging
     // **RENDER DEPLOYMENT FIX**: Start server FIRST, then initialize heavy services
     
-    // 🚀 HTTP/2 SERVER: Start enhanced server based on configuration
+    //  HTTP/2 SERVER: Start enhanced server based on configuration
     const startServerWithCallback = () => new Promise((resolve) => {
       if (process.env.ENABLE_HTTP2 === 'true' && http2ServerManager.server) {
         // HTTP/2 server is already started by initializeServer
@@ -697,7 +697,7 @@ const startServer = async () => {
     
     // Server startup callback
     (async () => {
-      // 🚀 Get server performance stats
+      //  Get server performance stats
       const serverStats = http2ServerManager.getServerStats();
       
       const startupMessage = `
@@ -708,19 +708,19 @@ const startServer = async () => {
        Environment: ${NODE_ENV}
        Database: ${mongoose.connection.readyState === 1 ? 'Connected' : 'Disconnected'}
 
-       🚀 Server Protocol: ${serverStats.protocol}
-       ${serverStats.ssl ? '🔒 SSL: Enabled' : '🌐 SSL: Disabled'}
-       ${serverStats.serverPush ? '📤 Server Push: Enabled' : '📦 Server Push: Disabled'}
-       ${serverStats.multiplexing ? '⚡ HTTP/2 Multiplexing: Enabled' : '🔄 HTTP/2 Multiplexing: Disabled'}
-       ${serverStats.compression ? '🗜️ Compression: Enabled' : '📄 Compression: Disabled'}
+        Server Protocol: ${serverStats.protocol}
+       ${serverStats.ssl ? 'SSL: Enabled' : 'SSL: Disabled'}
+       ${serverStats.serverPush ? ' Server Push: Enabled' : '📦 Server Push: Disabled'}
+       ${serverStats.multiplexing ? ' HTTP/2 Multiplexing: Enabled' : 'HTTP/2 Multiplexing: Disabled'}
+       ${serverStats.compression ? '🗜️ Compression: Enabled' : ' Compression: Disabled'}
 
-       🌐 API Endpoints:
+       API Endpoints:
        - REST API: ${BASE_URL}/api/*
        - Dashboard: ${BASE_URL}/api/v1/dashboard/home
        - Health Check: ${BASE_URL}/api/v1/dashboard/health
        - Cache Stats: ${BASE_URL}/api/v1/dashboard/cache-stats
 
-       📡 WebSocket Endpoints:
+        WebSocket Endpoints:
        - Telemetry: ${WS_BASE_URL}/ws/telemetry
        - Legacy: ${WS_BASE_URL}/ws/legacy
 
@@ -739,38 +739,38 @@ const startServer = async () => {
       // This prevents Render deployment timeouts
       setTimeout(async () => {
         try {
-          logger.info('🔄 Starting post-deployment initialization...');
+          logger.info('Starting post-deployment initialization...');
           
           // PHASE 1: Initialize Redis services with status tracking
-          console.log('🔥 REDIS INITIALIZATION - Starting both Redis clients...');
+          console.log(' REDIS INITIALIZATION - Starting both Redis clients...');
           global.REDIS_INITIALIZATION_STATUS.startTime = Date.now();
           
-          // 🔥 INIT 1: Simple Redis Client (Direct approach)
-          console.log('🚀 Initializing SimpleRedisClient...');
+          //  INIT 1: Simple Redis Client (Direct approach)
+          console.log(' Initializing SimpleRedisClient...');
           try {
             global.REDIS_INITIALIZATION_STATUS.simpleRedis = 'initializing';
             await simpleRedisClient.initialize();
             global.REDIS_INITIALIZATION_STATUS.simpleRedis = 'completed';
-            console.log('✅ SimpleRedisClient initialization completed');
+            console.log('SimpleRedisClient initialization completed');
             const simpleStatus = simpleRedisClient.getStatus();
             console.log('   SimpleRedis Status:', JSON.stringify(simpleStatus, null, 2));
           } catch (error) {
             global.REDIS_INITIALIZATION_STATUS.simpleRedis = 'failed';
-            console.error('❌ SimpleRedisClient failed:', error.message);
+            console.error(' SimpleRedisClient failed:', error.message);
           }
           
-          // 🔥 INIT 2: SessionManager (Current approach)
-          console.log('🚀 Initializing SessionManager...');
+          //  INIT 2: SessionManager (Current approach)
+          console.log(' Initializing SessionManager...');
           try {
             global.REDIS_INITIALIZATION_STATUS.sessionManager = 'initializing';
             await SessionManager.initialize();
             global.REDIS_INITIALIZATION_STATUS.sessionManager = 'completed';
-            console.log('✅ SessionManager initialization completed');
+            console.log('SessionManager initialization completed');
             console.log(`   Redis Available: ${SessionManager.isRedisAvailable}`);
             console.log(`   Redis Client Exists: ${!!SessionManager.redisClient}`);
             
-            // 🔍 COMPARISON CHECK - Check both clients over time
-            console.log('🔍 REDIS COMPARISON - STATUS TRACKING:');
+            //  COMPARISON CHECK - Check both clients over time
+            console.log(' REDIS COMPARISON - STATUS TRACKING:');
             setTimeout(() => {
               console.log('--- [+1s] STATUS CHECK ---');
               console.log(`SessionManager - Available: ${SessionManager.isRedisAvailable}, Client: ${!!SessionManager.redisClient}`);
@@ -785,50 +785,50 @@ const startServer = async () => {
               console.log(`SimpleRedis - Status:`, JSON.stringify(simpleStatus, null, 2));
             }, 3000);
             
-            logger.info('✅ Session manager initialized');
+            logger.info('Session manager initialized');
           } catch (sessionError) {
             global.REDIS_INITIALIZATION_STATUS.sessionManager = 'failed';
-            console.error('❌ SessionManager initialization failed:');
+            console.error(' SessionManager initialization failed:');
             console.error(`   Error: ${sessionError.message}`);
             console.error(`   Code: ${sessionError.code}`);
             console.error(`   Stack: ${sessionError.stack?.split('\n')[0]}`);
-            logger.error('❌ Session manager initialization failed:', sessionError);
+            logger.error(' Session manager initialization failed:', sessionError);
             
             // Continue with other services even if Redis fails
           }
 
           // Initialize telemetry service after DB connection
           await telemetryService.initialize(server);
-          logger.info('✅ Telemetry service initialized');
+          logger.info('Telemetry service initialized');
 
           // Make telemetry service available to routes
           app.locals.telemetryService = telemetryService;
 
-          logger.info('✅ Post-deployment initialization completed (Redis status logged above)');
+          logger.info('Post-deployment initialization completed (Redis status logged above)');
         } catch (initError) {
-          logger.error('❌ Post-deployment initialization failed:', initError);
-          console.error('💥 Critical initialization error:', initError.message);
+          logger.error(' Post-deployment initialization failed:', initError);
+          console.error(' Critical initialization error:', initError.message);
         }
       }, 1000); // 1 second delay to ensure server is fully ready
 
       // **RENDER FREE TIER OPTIMIZATION**: Keep-alive mechanism
       if (IS_RENDER) {
-        console.log('🔄 Render free tier detected - enabling keep-alive mechanism');
+        console.log('Render free tier detected - enabling keep-alive mechanism');
 
         // Ping health endpoint every 10 minutes to prevent sleep
         setInterval(async () => {
           try {
             const response = await fetch(`${BASE_URL}/health`);
             if (response.ok) {
-              console.log('🔄 Keep-alive ping successful');
+              console.log('Keep-alive ping successful');
             }
           } catch (error) {
-            console.log('⚠️ Keep-alive ping failed (expected on free tier):', error.message);
+            console.log(' Keep-alive ping failed (expected on free tier):', error.message);
           }
         }, 10 * 60 * 1000); // 10 minutes
 
         // Log Render-specific info
-        console.log('📊 Render Environment Info:');
+        console.log(' Render Environment Info:');
         console.log(`   Instance ID: ${process.env.RENDER_INSTANCE_ID || 'Not set'}`);
         console.log(`   Service Name: ${process.env.RENDER_SERVICE_NAME || 'Not set'}`);
         console.log(`   Region: ${process.env.RENDER_REGION || 'Not set'}`);
@@ -838,9 +838,9 @@ const startServer = async () => {
       setTimeout(async () => {
         try {
           await ScheduledTasksService.initialize();
-          logger.info('✅ Real-time notification system initialized successfully');
+          logger.info('Real-time notification system initialized successfully');
         } catch (taskError) {
-          logger.error('❌ Failed to initialize scheduled tasks:', taskError);
+          logger.error(' Failed to initialize scheduled tasks:', taskError);
         }
       }, 5000); // 5 second delay to ensure everything else is ready
       
@@ -849,17 +849,17 @@ const startServer = async () => {
         if (IS_RENDER) {
           // On Render: Use the same server instance for WebSocket (port sharing)
           esp32BLEBridge.initialize(server, PORT);
-          console.log('✅ ESP32 BLE Bridge enabled on same port as main server:', PORT);
+          console.log('ESP32 BLE Bridge enabled on same port as main server:', PORT);
           logger.info(`ESP32 BLE Bridge WebSocket server active on port ${PORT} (Render production)`);
         } else {
           // Local development: Use separate port
           esp32BLEBridge.initialize(server, PORT + 1);
-          console.log('✅ ESP32 BLE Bridge enabled on port', PORT + 1);
+          console.log('ESP32 BLE Bridge enabled on port', PORT + 1);
           logger.info(`ESP32 BLE Bridge WebSocket server active on port ${PORT + 1} (local development)`);
         }
       } catch (error) {
         logger.error('ESP32 BLE Bridge failed to start:', error);
-        console.error('❌ ESP32 BLE Bridge startup failed:', error.message);
+        console.error(' ESP32 BLE Bridge startup failed:', error.message);
       }
     });
 

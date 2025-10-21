@@ -5,7 +5,7 @@
 
 const { describe, test, beforeAll, afterAll, expect } = require('@jest/globals');
 
-describe('🚀 Production Deployment Verification', () => {
+describe(' Production Deployment Verification', () => {
   let baseURL = 'https://sikadvoltz-backend.onrender.com';
 
   // If testing locally, use local URL
@@ -21,10 +21,10 @@ describe('🚀 Production Deployment Verification', () => {
       
       expect(response.status).toBe(200);
       expect(data.status).toBe('healthy');
-      console.log('✅ Health endpoint working');
+      console.log('Health endpoint working');
     } catch (error) {
       // If deployed service is down, just log the attempt
-      console.log('ℹ️  Health endpoint test skipped (service may not be running)');
+      console.log('  Health endpoint test skipped (service may not be running)');
       expect(true).toBe(true);
     }
   });
@@ -35,9 +35,9 @@ describe('🚀 Production Deployment Verification', () => {
       const response = await fetch(`${baseURL}/health`);
       
       expect(response.headers.get('api-version')).toBeTruthy();
-      console.log('✅ API versioning headers present');
+      console.log('API versioning headers present');
     } catch (error) {
-      console.log('ℹ️  API versioning test skipped (service may not be running)');
+      console.log('  API versioning test skipped (service may not be running)');
       expect(true).toBe(true);
     }
   });
@@ -49,9 +49,9 @@ describe('🚀 Production Deployment Verification', () => {
       
       expect(response.headers.get('x-content-type-options')).toBe('nosniff');
       expect(response.headers.get('x-frame-options')).toBeTruthy();
-      console.log('✅ Security headers present');
+      console.log('Security headers present');
     } catch (error) {
-      console.log('ℹ️  Security headers test skipped (service may not be running)');
+      console.log('  Security headers test skipped (service may not be running)');
       expect(true).toBe(true);
     }
   });
@@ -62,9 +62,9 @@ describe('🚀 Production Deployment Verification', () => {
       const response = await fetch(`${baseURL}/non-existent-endpoint`);
       
       expect(response.status).toBe(404);
-      console.log('✅ 404 handling working');
+      console.log('404 handling working');
     } catch (error) {
-      console.log('ℹ️  404 test skipped (service may not be running)');
+      console.log('  404 test skipped (service may not be running)');
       expect(true).toBe(true);
     }
   });
@@ -75,9 +75,9 @@ describe('🚀 Production Deployment Verification', () => {
       const response = await fetch(`${baseURL}/api/v1/users/profile`);
       
       expect(response.status).toBe(401);
-      console.log('✅ Authentication enforcement working');
+      console.log('Authentication enforcement working');
     } catch (error) {
-      console.log('ℹ️  Authentication test skipped (service may not be running)');
+      console.log('  Authentication test skipped (service may not be running)');
       expect(true).toBe(true); 
     }
   });

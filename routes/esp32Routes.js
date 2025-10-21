@@ -70,7 +70,7 @@ router.post('/ride-data', authenticateToken, validateRideData, async (req, res) 
       intensity
     });
 
-    // ✅ STORE DATA: Save telemetry data to database
+    // STORE DATA: Save telemetry data to database
     try {
       // Get or create device registration
       let device = await ESP32Device.findOne({ deviceId: req.body.deviceId || 'DEFAULT_DEVICE', userId });
@@ -81,7 +81,7 @@ router.post('/ride-data', authenticateToken, validateRideData, async (req, res) 
           deviceName: 'SIKAD-VOLTZ',
           lastSeen: new Date()
         });
-        logger.info('✅ New ESP32 device registered', { deviceId: device.deviceId, userId });
+        logger.info('New ESP32 device registered', { deviceId: device.deviceId, userId });
       } else {
         device.lastSeen = new Date();
         await device.save();
@@ -104,7 +104,7 @@ router.post('/ride-data', authenticateToken, validateRideData, async (req, res) 
           startTime: new Date(),
           status: 'active'
         });
-        logger.info('🚴 New ride session created', { sessionId, userId });
+        logger.info(' New ride session created', { sessionId, userId });
       }
 
       // Store telemetry data point
@@ -155,7 +155,7 @@ router.post('/ride-data', authenticateToken, validateRideData, async (req, res) 
         device.totalTime = sessionTime;
         await device.save();
 
-        logger.info('📊 Telemetry data stored', {
+        logger.info(' Telemetry data stored', {
           sessionId: session.sessionId,
           speed,
           distance,
@@ -198,7 +198,7 @@ router.post('/ride-data', authenticateToken, validateRideData, async (req, res) 
         });
       }
     } catch (dbError) {
-      logger.error('❌ Database error storing ride data:', dbError);
+      logger.error(' Database error storing ride data:', dbError);
       // Still return success to ESP32 to avoid blocking cycling
       res.status(201).json({
         success: true,
@@ -306,7 +306,7 @@ router.post('/telemetry', authenticateToken, async (req, res) => {
     const { deviceId, sessionId, data } = req.body;
     
     // Enhanced debug logging
-    logger.info(`📡 ESP32 Telemetry Received`, {
+    logger.info(` ESP32 Telemetry Received`, {
       userId,
       deviceId,
       sessionId,
@@ -315,7 +315,7 @@ router.post('/telemetry', authenticateToken, async (req, res) => {
     });
     
     if (!deviceId || !data) {
-      logger.warn(`❌ Missing required fields`, { deviceId: !!deviceId, data: !!data });
+      logger.warn(` Missing required fields`, { deviceId: !!deviceId, data: !!data });
       return res.status(400).json({
         success: false,
         error: 'Device ID and data are required'
@@ -338,7 +338,7 @@ router.post('/telemetry', authenticateToken, async (req, res) => {
       cloud: data.cloud === 'true' || data.cloud === true
     };
     
-    logger.info(`📊 Enhanced Telemetry Data:`, {
+    logger.info(` Enhanced Telemetry Data:`, {
       metrics: telemetryData,
       autoSession: telemetryData.auto_session,
       sessionStatus: telemetryData.session_status,
@@ -373,13 +373,13 @@ router.post('/telemetry', authenticateToken, async (req, res) => {
         const updateResult = await updateResponse.json();
         
         if (updateResult.success) {
-          logger.info(`✅ Auto-session progress updated`, updateResult.data);
+          logger.info(`Auto-session progress updated`, updateResult.data);
         } else {
-          logger.info(`ℹ️ Session update response:`, updateResult.message);
+          logger.info(` Session update response:`, updateResult.message);
         }
         
       } catch (updateError) {
-        logger.error('❌ Error updating auto-session progress:', updateError.message);
+        logger.error(' Error updating auto-session progress:', updateError.message);
       }
     }
 
@@ -389,7 +389,7 @@ router.post('/telemetry', authenticateToken, async (req, res) => {
       try {
         telemetryService.processTelemetryData(userId, deviceId, telemetryData);
       } catch (serviceError) {
-        logger.error('❌ Telemetry service error:', serviceError);
+        logger.error(' Telemetry service error:', serviceError);
       }
     }
 
@@ -507,7 +507,7 @@ router.post('/device-status', authenticateToken, async (req, res) => {
       signalStrength
     });
 
-    // ✅ STORE DEVICE STATUS: Update device in database
+    // STORE DEVICE STATUS: Update device in database
     let device = await ESP32Device.findOne({ deviceId, userId });
     
     if (!device) {
@@ -519,13 +519,13 @@ router.post('/device-status', authenticateToken, async (req, res) => {
         lastSeen: new Date(),
         isActive: status === 'connected'
       });
-      logger.info('✅ New device registered via status update', { deviceId, userId });
+      logger.info('New device registered via status update', { deviceId, userId });
     } else {
       // Update existing device
       device.lastSeen = new Date();
       device.isActive = status === 'connected';
       await device.save();
-      logger.info('✅ Device status updated', { deviceId, status });
+      logger.info('Device status updated', { deviceId, status });
     }
     
     res.status(200).json({
@@ -577,7 +577,7 @@ router.post('/session/end', authenticateToken, async (req, res) => {
     // Get updated session
     const completedSession = await RideSession.findOne({ sessionId: session.sessionId });
 
-    logger.info('✅ Session completed', {
+    logger.info('Session completed', {
       sessionId: session.sessionId,
       duration: completedSession.duration,
       distance: completedSession.totalDistance,
@@ -668,7 +668,7 @@ router.get('/analytics', authenticateToken, async (req, res) => {
       new Date(a.date).getTime() - new Date(b.date).getTime()
     );
 
-    logger.info('📊 Analytics retrieved', { 
+    logger.info(' Analytics retrieved', { 
       userId, 
       period, 
       totalSessions: sessions.length,
@@ -714,7 +714,7 @@ router.get('/device/:deviceId', authenticateToken, async (req, res) => {
     const userId = req.user?.userId;
     const { deviceId } = req.params;
     
-    // ✅ RETRIEVE DEVICE: Get device from database
+    // RETRIEVE DEVICE: Get device from database
     const device = await ESP32Device.findOne({ deviceId, userId });
 
     if (!device) {

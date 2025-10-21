@@ -1,5 +1,5 @@
 /**
- * 🚀 ENHANCED REDIS CACHING SERVICE
+ *  ENHANCED REDIS CACHING SERVICE
  * 
  * Advanced Redis caching with intelligent cache warming, 
  * performance monitoring, and automatic optimization
@@ -50,17 +50,17 @@ class EnhancedCacheService {
       // Initialize cache warming
       this.initializeCacheWarming();
       
-      logger.info('✅ Enhanced Redis caching service initialized');
+      logger.info('Enhanced Redis caching service initialized');
       return true;
       
     } catch (error) {
-      logger.error('❌ Failed to initialize enhanced caching:', error);
+      logger.error(' Failed to initialize enhanced caching:', error);
       return false;
     }
   }
 
   /**
-   * 🚀 ULTRA-FAST: Smart get with automatic cache warming
+   *  ULTRA-FAST: Smart get with automatic cache warming
    */
   async smartGet(key, warmingFunction = null, ttl = 300) {
     const startTime = Date.now();
@@ -112,7 +112,7 @@ class EnhancedCacheService {
   }
 
   /**
-   * 🚀 ULTRA-FAST: Smart set with compression for large objects
+   *  ULTRA-FAST: Smart set with compression for large objects
    */
   async smartSet(key, value, ttl = 300, options = {}) {
     try {
@@ -143,7 +143,7 @@ class EnhancedCacheService {
   }
 
   /**
-   * 🚀 BATCH OPERATIONS: Set multiple cache keys efficiently
+   *  BATCH OPERATIONS: Set multiple cache keys efficiently
    */
   async batchSet(keyValuePairs, ttl = 300) {
     if (!SessionManager.isRedisAvailable) return false;
@@ -169,11 +169,11 @@ class EnhancedCacheService {
   }
 
   /**
-   * 🚀 CACHE WARMING: Pre-load frequently accessed data
+   *  CACHE WARMING: Pre-load frequently accessed data
    */
   async warmUserCache(userId) {
     try {
-      logger.info(`🔥 Warming cache for user ${userId}`);
+      logger.info(` Warming cache for user ${userId}`);
       
       const warmingTasks = [
         this.warmDashboardCache(userId),
@@ -183,10 +183,10 @@ class EnhancedCacheService {
       
       await Promise.all(warmingTasks);
       
-      logger.info(`✅ Cache warmed for user ${userId}`);
+      logger.info(`Cache warmed for user ${userId}`);
       
     } catch (error) {
-      logger.error(`❌ Cache warming failed for user ${userId}:`, error);
+      logger.error(` Cache warming failed for user ${userId}:`, error);
     }
   }
 
@@ -220,7 +220,7 @@ class EnhancedCacheService {
         };
         
         await this.smartSet(cacheKey, dashboardData, 30); // 30 second TTL
-        logger.info(`🔥 Dashboard cache warmed for user ${userId}`);
+        logger.info(` Dashboard cache warmed for user ${userId}`);
       }
       
     } catch (error) {
@@ -244,7 +244,7 @@ class EnhancedCacheService {
       
       if (activePlan) {
         await this.smartSet(cacheKey, activePlan, 300); // 5 minute TTL
-        logger.info(`🔥 Plan cache warmed for user ${userId}`);
+        logger.info(` Plan cache warmed for user ${userId}`);
       }
       
     } catch (error) {
@@ -268,7 +268,7 @@ class EnhancedCacheService {
       };
       
       await this.smartSet(cacheKey, stats, 120); // 2 minute TTL
-      logger.info(`🔥 Stats cache warmed for user ${userId}`);
+      logger.info(` Stats cache warmed for user ${userId}`);
       
     } catch (error) {
       logger.error(`Failed to warm stats cache for user ${userId}:`, error);
@@ -276,7 +276,7 @@ class EnhancedCacheService {
   }
 
   /**
-   * 🚀 INTELLIGENT INVALIDATION: Clear related cache keys
+   *  INTELLIGENT INVALIDATION: Clear related cache keys
    */
   async invalidateUserCache(userId, pattern = '*') {
     if (!SessionManager.isRedisAvailable) return;
@@ -286,7 +286,7 @@ class EnhancedCacheService {
       
       if (keys.length > 0) {
         await SessionManager.redisClient.del(keys);
-        logger.info(`🧹 Invalidated ${keys.length} cache keys for user ${userId}`);
+        logger.info(` Invalidated ${keys.length} cache keys for user ${userId}`);
       }
       
     } catch (error) {
@@ -295,7 +295,7 @@ class EnhancedCacheService {
   }
 
   /**
-   * 🚀 PERFORMANCE MONITORING: Track cache performance
+   *  PERFORMANCE MONITORING: Track cache performance
    */
   startPerformanceMonitoring() {
     setInterval(() => {
@@ -313,7 +313,7 @@ class EnhancedCacheService {
       const hitRate = totalRequests > 0 ? ((hits / totalRequests) * 100).toFixed(2) : 0;
       const errorRate = totalRequests > 0 ? ((errors / totalRequests) * 100).toFixed(2) : 0;
       
-      logger.info('📊 Cache Performance Metrics:', {
+      logger.info(' Cache Performance Metrics:', {
         totalRequests,
         hits,
         misses,
@@ -329,7 +329,7 @@ class EnhancedCacheService {
         const memoryUsed = info.match(/used_memory_human:(.*)/)?.[1];
         const memoryPeak = info.match(/used_memory_peak_human:(.*)/)?.[1];
         
-        logger.info('📊 Redis Memory Usage:', {
+        logger.info(' Redis Memory Usage:', {
           used: memoryUsed?.trim(),
           peak: memoryPeak?.trim()
         });
@@ -360,7 +360,7 @@ class EnhancedCacheService {
         const freshData = await warmingFunction();
         if (freshData !== null && freshData !== undefined) {
           await this.smartSet(key, freshData, ttl);
-          logger.info(`🔥 Background cache warmed for key: ${key}`);
+          logger.info(` Background cache warmed for key: ${key}`);
         }
       } catch (error) {
         logger.error(`Background cache warming failed for key ${key}:`, error);
@@ -374,14 +374,14 @@ class EnhancedCacheService {
   initializeCacheWarming() {
     // Warm popular cache keys every hour
     setInterval(async () => {
-      logger.info('🔥 Starting scheduled cache warming...');
+      logger.info(' Starting scheduled cache warming...');
       
       try {
         // This would warm cache for active users
         // Implementation depends on your user tracking system
-        logger.info('✅ Scheduled cache warming completed');
+        logger.info('Scheduled cache warming completed');
       } catch (error) {
-        logger.error('❌ Scheduled cache warming failed:', error);
+        logger.error(' Scheduled cache warming failed:', error);
       }
     }, 60 * 60 * 1000); // Every hour
   }

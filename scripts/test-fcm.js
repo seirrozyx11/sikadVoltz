@@ -18,17 +18,17 @@ import logger from '../utils/logger.js';
 // Load environment variables
 dotenv.config();
 
-console.log('🧪 FCM Test Script for SikadVoltz');
+console.log(' FCM Test Script for SikadVoltz');
 console.log('=================================\n');
 
 async function testFCMInitialization() {
   console.log('1️⃣ Testing FCM Initialization...');
   
   if (fcmService.isInitialized) {
-    console.log('✅ FCM Service initialized successfully');
+    console.log('FCM Service initialized successfully');
     return true;
   } else {
-    console.log('❌ FCM Service failed to initialize');
+    console.log(' FCM Service failed to initialize');
     console.log('Please check your Firebase configuration in .env file');
     return false;
   }
@@ -38,7 +38,7 @@ async function testNotificationStructure() {
   console.log('\n2️⃣ Testing Notification Structure...');
   
   const sampleNotification = {
-    title: '🧪 Test Notification',
+    title: ' Test Notification',
     body: 'This is a test notification from SikadVoltz FCM service'
   };
   
@@ -48,7 +48,7 @@ async function testNotificationStructure() {
     testId: 'fcm-test-' + Date.now()
   };
   
-  console.log('✅ Sample notification structure:');
+  console.log('Sample notification structure:');
   console.log(JSON.stringify({ notification: sampleNotification, data: sampleData }, null, 2));
   
   return { notification: sampleNotification, data: sampleData };
@@ -68,9 +68,9 @@ async function testNotificationMethods() {
   
   methods.forEach(method => {
     if (typeof fcmService[method] === 'function') {
-      console.log(`✅ ${method} method exists`);
+      console.log(`${method} method exists`);
     } else {
-      console.log(`❌ ${method} method missing`);
+      console.log(` ${method} method missing`);
     }
   });
 }
@@ -89,12 +89,12 @@ async function testEnvironmentVariables() {
         // Don't log the full key, just check if it looks like JSON
         const key = process.env[varName];
         const isValidJson = key.startsWith('{') && key.endsWith('}') && key.includes('"type":"service_account"');
-        console.log(`✅ ${varName}: ${isValidJson ? 'Valid JSON format' : 'Invalid format'}`);
+        console.log(`${varName}: ${isValidJson ? 'Valid JSON format' : 'Invalid format'}`);
       } else {
-        console.log(`✅ ${varName}: ${process.env[varName]}`);
+        console.log(`${varName}: ${process.env[varName]}`);
       }
     } else {
-      console.log(`❌ ${varName}: Not set`);
+      console.log(` ${varName}: Not set`);
     }
   });
 }
@@ -107,7 +107,7 @@ async function simulateNotificationFlow() {
     return;
   }
   
-  console.log('📱 Simulating missed session notification...');
+  console.log('Simulating missed session notification...');
   console.log('Note: This won\'t actually send a notification without a valid user FCM token');
   
   try {
@@ -117,15 +117,15 @@ async function simulateNotificationFlow() {
       sessions: ['2024-01-01', '2024-01-02']
     });
     
-    console.log(`📊 Notification result: ${result ? 'Success' : 'Failed (expected without valid FCM token)'}`);
+    console.log(` Notification result: ${result ? 'Success' : 'Failed (expected without valid FCM token)'}`);
   } catch (error) {
-    console.log(`📊 Notification test completed with expected error: ${error.message}`);
+    console.log(` Notification test completed with expected error: ${error.message}`);
   }
 }
 
 async function runTests() {
   try {
-    console.log('🚀 Starting FCM Tests...\n');
+    console.log(' Starting FCM Tests...\n');
     
     // Test 1: Initialization
     const isInitialized = await testFCMInitialization();
@@ -142,23 +142,23 @@ async function runTests() {
     // Test 5: Simulation
     await simulateNotificationFlow();
     
-    console.log('\n🎯 Test Summary:');
+    console.log('\nTest Summary:');
     console.log('================');
     
     if (isInitialized) {
-      console.log('✅ FCM Service is ready for production!');
-      console.log('🚀 You can now send push notifications to your users');
-      console.log('\n📱 To test with real notifications:');
+      console.log('FCM Service is ready for production!');
+      console.log(' You can now send push notifications to your users');
+      console.log('\nTo test with real notifications:');
       console.log('1. Have a user with FCM token in your database');
       console.log('2. Use fcmService.sendToUser(userId, notification, data)');
       console.log('3. Check your mobile app for the notification');
     } else {
-      console.log('❌ FCM Service needs configuration');
+      console.log(' FCM Service needs configuration');
       console.log('🔧 Please complete Firebase setup using setup-firebase.js');
     }
     
   } catch (error) {
-    console.error('❌ Test execution error:', error);
+    console.error(' Test execution error:', error);
   }
 }
 

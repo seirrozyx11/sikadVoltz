@@ -24,9 +24,9 @@ describe('Redis Cloud Connection Test', () => {
       const result = await redisClient.ping();
       
       expect(result).toBe('PONG');
-      console.log('✅ Redis Cloud connection successful!');
+      console.log('Redis Cloud connection successful!');
     } catch (error) {
-      console.error('❌ Redis connection failed:', error.message);
+      console.error(' Redis connection failed:', error.message);
       throw error;
     }
   });
@@ -51,7 +51,7 @@ describe('Redis Cloud Connection Test', () => {
     const deleted = await redisClient.del('test:key');
     expect(deleted).toBe(1);
     
-    console.log('✅ Redis operations successful!');
+    console.log('Redis operations successful!');
   });
 
   afterAll(async () => {

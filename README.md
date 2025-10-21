@@ -1,7 +1,7 @@
 <<<<<<< HEAD
 # SikadVoltz Backend Server
 
-## 🚀 Overview
+##  Overview
 
 SikadVoltz backend is a comprehensive Node.js/Express server that powers the SikadVoltz fitness cycling application. It provides secure APIs for user authentication, workout tracking, real-time telemetry, and password reset functionality.
 
@@ -56,7 +56,7 @@ sv_backend/
 3. Create `.env` file with required variables
 4. Run database migrations
 
-## 🚀 Running the Server
+##  Running the Server
 
 ### Development Mode
 ```bash
@@ -68,7 +68,7 @@ npm run dev
 npm start
 ```
 
-## 📡 API Endpoints
+##  API Endpoints
 
 ### Authentication
 - `POST /api/auth/register` - User registration
@@ -94,7 +94,7 @@ npm start
 - `GET /api/workout-history` - Get workout history
 - `POST /api/workout-history` - Save workout session
 
-## 🔒 Security Features
+## Security Features
 
 - **JWT Authentication**: Secure token-based authentication
 - **Password Hashing**: bcrypt password encryption
@@ -126,11 +126,11 @@ REDIS_URL=redis://localhost:6379
 ```
 
 ### Features
-- ✅ Horizontal session scaling
-- ✅ Session persistence across server restarts
-- ✅ Automatic fallback to memory storage
-- ✅ Production-ready configuration
-- ✅ Zero breaking changes
+- Horizontal session scaling
+- Session persistence across server restarts
+- Automatic fallback to memory storage
+- Production-ready configuration
+- Zero breaking changes
 
 See `REDIS_SETUP.md` and `REDIS_PRODUCTION_GUIDE.md` for detailed documentation.
 
@@ -146,7 +146,7 @@ Complete password reset functionality with secure token generation, email delive
 
 See `PASSWORD_RESET_API_DOCS.md` and `PASSWORD_RESET_SETUP.md` for detailed documentation.
 
-## 📝 License
+## License
 
 This project is licensed under the terms specified in the LICENSE file.
 

@@ -19,7 +19,7 @@ class ScheduledTasksService {
    */
   static async initialize() {
     if (this.isInitialized) {
-      logger.warn('⚠️ Scheduled tasks already initialized');
+      logger.warn(' Scheduled tasks already initialized');
       return;
     }
 
@@ -28,7 +28,7 @@ class ScheduledTasksService {
     try {
       // **ENHANCED**: Check for missed sessions every hour
       const missedSessionsJob = cron.schedule('0 * * * *', async () => {
-        logger.info('🔍 Running hourly missed session check...');
+        logger.info(' Running hourly missed session check...');
         await this.detectAndNotifyMissedSessions();
       }, {
         scheduled: false,
@@ -37,7 +37,7 @@ class ScheduledTasksService {
 
       // **NEW**: Daily summary notifications at 8 PM
       const dailySummaryJob = cron.schedule('0 20 * * *', async () => {
-        logger.info('📊 Running daily summary notifications...');
+        logger.info(' Running daily summary notifications...');
         await this.sendDailySummaryNotifications();
       }, {
         scheduled: false,
@@ -46,7 +46,7 @@ class ScheduledTasksService {
 
       // **NEW**: Weekly progress notifications every Sunday at 6 PM
       const weeklyProgressJob = cron.schedule('0 18 * * 0', async () => {
-        logger.info('📈 Running weekly progress notifications...');
+        logger.info('Running weekly progress notifications...');
         await this.sendWeeklyProgressNotifications();
       }, {
         scheduled: false,
@@ -55,7 +55,7 @@ class ScheduledTasksService {
 
       // **NEW**: Cleanup expired notifications daily at 2 AM
       const cleanupJob = cron.schedule('0 2 * * *', async () => {
-        logger.info('🧹 Running notification cleanup...');
+        logger.info(' Running notification cleanup...');
         await this.cleanupExpiredNotifications();
       }, {
         scheduled: false,
@@ -71,13 +71,13 @@ class ScheduledTasksService {
       // Start all jobs
       this.cronJobs.forEach((job, name) => {
         job.start();
-        logger.info(`✅ Started scheduled task: ${name}`);
+        logger.info(`Started scheduled task: ${name}`);
       });
 
       this.isInitialized = true;
-      logger.info('✅ All scheduled tasks initialized successfully');
+      logger.info('All scheduled tasks initialized successfully');
     } catch (error) {
-      logger.error('❌ Error initializing scheduled tasks:', error);
+      logger.error(' Error initializing scheduled tasks:', error);
       throw error;
     }
   }
@@ -137,13 +137,13 @@ class ScheduledTasksService {
           );
 
           totalNotificationsSent++;
-          logger.info(`📢 Sent missed session notification to user ${user._id} (${missedDays} missed days)`);
+          logger.info(`Sent missed session notification to user ${user._id} (${missedDays} missed days)`);
         }
       }
 
-      logger.info(`✅ Missed session check completed. Sent ${totalNotificationsSent} notifications.`);
+      logger.info(`Missed session check completed. Sent ${totalNotificationsSent} notifications.`);
     } catch (error) {
-      logger.error('❌ Error in missed session detection:', error);
+      logger.error(' Error in missed session detection:', error);
     }
   }
 
@@ -243,9 +243,9 @@ class ScheduledTasksService {
         summariesSent++;
       }
 
-      logger.info(`✅ Daily summary notifications sent to ${summariesSent} users`);
+      logger.info(`Daily summary notifications sent to ${summariesSent} users`);
     } catch (error) {
-      logger.error('❌ Error sending daily summary notifications:', error);
+      logger.error(' Error sending daily summary notifications:', error);
     }
   }
 
@@ -299,9 +299,9 @@ class ScheduledTasksService {
         progressNotificationsSent++;
       }
 
-      logger.info(`✅ Weekly progress notifications sent to ${progressNotificationsSent} users`);
+      logger.info(`Weekly progress notifications sent to ${progressNotificationsSent} users`);
     } catch (error) {
-      logger.error('❌ Error sending weekly progress notifications:', error);
+      logger.error(' Error sending weekly progress notifications:', error);
     }
   }
 
@@ -316,10 +316,10 @@ class ScheduledTasksService {
         expiresAt: { $lte: new Date() }
       });
 
-      logger.info(`🧹 Cleaned up ${result.deletedCount} expired notifications`);
+      logger.info(` Cleaned up ${result.deletedCount} expired notifications`);
       return result;
     } catch (error) {
-      logger.error('❌ Error cleaning up expired notifications:', error);
+      logger.error(' Error cleaning up expired notifications:', error);
     }
   }
 
@@ -362,7 +362,7 @@ class ScheduledTasksService {
     if (job) {
       job.stop();
       job.start();
-      logger.info(`🔄 Restarted scheduled task: ${taskName}`);
+      logger.info(`Restarted scheduled task: ${taskName}`);
       return true;
     }
     return false;

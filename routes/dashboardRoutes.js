@@ -1,5 +1,5 @@
 /**
- * 🚀 ULTRA-FAST HOME DASHBOARD API
+ *  ULTRA-FAST HOME DASHBOARD API
  * 
  * Unified endpoint that returns ALL home screen data in a single request
  * Optimized with Redis caching and aggregated database queries
@@ -31,7 +31,7 @@ const CACHE_TTL = {
 };
 
 /**
- * 🚀 MAIN ENDPOINT: GET /api/dashboard/home
+ *  MAIN ENDPOINT: GET /api/dashboard/home
  * Returns ALL home screen data in single optimized response
  */
 router.get('/home', authenticateToken, async (req, res) => {
@@ -42,7 +42,7 @@ router.get('/home', authenticateToken, async (req, res) => {
     const now = new Date();
     const cacheKey = CACHE_KEYS.homeDashboard(userId, now.getMonth() + 1, now.getFullYear());
     
-    // 🚀 STEP 1: Check Redis cache first
+    //  STEP 1: Check Redis cache first
     let cachedData = null;
     try {
       if (SessionManager.isRedisAvailable) {
@@ -53,7 +53,7 @@ router.get('/home', authenticateToken, async (req, res) => {
           
           // Return cached data if less than 30 seconds old
           if (cacheAge < CACHE_TTL.dashboard * 1000) {
-            logger.info(`🚀 Dashboard cache HIT (${cacheAge}ms old) for user ${userId}`);
+            logger.info(` Dashboard cache HIT (${cacheAge}ms old) for user ${userId}`);
             
             return res.status(200).json({
               success: true,
@@ -69,8 +69,8 @@ router.get('/home', authenticateToken, async (req, res) => {
       logger.warn('Cache read error:', cacheError.message);
     }
 
-    // 🚀 STEP 2: Execute optimized parallel database queries
-    logger.info(`🔄 Dashboard cache MISS - fetching fresh data for user ${userId}`);
+    //  STEP 2: Execute optimized parallel database queries
+    logger.info(`Dashboard cache MISS - fetching fresh data for user ${userId}`);
     
     const [user, activePlan, recentTelemetry] = await Promise.all([
       // Get user with minimal fields
@@ -99,7 +99,7 @@ router.get('/home', authenticateToken, async (req, res) => {
       });
     }
 
-    // 🚀 STEP 3: Process data efficiently
+    //  STEP 3: Process data efficiently
     const dashboardData = await _processDashboardData({
       user,
       activePlan,
@@ -108,7 +108,7 @@ router.get('/home', authenticateToken, async (req, res) => {
       currentYear: now.getFullYear()
     });
 
-    // 🚀 STEP 4: Cache the processed data
+    //  STEP 4: Cache the processed data
     try {
       if (SessionManager.isRedisAvailable) {
         const cacheData = {
@@ -129,7 +129,7 @@ router.get('/home', authenticateToken, async (req, res) => {
       logger.warn('Cache write error:', cacheError.message);
     }
 
-    // 🚀 STEP 5: Return optimized response
+    //  STEP 5: Return optimized response
     const responseTime = Date.now() - startTime;
     
     res.status(200).json({
@@ -144,7 +144,7 @@ router.get('/home', authenticateToken, async (req, res) => {
       }
     });
 
-    logger.info(`✅ Dashboard served in ${responseTime}ms for user ${userId}`);
+    logger.info(`Dashboard served in ${responseTime}ms for user ${userId}`);
 
   } catch (error) {
     const responseTime = Date.now() - startTime;
@@ -160,7 +160,7 @@ router.get('/home', authenticateToken, async (req, res) => {
 });
 
 /**
- * 🚀 OPTIMIZATION: Process all dashboard data in single function
+ *  OPTIMIZATION: Process all dashboard data in single function
  * Replaces multiple separate API calls with unified processing
  */
 async function _processDashboardData({ user, activePlan, recentTelemetry, currentMonth, currentYear }) {
@@ -273,7 +273,7 @@ async function _processDashboardData({ user, activePlan, recentTelemetry, curren
 }
 
 /**
- * 🚀 CACHE MANAGEMENT: Clear user cache when plan changes
+ *  CACHE MANAGEMENT: Clear user cache when plan changes
  */
 router.delete('/cache/:userId', authenticateToken, async (req, res) => {
   try {
@@ -300,7 +300,7 @@ router.delete('/cache/:userId', authenticateToken, async (req, res) => {
         await SessionManager.redisClient.del(pattern);
       }
       
-      logger.info(`🧹 Cache cleared for user ${userId}`);
+      logger.info(` Cache cleared for user ${userId}`);
       
       res.json({
         success: true,
@@ -325,7 +325,7 @@ router.delete('/cache/:userId', authenticateToken, async (req, res) => {
 });
 
 /**
- * 🚀 HEALTH CHECK: Dashboard endpoint performance
+ *  HEALTH CHECK: Dashboard endpoint performance
  */
 router.get('/health', async (req, res) => {
   const stats = {
@@ -371,7 +371,7 @@ router.get('/health', async (req, res) => {
 });
 
 /**
- * 📊 CACHE STATISTICS: Detailed cache performance metrics
+ *  CACHE STATISTICS: Detailed cache performance metrics
  */
 router.get('/cache-stats', async (req, res) => {
   try {
@@ -460,7 +460,7 @@ router.get('/cache-stats', async (req, res) => {
     res.json(cacheStats);
     
     // Log cache performance for monitoring
-    logger.info('📊 Cache Performance:', {
+    logger.info(' Cache Performance:', {
       hitRate: `${hitRate}%`,
       totalKeys: Object.values(keyCounts).reduce((a, b) => a + b, 0),
       memoryUsed: memoryData.used_memory_human
@@ -492,15 +492,15 @@ function _getCacheRecommendations(hitRate, keyCounts) {
   
   const totalKeys = Object.values(keyCounts).reduce((a, b) => a + b, 0);
   if (totalKeys > 10000) {
-    recommendations.push('⚠️ High key count - consider implementing cache cleanup');
+    recommendations.push(' High key count - consider implementing cache cleanup');
   }
   
   if (keyCounts.session_keys > keyCounts.dashboard_keys * 3) {
-    recommendations.push('💡 More session keys than cache keys - optimize session management');
+    recommendations.push(' More session keys than cache keys - optimize session management');
   }
   
   if (recommendations.length === 0) {
-    recommendations.push('✅ Cache performance is optimal');
+    recommendations.push('Cache performance is optimal');
   }
   
   return recommendations;

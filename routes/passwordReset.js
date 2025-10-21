@@ -693,7 +693,7 @@ router.get('/manual-verify/:token', async (req, res) => {
         <html>
           <head><title>Invalid Reset Link - SikadVoltz</title></head>
           <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
-            <h2>❌ Invalid Reset Link</h2>
+            <h2> Invalid Reset Link</h2>
             <p>The password reset link is invalid or malformed.</p>
             <a href="sikadvoltz://app" style="color: #92A3FD;">Open SikadVoltz App</a>
           </body>
@@ -715,7 +715,7 @@ router.get('/manual-verify/:token', async (req, res) => {
         <html>
           <head><title>Expired Reset Link - SikadVoltz</title></head>
           <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
-            <h2>⏰ Reset Link Expired</h2>
+            <h2> Reset Link Expired</h2>
             <p>This password reset link has expired or is invalid.</p>
             <p>Please request a new password reset from the app.</p>
             <a href="sikadvoltz://app" style="color: #92A3FD;">Open SikadVoltz App</a>
@@ -740,13 +740,13 @@ router.get('/manual-verify/:token', async (req, res) => {
         </head>
         <body>
           <div class="container">
-            <h2>🔐 Manual Password Reset</h2>
+            <h2>Manual Password Reset</h2>
             <p>Copy the token below and paste it in your SikadVoltz mobile app:</p>
             
             <div class="token">${token}</div>
             
             <div class="instructions">
-              <h3>📱 Instructions:</h3>
+              <h3>Instructions:</h3>
               <ol>
                 <li><strong>Open SikadVoltz App</strong> on your mobile device</li>
                 <li>Go to <strong>"Forgot Password?"</strong></li>
@@ -757,7 +757,7 @@ router.get('/manual-verify/:token', async (req, res) => {
             </div>
             
             <a href="sikadvoltz://reset-password?token=${token}" class="app-link">
-              📱 Open in App (if on mobile)
+              Open in App (if on mobile)
             </a>
             
             <p style="font-size: 14px; color: #666; margin-top: 30px;">
@@ -774,7 +774,7 @@ router.get('/manual-verify/:token', async (req, res) => {
       <html>
         <head><title>Error - SikadVoltz</title></head>
         <body style="font-family: Arial, sans-serif; text-align: center; padding: 50px;">
-          <h2>❌ Error</h2>
+          <h2> Error</h2>
           <p>An error occurred while loading the password reset page.</p>
           <a href="sikadvoltz://app" style="color: #92A3FD;">Open SikadVoltz App</a>
         </body>

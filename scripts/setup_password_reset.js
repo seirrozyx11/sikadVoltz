@@ -18,45 +18,45 @@ import logger from '../utils/logger.js';
 config();
 
 const setupPasswordReset = async () => {
-  console.log('🚀 Starting Password Reset Database Setup');
+  console.log(' Starting Password Reset Database Setup');
   console.log('=====================================\n');
   
   try {
     // Step 1: Run database migration
-    console.log('📝 Step 1: Running database migration...');
+    console.log('Step 1: Running database migration...');
     await runMigration();
-    console.log('✅ Migration completed\n');
+    console.log('Migration completed\n');
     
     // Step 2: Create optimized indexes
-    console.log('📊 Step 2: Creating database indexes...');
+    console.log(' Step 2: Creating database indexes...');
     await createIndexes();
-    console.log('✅ Indexes created\n');
+    console.log('Indexes created\n');
     
     // Step 3: Validate setup
-    console.log('🔍 Step 3: Validating setup...');
+    console.log(' Step 3: Validating setup...');
     await validateSetup();
-    console.log('✅ Validation completed\n');
+    console.log('Validation completed\n');
     
     // Step 4: Setup cleanup tasks
-    console.log('🧹 Step 4: Setting up maintenance tasks...');
+    console.log(' Step 4: Setting up maintenance tasks...');
     await setupMaintenanceTasks();
-    console.log('✅ Maintenance tasks configured\n');
+    console.log('Maintenance tasks configured\n');
     
-    console.log('🎉 Password Reset Database Setup Complete!');
+    console.log(' Password Reset Database Setup Complete!');
     console.log('==========================================');
-    console.log('✅ User model updated with security fields');
-    console.log('✅ Database indexes optimized for performance');
-    console.log('✅ Password reset service ready');
-    console.log('✅ Security monitoring enabled');
-    console.log('✅ Maintenance tasks scheduled');
-    console.log('\n📋 Next Steps:');
+    console.log('User model updated with security fields');
+    console.log('Database indexes optimized for performance');
+    console.log('Password reset service ready');
+    console.log('Security monitoring enabled');
+    console.log('Maintenance tasks scheduled');
+    console.log('\n Next Steps:');
     console.log('   1. Implement password reset API endpoints');
     console.log('   2. Set up email service integration');
     console.log('   3. Create frontend password reset screens');
     console.log('   4. Configure security monitoring alerts');
     
   } catch (error) {
-    console.error('❌ Setup failed:', error);
+    console.error(' Setup failed:', error);
     logger.error('Password reset setup failed', { error: error.message });
     process.exit(1);
   }
@@ -115,16 +115,16 @@ const validateSetup = async () => {
     throw new Error('No password reset indexes found');
   }
   
-  console.log(`   ✅ User model validation passed`);
-  console.log(`   ✅ Password reset service working`);
-  console.log(`   ✅ Database indexes verified (${resetIndexes.length} reset-related)`);
+  console.log(`   User model validation passed`);
+  console.log(`   Password reset service working`);
+  console.log(`   Database indexes verified (${resetIndexes.length} reset-related)`);
 };
 
 const setupMaintenanceTasks = async () => {
   // Note: In production, these would be scheduled using cron or similar
-  console.log('   📅 Scheduling token cleanup (every hour)');
-  console.log('   📊 Scheduling analytics collection (daily)');
-  console.log('   🔒 Scheduling security audit (weekly)');
+  console.log('    Scheduling token cleanup (every hour)');
+  console.log('    Scheduling analytics collection (daily)');
+  console.log('   Scheduling security audit (weekly)');
   
   // Example: Set up a simple cleanup interval for development
   if (process.env.NODE_ENV === 'development') {
@@ -139,13 +139,13 @@ const setupMaintenanceTasks = async () => {
       }
     }, 60 * 60 * 1000); // Every hour
     
-    console.log('   ✅ Development token cleanup scheduled');
+    console.log('   Development token cleanup scheduled');
   }
 };
 
 // Handle process termination
 process.on('SIGINT', async () => {
-  console.log('\n⚠️  Setup interrupted by user');
+  console.log('\n  Setup interrupted by user');
   if (mongoose.connection.readyState === 1) {
     await mongoose.disconnect();
   }

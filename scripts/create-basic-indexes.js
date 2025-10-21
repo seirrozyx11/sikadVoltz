@@ -33,11 +33,11 @@ class SimpleIndexCreator {
       // Create basic performance indexes
       await this.createBasicIndexes();
       
-      console.log('✅ Database indexes created successfully');
+      console.log('Database indexes created successfully');
       
     } catch (error) {
-      console.error('⚠️ Index creation failed:', error.message);
-      console.log('🚀 Server can still start without optimized indexes');
+      console.error(' Index creation failed:', error.message);
+      console.log(' Server can still start without optimized indexes');
     } finally {
       if (mongoose.connection.readyState !== 0) {
         await mongoose.disconnect();
@@ -57,7 +57,7 @@ class SimpleIndexCreator {
       useUnifiedTopology: true,
     });
     
-    console.log('✅ Connected to MongoDB');
+    console.log('Connected to MongoDB');
   }
   
   async createBasicIndexes() {
@@ -68,9 +68,9 @@ class SimpleIndexCreator {
       const User = mongoose.model('User');
       try {
         await User.collection.createIndex({ email: 1 }, { unique: true, background: true });
-        console.log('✅ User email index created');
+        console.log('User email index created');
       } catch (error) {
-        console.log('⚠️ User index may already exist');
+        console.log(' User index may already exist');
       }
     }
     
@@ -78,9 +78,9 @@ class SimpleIndexCreator {
       const CyclingPlan = mongoose.model('CyclingPlan');
       try {
         await CyclingPlan.collection.createIndex({ user: 1, isActive: 1 }, { background: true });
-        console.log('✅ CyclingPlan user index created');
+        console.log('CyclingPlan user index created');
       } catch (error) {
-        console.log('⚠️ CyclingPlan index may already exist');
+        console.log(' CyclingPlan index may already exist');
       }
     }
     
@@ -88,9 +88,9 @@ class SimpleIndexCreator {
       const Telemetry = mongoose.model('Telemetry');
       try {
         await Telemetry.collection.createIndex({ userId: 1, timestamp: -1 }, { background: true });
-        console.log('✅ Telemetry performance index created');
+        console.log('Telemetry performance index created');
       } catch (error) {
-        console.log('⚠️ Telemetry index may already exist');
+        console.log(' Telemetry index may already exist');
       }
     }
   }

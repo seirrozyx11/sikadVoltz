@@ -28,10 +28,10 @@ function installPackage(packageName) {
   console.log(`📦 Installing ${packageName}...`);
   try {
     execSync(`npm install ${packageName}`, { stdio: 'inherit' });
-    console.log(`✅ ${packageName} installed successfully`);
+    console.log(`${packageName} installed successfully`);
     return true;
   } catch (error) {
-    console.error(`❌ Failed to install ${packageName}:`, error.message);
+    console.error(` Failed to install ${packageName}:`, error.message);
     return false;
   }
 }
@@ -43,7 +43,7 @@ function updateEnvFile(updates) {
   try {
     envContent = fs.readFileSync(envPath, 'utf8');
   } catch (error) {
-    console.log('📄 Creating new .env file...');
+    console.log(' Creating new .env file...');
   }
   
   console.log('🔧 Updating .env file...');
@@ -57,16 +57,16 @@ function updateEnvFile(updates) {
       console.log(`  ✏️  Updated ${key}`);
     } else {
       envContent += `\n${newLine}`;
-      console.log(`  ➕ Added ${key}`);
+      console.log(`  Added ${key}`);
     }
   }
   
   fs.writeFileSync(envPath, envContent.trim() + '\n');
-  console.log('✅ Environment variables updated');
+  console.log('Environment variables updated');
 }
 
 async function setupNewRelic() {
-  console.log('\n🚀 Setting up New Relic APM...\n');
+  console.log('\n Setting up New Relic APM...\n');
   
   // Install New Relic
   if (!installPackage('newrelic')) {
@@ -76,7 +76,7 @@ async function setupNewRelic() {
   // Get license key
   const licenseKey = await prompt('Enter your New Relic License Key: ');
   if (!licenseKey) {
-    console.error('❌ License key is required');
+    console.error(' License key is required');
     return false;
   }
   
@@ -88,8 +88,8 @@ async function setupNewRelic() {
     'NEW_RELIC_LICENSE_KEY': licenseKey,
   });
   
-  console.log('\n✅ New Relic APM setup completed!');
-  console.log('\n📋 Next steps:');
+  console.log('\nNew Relic APM setup completed!');
+  console.log('\n Next steps:');
   console.log('1. Restart your application');
   console.log('2. Generate some traffic to your API');
   console.log('3. Check your New Relic dashboard in 5-10 minutes');
@@ -109,7 +109,7 @@ async function setupDataDog() {
   // Get API key
   const apiKey = await prompt('Enter your DataDog API Key: ');
   if (!apiKey) {
-    console.error('❌ API key is required');
+    console.error(' API key is required');
     return false;
   }
   
@@ -131,7 +131,7 @@ async function setupDataDog() {
   
   if (!indexContent.includes('dd-trace')) {
     const newRelicImportRegex = /import '\.\/newrelic\.js';\s*\n/;
-    const replacement = `// 📊 MONITORING: Initialize DataDog APM first (must be first import)
+    const replacement = `//  MONITORING: Initialize DataDog APM first (must be first import)
 require('./config/datadog.js');
 
 `;
@@ -143,11 +143,11 @@ require('./config/datadog.js');
     }
     
     fs.writeFileSync(indexPath, indexContent);
-    console.log('✅ Updated index.js with DataDog initialization');
+    console.log('Updated index.js with DataDog initialization');
   }
   
-  console.log('\n✅ DataDog APM setup completed!');
-  console.log('\n📋 Next steps:');
+  console.log('\nDataDog APM setup completed!');
+  console.log('\n Next steps:');
   console.log('1. Install DataDog Agent on your server');
   console.log('2. Restart your application');  
   console.log('3. Generate some traffic to your API');
@@ -158,7 +158,7 @@ require('./config/datadog.js');
 }
 
 async function setupCustomMetrics() {
-  console.log('\n📊 Setting up custom metrics...\n');
+  console.log('\n Setting up custom metrics...\n');
   
   const metricsCode = `
 // Custom APM metrics example
@@ -232,11 +232,11 @@ async function trackDatabaseOperation(operation, fn) {
 `;
   
   fs.writeFileSync('examples/custom-metrics.js', metricsCode);
-  console.log('✅ Created custom metrics example at examples/custom-metrics.js');
+  console.log('Created custom metrics example at examples/custom-metrics.js');
 }
 
 async function main() {
-  console.log('🎯 SikadVoltz Backend - APM Setup Tool\n');
+  console.log('SikadVoltz Backend - APM Setup Tool\n');
   
   const args = process.argv.slice(2);
   let choice = args[0];
@@ -277,12 +277,12 @@ async function main() {
       break;
       
     default:
-      console.error('❌ Invalid choice');
+      console.error(' Invalid choice');
       process.exit(1);
   }
   
   if (success) {
-    console.log('\n🎯 Performance Monitoring Benefits:');
+    console.log('\nPerformance Monitoring Benefits:');
     console.log('  • Real-time performance tracking');
     console.log('  • Automatic error detection and alerting');
     console.log('  • Database query performance monitoring');
@@ -291,7 +291,7 @@ async function main() {
     console.log('  • Custom business metrics');
     console.log('  • Distributed tracing across services');
     
-    console.log('\n📈 This will help achieve 10/10 backend score through:');
+    console.log('\nThis will help achieve 10/10 backend score through:');
     console.log('  • Proactive performance optimization');
     console.log('  • Quick incident response');
     console.log('  • Data-driven scaling decisions');

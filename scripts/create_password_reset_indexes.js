@@ -17,7 +17,7 @@ config();
 
 const createIndexes = async () => {
   try {
-    console.log('🚀 Creating password reset indexes...');
+    console.log(' Creating password reset indexes...');
     
     // Connect to MongoDB
     await mongoose.connect(process.env.MONGODB_URI, {
@@ -25,7 +25,7 @@ const createIndexes = async () => {
       useUnifiedTopology: true,
     });
     
-    console.log('✅ Connected to MongoDB');
+    console.log('Connected to MongoDB');
     
     // Create indexes for password reset functionality
     const indexesToCreate = [
@@ -90,7 +90,7 @@ const createIndexes = async () => {
       }
     ];
     
-    console.log(`📊 Creating ${indexesToCreate.length} indexes...`);
+    console.log(` Creating ${indexesToCreate.length} indexes...`);
     
     let successCount = 0;
     let errorCount = 0;
@@ -98,14 +98,14 @@ const createIndexes = async () => {
     for (const indexDef of indexesToCreate) {
       try {
         await User.collection.createIndex(indexDef.fields, indexDef.options);
-        console.log(`✅ Created index: ${indexDef.options.name}`);
+        console.log(`Created index: ${indexDef.options.name}`);
         successCount++;
       } catch (error) {
         if (error.code === 85) { // Index already exists
-          console.log(`ℹ️  Index already exists: ${indexDef.options.name}`);
+          console.log(`  Index already exists: ${indexDef.options.name}`);
           successCount++;
         } else {
-          console.error(`❌ Failed to create index ${indexDef.options.name}:`, error.message);
+          console.error(` Failed to create index ${indexDef.options.name}:`, error.message);
           errorCount++;
         }
       }
@@ -118,43 +118,43 @@ const createIndexes = async () => {
       index.name.includes('Reset')
     );
     
-    console.log('\n📋 Password Reset Indexes Summary:');
-    console.log(`   ✅ Successfully created/verified: ${successCount}`);
-    console.log(`   ❌ Failed: ${errorCount}`);
-    console.log(`   📊 Total reset-related indexes: ${resetRelatedIndexes.length}`);
+    console.log('\n Password Reset Indexes Summary:');
+    console.log(`   Successfully created/verified: ${successCount}`);
+    console.log(`    Failed: ${errorCount}`);
+    console.log(`    Total reset-related indexes: ${resetRelatedIndexes.length}`);
     
-    console.log('\n🔍 Reset-related indexes:');
+    console.log('\n Reset-related indexes:');
     resetRelatedIndexes.forEach(index => {
       console.log(`   - ${index.name}: ${JSON.stringify(index.key)}`);
     });
     
     // Performance recommendations
-    console.log('\n💡 Performance Notes:');
+    console.log('\n Performance Notes:');
     console.log('   - All indexes created with background: true for non-blocking creation');
     console.log('   - Sparse indexes used to save space (only index documents with fields)');
     console.log('   - TTL index on resetPasswordExpires for automatic cleanup');
     console.log('   - Compound indexes optimized for common query patterns');
     
     if (errorCount === 0) {
-      console.log('\n🎉 All password reset indexes created successfully!');
+      console.log('\n All password reset indexes created successfully!');
     } else {
-      console.log(`\n⚠️  Index creation completed with ${errorCount} errors. Check logs above.`);
+      console.log(`\n  Index creation completed with ${errorCount} errors. Check logs above.`);
     }
     
   } catch (error) {
-    console.error('❌ Index creation failed:', error);
+    console.error(' Index creation failed:', error);
     logger.error('Password reset index creation failed', { error: error.message });
     process.exit(1);
   } finally {
     await mongoose.disconnect();
-    console.log('🔌 Disconnected from MongoDB');
+    console.log(' Disconnected from MongoDB');
     process.exit(0);
   }
 };
 
 // Handle process termination
 process.on('SIGINT', async () => {
-  console.log('\n⚠️  Index creation interrupted by user');
+  console.log('\n  Index creation interrupted by user');
   await mongoose.disconnect();
   process.exit(1);
 });

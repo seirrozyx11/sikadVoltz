@@ -7,7 +7,7 @@ const router = express.Router();
 const googleOAuth = new GoogleOAuthService();
 
 /**
- * 🔐 Google OAuth & Calendar API Routes
+ * Google OAuth & Calendar API Routes
  * Secure OAuth proxy for mobile app integration
  */
 
@@ -26,7 +26,7 @@ router.get('/google/auth-url', authenticateToken, async (req, res) => {
       message: 'Authorization URL generated successfully'
     });
   } catch (error) {
-    console.error('❌ OAuth URL generation failed:', error);
+    console.error(' OAuth URL generation failed:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to generate authorization URL',
@@ -76,7 +76,7 @@ router.post('/google/exchange', authenticateToken, async (req, res) => {
       userInfo: result.userInfo
     });
   } catch (error) {
-    console.error('❌ OAuth token exchange failed:', error);
+    console.error(' OAuth token exchange failed:', error);
     res.status(500).json({
       success: false,
       message: 'Token exchange failed',
@@ -123,7 +123,7 @@ router.post('/google/refresh', authenticateToken, async (req, res) => {
       message: 'Access token refreshed successfully'
     });
   } catch (error) {
-    console.error('❌ Token refresh failed:', error);
+    console.error(' Token refresh failed:', error);
     res.status(500).json({
       success: false,
       message: 'Token refresh failed',
@@ -209,7 +209,7 @@ router.post('/google/calendar/create-event', authenticateToken, async (req, res)
       message: 'Event created successfully'
     });
   } catch (error) {
-    console.error('❌ Calendar event creation failed:', error);
+    console.error(' Calendar event creation failed:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to create calendar event',
@@ -253,7 +253,7 @@ router.put('/google/calendar/update-event/:eventId', authenticateToken, async (r
       message: 'Event updated successfully'
     });
   } catch (error) {
-    console.error('❌ Calendar event update failed:', error);
+    console.error(' Calendar event update failed:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to update calendar event',
@@ -294,7 +294,7 @@ router.delete('/google/calendar/delete-event/:eventId', authenticateToken, async
       message: 'Event deleted successfully'
     });
   } catch (error) {
-    console.error('❌ Calendar event deletion failed:', error);
+    console.error(' Calendar event deletion failed:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to delete calendar event',
@@ -340,7 +340,7 @@ router.get('/google/calendar/events', authenticateToken, async (req, res) => {
       message: `Found ${result.events.length} cycling events`
     });
   } catch (error) {
-    console.error('❌ Calendar events fetch failed:', error);
+    console.error(' Calendar events fetch failed:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to fetch calendar events',
@@ -393,7 +393,7 @@ router.post('/google/calendar/check-conflicts', authenticateToken, async (req, r
         'No conflicts found'
     });
   } catch (error) {
-    console.error('❌ Conflict check failed:', error);
+    console.error(' Conflict check failed:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to check conflicts',
@@ -420,7 +420,7 @@ router.get('/google/status', authenticateToken, async (req, res) => {
       lastRefresh: user?.googleCalendar?.lastRefresh
     });
   } catch (error) {
-    console.error('❌ Status check failed:', error);
+    console.error(' Status check failed:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to check connection status',
@@ -453,7 +453,7 @@ router.post('/google/disconnect', authenticateToken, async (req, res) => {
       message: 'Google Calendar disconnected successfully'
     });
   } catch (error) {
-    console.error('❌ Disconnect failed:', error);
+    console.error(' Disconnect failed:', error);
     res.status(500).json({
       success: false,
       message: 'Failed to disconnect Google Calendar',

@@ -3,7 +3,7 @@ import { google } from 'googleapis';
 import jwt from 'jsonwebtoken';
 
 /**
- * 🔐 Google OAuth & Calendar Service for SikadVoltz Backend
+ * Google OAuth & Calendar Service for SikadVoltz Backend
  * Handles secure OAuth authentication and Google Calendar API operations
  * Protects sensitive credentials by keeping them server-side only
  */
@@ -28,7 +28,7 @@ class GoogleOAuthService {
         'https://www.googleapis.com/auth/userinfo.profile'
       ];
     } else {
-      console.log('⚠️ Google OAuth not configured - OAuth features disabled');
+      console.log(' Google OAuth not configured - OAuth features disabled');
     }
   }
 
@@ -51,7 +51,7 @@ class GoogleOAuthService {
         'JWT_SECRET'
       ];
       const missing = required.filter(key => !process.env[key]);
-      throw new Error(`❌ Missing Google OAuth configuration: ${missing.join(', ')}`);
+      throw new Error(` Missing Google OAuth configuration: ${missing.join(', ')}`);
     }
   }
 
@@ -105,7 +105,7 @@ class GoogleOAuthService {
         userId: decoded.userId
       };
     } catch (error) {
-      console.error('❌ OAuth token exchange failed:', error);
+      console.error(' OAuth token exchange failed:', error);
       return {
         success: false,
         error: error.message
@@ -132,7 +132,7 @@ class GoogleOAuthService {
         }
       };
     } catch (error) {
-      console.error('❌ Token refresh failed:', error);
+      console.error(' Token refresh failed:', error);
       return {
         success: false,
         error: error.message
@@ -153,7 +153,7 @@ class GoogleOAuthService {
 
       // Create event
       const event = {
-        summary: `🚴‍♂️ ${eventData.title}`,
+        summary: ` ${eventData.title}`,
         description: this.buildEventDescription(eventData),
         start: {
           dateTime: eventData.startTime,
@@ -194,7 +194,7 @@ class GoogleOAuthService {
         eventUrl: response.data.htmlLink
       };
     } catch (error) {
-      console.error('❌ Calendar event creation failed:', error);
+      console.error(' Calendar event creation failed:', error);
       return {
         success: false,
         error: error.message
@@ -213,7 +213,7 @@ class GoogleOAuthService {
       const calendar = google.calendar({ version: 'v3', auth: authClient });
 
       const event = {
-        summary: `🚴‍♂️ ${eventData.title}`,
+        summary: ` ${eventData.title}`,
         description: this.buildEventDescription(eventData),
         start: {
           dateTime: eventData.startTime,
@@ -247,7 +247,7 @@ class GoogleOAuthService {
         eventUrl: response.data.htmlLink
       };
     } catch (error) {
-      console.error('❌ Calendar event update failed:', error);
+      console.error(' Calendar event update failed:', error);
       return {
         success: false,
         error: error.message
@@ -272,7 +272,7 @@ class GoogleOAuthService {
 
       return { success: true };
     } catch (error) {
-      console.error('❌ Calendar event deletion failed:', error);
+      console.error(' Calendar event deletion failed:', error);
       return {
         success: false,
         error: error.message
@@ -296,7 +296,7 @@ class GoogleOAuthService {
         timeMax: timeMax,
         singleEvents: true,
         orderBy: 'startTime',
-        q: 'sikadvoltz OR cycling OR 🚴‍♂️'
+        q: 'sikadvoltz OR cycling OR '
       });
 
       const events = response.data.items?.filter(event => 
@@ -319,7 +319,7 @@ class GoogleOAuthService {
         }))
       };
     } catch (error) {
-      console.error('❌ Calendar events fetch failed:', error);
+      console.error(' Calendar events fetch failed:', error);
       return {
         success: false,
         error: error.message
@@ -371,7 +371,7 @@ class GoogleOAuthService {
         }))
       };
     } catch (error) {
-      console.error('❌ Conflict check failed:', error);
+      console.error(' Conflict check failed:', error);
       return {
         success: false,
         error: error.message
@@ -385,19 +385,19 @@ class GoogleOAuthService {
   buildEventDescription(eventData) {
     let description = eventData.description || 'Cycling session created by SikadVoltz';
     
-    description += '\n\n🚴‍♂️ SikadVoltz Cycling Session\n';
+    description += '\n\n SikadVoltz Cycling Session\n';
     
     if (eventData.intensity) {
-      description += `💪 Intensity: ${eventData.intensity}\n`;
+      description += `Intensity: ${eventData.intensity}\n`;
     }
     if (eventData.duration) {
       description += `⏱️ Duration: ${eventData.duration} minutes\n`;
     }
     if (eventData.distance) {
-      description += `📏 Distance: ${eventData.distance} km\n`;
+      description += ` Distance: ${eventData.distance} km\n`;
     }
     
-    description += '\n📱 Created with SikadVoltz App';
+    description += '\nCreated with SikadVoltz App';
     
     return description;
   }
@@ -414,7 +414,7 @@ class GoogleOAuthService {
       
       return { success: true };
     } catch (error) {
-      console.error('❌ Token revocation failed:', error);
+      console.error(' Token revocation failed:', error);
       return {
         success: false,
         error: error.message

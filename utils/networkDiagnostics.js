@@ -103,7 +103,7 @@ class NetworkDiagnostics {
     
     for (const host of uniqueHosts) {
       const dnsResult = await this.testDNSResolution(host);
-      console.log(`   ${host}: ${dnsResult.success ? `✅ ${dnsResult.ip}` : `❌ ${dnsResult.error}`}`);
+      console.log(`   ${host}: ${dnsResult.success ? `${dnsResult.ip}` : ` ${dnsResult.error}`}`);
     }
 
     console.log('');
@@ -111,7 +111,7 @@ class NetworkDiagnostics {
     
     for (const target of testTargets) {
       const result = await this.testTCPConnection(target.host, target.port, 8000);
-      const status = result.success ? '✅' : '❌';
+      const status = result.success ? '' : '';
       console.log(`   ${target.name} (${target.host}:${target.port}): ${status} ${result.success ? result.message : result.error}`);
     }
 
@@ -128,11 +128,11 @@ class NetworkDiagnostics {
     // Check if it's a general network issue or SMTP-specific
     const httpWorks = await this.testTCPConnection('google.com', 80, 5000);
     if (httpWorks.success) {
-      console.log('✅ Basic internet connectivity: Working');
-      console.log('❌ SMTP connectivity: Likely blocked by Render');
+      console.log('Basic internet connectivity: Working');
+      console.log(' SMTP connectivity: Likely blocked by Render');
       console.log('');
-      console.log('🔍 DIAGNOSIS: Render appears to block outbound SMTP connections');
-      console.log('💡 SOLUTION: Use API-based email services instead of SMTP');
+      console.log(' DIAGNOSIS: Render appears to block outbound SMTP connections');
+      console.log(' SOLUTION: Use API-based email services instead of SMTP');
       console.log('');
       console.log('Recommended alternatives:');
       console.log('- SendGrid API (recommended for Render)');
@@ -140,8 +140,8 @@ class NetworkDiagnostics {
       console.log('- Resend API');
       console.log('- AWS SES API');
     } else {
-      console.log('❌ Basic internet connectivity: Failed');
-      console.log('🔍 DIAGNOSIS: General network connectivity issues');
+      console.log(' Basic internet connectivity: Failed');
+      console.log(' DIAGNOSIS: General network connectivity issues');
     }
 
     return {

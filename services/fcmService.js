@@ -30,11 +30,11 @@ class FCMService {
           admin.initializeApp();
         }
         
-        logger.info('✅ Firebase Admin SDK initialized');
+        logger.info('Firebase Admin SDK initialized');
         this.isInitialized = true;
       }
     } catch (error) {
-      logger.error('❌ Failed to initialize Firebase Admin SDK:', error);
+      logger.error(' Failed to initialize Firebase Admin SDK:', error);
       this.isInitialized = false;
     }
   }
@@ -48,7 +48,7 @@ class FCMService {
    */
   async sendToUser(userId, notification, data = {}) {
     if (!this.isInitialized) {
-      logger.warn('⚠️ FCM not initialized, skipping notification');
+      logger.warn(' FCM not initialized, skipping notification');
       return false;
     }
 
@@ -57,7 +57,7 @@ class FCMService {
       const user = await User.findById(userId).select('fcmToken platform notificationPreferences');
       
       if (!user || !user.fcmToken) {
-        logger.warn(`📱 No FCM token found for user ${userId}`);
+        logger.warn(`No FCM token found for user ${userId}`);
         return false;
       }
 
@@ -106,7 +106,7 @@ class FCMService {
       // Send message
       const response = await admin.messaging().send(message);
       
-      logger.info(`📨 FCM notification sent successfully`, {
+      logger.info(` FCM notification sent successfully`, {
         userId,
         type: data.type,
         messageId: response,
@@ -119,9 +119,9 @@ class FCMService {
       if (error.code === 'messaging/registration-token-not-registered') {
         // Token is invalid, remove it from user
         await this.removeInvalidToken(userId);
-        logger.warn(`🗑️ Removed invalid FCM token for user ${userId}`);
+        logger.warn(`Removed invalid FCM token for user ${userId}`);
       } else {
-        logger.error(`❌ Failed to send FCM notification to user ${userId}:`, error);
+        logger.error(` Failed to send FCM notification to user ${userId}:`, error);
       }
       
       return false;
@@ -137,7 +137,7 @@ class FCMService {
    */
   async sendToMultipleUsers(userIds, notification, data = {}) {
     if (!this.isInitialized) {
-      logger.warn('⚠️ FCM not initialized, skipping notifications');
+      logger.warn(' FCM not initialized, skipping notifications');
       return { success: 0, failed: userIds.length };
     }
 
@@ -171,7 +171,7 @@ class FCMService {
       });
     }
 
-    logger.info(`📊 Batch FCM notification results:`, {
+    logger.info(` Batch FCM notification results:`, {
       totalUsers: userIds.length,
       successful: results.success,
       failed: results.failed
@@ -189,7 +189,7 @@ class FCMService {
    */
   async sendToTopic(topic, notification, data = {}) {
     if (!this.isInitialized) {
-      logger.warn('⚠️ FCM not initialized, skipping topic notification');
+      logger.warn(' FCM not initialized, skipping topic notification');
       return false;
     }
 
@@ -208,7 +208,7 @@ class FCMService {
 
       const response = await admin.messaging().send(message);
       
-      logger.info(`📢 FCM topic notification sent successfully`, {
+      logger.info(`FCM topic notification sent successfully`, {
         topic,
         messageId: response,
         type: data.type
@@ -217,7 +217,7 @@ class FCMService {
       return true;
 
     } catch (error) {
-      logger.error(`❌ Failed to send FCM topic notification to ${topic}:`, error);
+      logger.error(` Failed to send FCM topic notification to ${topic}:`, error);
       return false;
     }
   }
@@ -278,9 +278,9 @@ class FCMService {
         }
       });
       
-      logger.info(`🗑️ Removed invalid FCM token for user ${userId}`);
+      logger.info(`Removed invalid FCM token for user ${userId}`);
     } catch (error) {
-      logger.error(`❌ Failed to remove invalid FCM token for user ${userId}:`, error);
+      logger.error(` Failed to remove invalid FCM token for user ${userId}:`, error);
     }
   }
 
@@ -295,13 +295,13 @@ class FCMService {
     let title, body;
     
     if (count === 1) {
-      title = '🚴‍♂️ Missed Session Alert';
+      title = ' Missed Session Alert';
       body = 'You missed your cycling session yesterday. Let\'s get back on track!';
     } else if (count <= 3) {
-      title = '⚠️ Multiple Missed Sessions';
+      title = ' Multiple Missed Sessions';
       body = `You've missed ${count} sessions this week. Your goals are waiting!`;
     } else {
-      title = '🔥 Get Back on Track!';
+      title = ' Get Back on Track!';
       body = `${count} missed sessions - but champions never give up!`;
     }
 
@@ -321,7 +321,7 @@ class FCMService {
   async sendSessionReminderNotification(userId, sessionData) {
     const { sessionTime, sessionType = 'cycling', plannedHours = 1 } = sessionData;
     
-    const title = '🔔 Session Reminder';
+    const title = ' Session Reminder';
     const body = `Your ${plannedHours}h ${sessionType} session starts in 1 hour!`;
 
     return await this.sendToUser(userId, { title, body }, {
@@ -342,11 +342,11 @@ class FCMService {
     const { streakDays = 0, completedSessions = 0, totalHours = 0 } = motivationData;
     
     const messages = [
-      `🌟 Every session counts! You've completed ${completedSessions} sessions.`,
-      `💪 ${totalHours.toFixed(1)} hours of cycling - you're building strength!`,
-      `🔥 ${streakDays} day streak! Keep the momentum going!`,
-      `🎯 Consistency is key - you're doing amazing!`,
-      `🏆 Champions train even when they don't feel like it. You're a champion!`,
+      ` Every session counts! You've completed ${completedSessions} sessions.`,
+      `${totalHours.toFixed(1)} hours of cycling - you're building strength!`,
+      ` ${streakDays} day streak! Keep the momentum going!`,
+      `Consistency is key - you're doing amazing!`,
+      ` Champions train even when they don't feel like it. You're a champion!`,
     ];
 
     const title = 'Daily Motivation';

@@ -19,7 +19,7 @@ router.post('/fcm/user/:userId', async (req, res) => {
     const { userId } = req.params;
     const { title, body, type = 'test', route = '/notifications' } = req.body;
 
-    logger.info(`🧪 Testing FCM notification for user: ${userId}`);
+    logger.info(` Testing FCM notification for user: ${userId}`);
 
     // Check if user exists and has FCM token
     const user = await User.findById(userId).select('email fcmToken platform');
@@ -40,7 +40,7 @@ router.post('/fcm/user/:userId', async (req, res) => {
 
     // Send the notification
     const notification = {
-      title: title || '🧪 SikadVoltz Test Notification',
+      title: title || ' SikadVoltz Test Notification',
       body: body || 'This is a test push notification from your SikadVoltz backend!'
     };
 
@@ -71,7 +71,7 @@ router.post('/fcm/user/:userId', async (req, res) => {
     }
 
   } catch (error) {
-    logger.error('❌ Test FCM notification error:', error);
+    logger.error(' Test FCM notification error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
@@ -88,7 +88,7 @@ router.post('/fcm/all-users', async (req, res) => {
   try {
     const { title, body, type = 'test', route = '/notifications', limit = 10 } = req.body;
 
-    logger.info(`🧪 Testing FCM notification for all users (limit: ${limit})`);
+    logger.info(` Testing FCM notification for all users (limit: ${limit})`);
 
     // Get users with FCM tokens
     const users = await User.find({ 
@@ -106,7 +106,7 @@ router.post('/fcm/all-users', async (req, res) => {
 
     // Send notifications to all users
     const notification = {
-      title: title || '🧪 SikadVoltz Test Broadcast',
+      title: title || ' SikadVoltz Test Broadcast',
       body: body || `Test broadcast notification sent to ${users.length} users!`
     };
 
@@ -135,7 +135,7 @@ router.post('/fcm/all-users', async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('❌ Test FCM broadcast error:', error);
+    logger.error(' Test FCM broadcast error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
@@ -153,7 +153,7 @@ router.post('/fcm/missed-session/:userId', async (req, res) => {
     const { userId } = req.params;
     const { count = 1 } = req.body;
 
-    logger.info(`🧪 Testing missed session notification for user: ${userId}`);
+    logger.info(` Testing missed session notification for user: ${userId}`);
 
     const user = await User.findById(userId).select('email fcmToken');
     if (!user) {
@@ -193,7 +193,7 @@ router.post('/fcm/missed-session/:userId', async (req, res) => {
     }
 
   } catch (error) {
-    logger.error('❌ Test missed session notification error:', error);
+    logger.error(' Test missed session notification error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
@@ -211,7 +211,7 @@ router.post('/fcm/session-reminder/:userId', async (req, res) => {
     const { userId } = req.params;
     const { plannedHours = 1, sessionType = 'cycling' } = req.body;
 
-    logger.info(`🧪 Testing session reminder notification for user: ${userId}`);
+    logger.info(` Testing session reminder notification for user: ${userId}`);
 
     const user = await User.findById(userId).select('email fcmToken');
     if (!user) {
@@ -256,7 +256,7 @@ router.post('/fcm/session-reminder/:userId', async (req, res) => {
     }
 
   } catch (error) {
-    logger.error('❌ Test session reminder notification error:', error);
+    logger.error(' Test session reminder notification error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
@@ -274,7 +274,7 @@ router.post('/fcm/motivation/:userId', async (req, res) => {
     const { userId } = req.params;
     const { streakDays = 5, completedSessions = 10, totalHours = 15.5 } = req.body;
 
-    logger.info(`🧪 Testing daily motivation notification for user: ${userId}`);
+    logger.info(` Testing daily motivation notification for user: ${userId}`);
 
     const user = await User.findById(userId).select('email fcmToken');
     if (!user) {
@@ -317,7 +317,7 @@ router.post('/fcm/motivation/:userId', async (req, res) => {
     }
 
   } catch (error) {
-    logger.error('❌ Test daily motivation notification error:', error);
+    logger.error(' Test daily motivation notification error:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',
@@ -354,7 +354,7 @@ router.get('/fcm/users', async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('❌ Error fetching users with FCM tokens:', error);
+    logger.error(' Error fetching users with FCM tokens:', error);
     res.status(500).json({
       success: false,
       message: 'Internal server error',

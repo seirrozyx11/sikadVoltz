@@ -10,21 +10,21 @@ dotenv.config();
 
 async function migrateInactivePlans() {
   try {
-    console.log('🔗 Connecting to MongoDB...');
+    console.log(' Connecting to MongoDB...');
     await mongoose.connect(process.env.MONGODB_URI);
-    console.log('✅ Connected to MongoDB\n');
+    console.log('Connected to MongoDB\n');
 
     // Find all inactive plans that haven't been archived yet
-    console.log('🔍 Finding inactive plans that need archiving...');
+    console.log(' Finding inactive plans that need archiving...');
     const inactivePlans = await CyclingPlan.find({ 
       isActive: false,
       // Only migrate plans that don't already have a WorkoutHistory entry
     }).populate('goal user');
 
-    console.log(`📋 Found ${inactivePlans.length} inactive plans`);
+    console.log(` Found ${inactivePlans.length} inactive plans`);
 
     if (inactivePlans.length === 0) {
-      console.log('✅ No inactive plans need migration');
+      console.log('No inactive plans need migration');
       return;
     }
 
@@ -79,23 +79,23 @@ async function migrateInactivePlans() {
         await workoutHistory.save();
         migratedCount++;
         
-        console.log(`✅ Migrated plan ${plan._id} for user ${plan.user.email} - ${completedSessions.length}/${plan.dailySessions.length} sessions completed`);
+        console.log(`Migrated plan ${plan._id} for user ${plan.user.email} - ${completedSessions.length}/${plan.dailySessions.length} sessions completed`);
 
       } catch (error) {
-        console.error(`❌ Error migrating plan ${plan._id}:`, error.message);
+        console.error(` Error migrating plan ${plan._id}:`, error.message);
       }
     }
 
-    console.log(`\n🎉 Migration complete!`);
-    console.log(`   ✅ Migrated: ${migratedCount} plans`);
+    console.log(`\n Migration complete!`);
+    console.log(`   Migrated: ${migratedCount} plans`);
     console.log(`   ⏭️  Skipped: ${skippedCount} plans (already archived)`);
     console.log(`   📚 Total WorkoutHistory entries: ${await WorkoutHistory.countDocuments()}`);
 
   } catch (error) {
-    console.error('❌ Migration error:', error.message);
+    console.error(' Migration error:', error.message);
   } finally {
     await mongoose.disconnect();
-    console.log('\n🔌 Disconnected from MongoDB');
+    console.log('\n Disconnected from MongoDB');
   }
 }
 

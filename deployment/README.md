@@ -1,6 +1,6 @@
 # SikadVoltz Backend - Production Deployment Guide
 
-## 🚀 Load Balancing & High Availability Setup
+##  Load Balancing & High Availability Setup
 
 ### Quick Start Commands
 
@@ -18,7 +18,7 @@ docker-compose -f deployment/docker-compose.prod.yml ps
 docker-compose -f deployment/docker-compose.prod.yml logs -f nginx backend1
 ```
 
-## 📋 Pre-Deployment Checklist
+##  Pre-Deployment Checklist
 
 ### 1. Environment Variables
 Create `.env.production` file:
@@ -95,7 +95,7 @@ NODE_ENV=production PORT=3002 npm start &
 # Configure external load balancer (AWS ALB, GCP Load Balancer, etc.)
 ```
 
-## 📊 Performance Monitoring
+##  Performance Monitoring
 
 ### Health Check Endpoints
 - **Backend Health**: `https://api.sikadvoltz.com/health`
@@ -120,7 +120,7 @@ mongosh --eval "db.serverStatus()"
 redis-cli info stats
 ```
 
-## 🔒 Security Configuration
+## Security Configuration
 
 ### 1. Firewall Rules
 ```bash
@@ -145,7 +145,7 @@ ufw deny 27017  # Block direct MongoDB access
 - **Perfect Forward Secrecy**
 - **Certificate Pinning**
 
-## 🚨 Troubleshooting
+##  Troubleshooting
 
 ### Common Issues
 
@@ -208,7 +208,7 @@ ufw deny 27017  # Block direct MongoDB access
    docker exec sikadvoltz-backend-1 node scripts/add-critical-indexes.js
    ```
 
-## 📈 Scaling Guidelines
+## Scaling Guidelines
 
 ### Horizontal Scaling
 - **Start with**: 3 backend instances
@@ -223,7 +223,7 @@ ufw deny 27017  # Block direct MongoDB access
 - **Nginx**: Can handle 10,000+ concurrent connections
 - **HAProxy**: Can handle 100,000+ concurrent connections
 
-## 🎯 Performance Targets (10/10 Score)
+## Performance Targets (10/10 Score)
 
 - **Response Time**: < 100ms (health check)
 - **Throughput**: 1000+ requests/second

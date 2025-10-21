@@ -119,13 +119,13 @@ class EnvironmentValidator {
     // Additional security checks for JWT_SECRET
     if (varName === 'JWT_SECRET') {
       // Debug logging for production troubleshooting
-      console.log(`🔐 JWT_SECRET Debug: Length=${value.length}, First10=${value.substring(0, 10)}...`);
+      console.log(`JWT_SECRET Debug: Length=${value.length}, First10=${value.substring(0, 10)}...`);
       
       // For hex strings (crypto.randomBytes output), lower entropy is expected and acceptable
       const isHexString = /^[a-fA-F0-9]+$/.test(value);
       const entropy = this.calculateEntropy(value);
       
-      console.log(`🔐 JWT_SECRET Analysis: Entropy=${entropy.toFixed(3)}, IsHex=${isHexString}, MinRequired=${isHexString ? 3.8 : 4.0}`);
+      console.log(`JWT_SECRET Analysis: Entropy=${entropy.toFixed(3)}, IsHex=${isHexString}, MinRequired=${isHexString ? 3.8 : 4.0}`);
       
       // Adjust entropy requirements based on string type and environment
       const isProduction = process.env.NODE_ENV === 'production';
@@ -208,25 +208,25 @@ class EnvironmentValidator {
     const validation = this.validate();
 
     if (!validation.valid) {
-      console.error('\n🚨 ENVIRONMENT VALIDATION FAILED 🚨\n');
+      console.error('\n ENVIRONMENT VALIDATION FAILED \n');
       
       if (validation.missing.length > 0) {
-        console.error('❌ Missing required environment variables:');
+        console.error(' Missing required environment variables:');
         validation.missing.forEach(varName => {
           console.error(`   - ${varName}`);
         });
-        console.error('\n💡 Copy .env.example to .env and fill in the values\n');
+        console.error('\n Copy .env.example to .env and fill in the values\n');
       }
 
       if (validation.invalid.length > 0) {
-        console.error('❌ Invalid environment variables:');
+        console.error(' Invalid environment variables:');
         validation.invalid.forEach(({ variable, reason, requirement }) => {
           console.error(`   - ${variable}: ${reason}`);
           console.error(`     Requirement: ${requirement}`);
         });
         
         if (validation.invalid.some(item => item.variable === 'JWT_SECRET')) {
-          console.error('\n💡 Generate a secure JWT secret with:');
+          console.error('\n Generate a secure JWT secret with:');
           console.error(`   node -e "console.log(require('crypto').randomBytes(64).toString('hex'))"`);
           console.error('\n   Example secure JWT secret:');
           console.error(`   ${this.generateSecureJWTSecret()}\n`);
@@ -243,7 +243,7 @@ class EnvironmentValidator {
 
     // Log warnings but continue
     if (validation.warnings.length > 0) {
-      console.warn('\n⚠️  Environment warnings:');
+      console.warn('\n  Environment warnings:');
       validation.warnings.forEach(warning => {
         console.warn(`   - ${warning}`);
       });
@@ -255,7 +255,7 @@ class EnvironmentValidator {
       warnings: validation.warnings.length
     });
 
-    console.log(`✅ Environment validated (${validation.environment})`);
+    console.log(`Environment validated (${validation.environment})`);
   }
 }
 

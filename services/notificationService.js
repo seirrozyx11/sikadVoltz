@@ -71,10 +71,10 @@ class NotificationService {
       // Broadcast via WebSocket
       await this.broadcastNotification(userId, notification);
       
-      // ✅ NEW: Send FCM push notification
+      // NEW: Send FCM push notification
       await fcmService.sendMissedSessionNotification(userId, { count, sessions, planAdjusted });
       
-      logger.info(`📢 Missed session notification created and sent via FCM`, {
+      logger.info(`Missed session notification created and sent via FCM`, {
         userId,
         notificationId: notification._id,
         count,
@@ -83,7 +83,7 @@ class NotificationService {
 
       return notification;
     } catch (error) {
-      logger.error('❌ Error creating missed session notification:', { 
+      logger.error(' Error creating missed session notification:', { 
         error: error.message, 
         userId,
         missedSessionData 
@@ -156,7 +156,7 @@ class NotificationService {
       // Broadcast via WebSocket
       await this.broadcastNotification(userId, notification);
       
-      logger.info(`🏥 Health screening notification created`, {
+      logger.info(` Health screening notification created`, {
         userId,
         notificationId: notification._id,
         expiryDays,
@@ -166,7 +166,7 @@ class NotificationService {
 
       return notification;
     } catch (error) {
-      logger.error('❌ Error creating health screening notification:', { 
+      logger.error(' Error creating health screening notification:', { 
         error: error.message, 
         userId,
         healthData 
@@ -194,13 +194,13 @@ class NotificationService {
       let title, message;
       
       if (type === 'progress') {
-        title = `${percentage}% Complete! 🎉`;
+        title = `${percentage}% Complete! `;
         message = `Congratulations! You've completed ${sessionsCompleted} of ${totalSessions} sessions.`;
       } else if (type === 'streak') {
-        title = `${milestoneData.streakDays} Day Streak! 🔥`;
+        title = `${milestoneData.streakDays} Day Streak! `;
         message = `Amazing consistency! You've maintained your training for ${milestoneData.streakDays} days straight.`;
       } else if (type === 'achievement') {
-        title = `Achievement Unlocked! 🏆`;
+        title = `Achievement Unlocked! `;
         message = `You've earned the "${achievement}" badge for your dedication!`;
       }
 
@@ -238,7 +238,7 @@ class NotificationService {
       // Broadcast via WebSocket
       await this.broadcastNotification(userId, notification);
       
-      logger.info(`🏆 Milestone notification created`, {
+      logger.info(` Milestone notification created`, {
         userId,
         notificationId: notification._id,
         type,
@@ -248,7 +248,7 @@ class NotificationService {
 
       return notification;
     } catch (error) {
-      logger.error('❌ Error creating milestone notification:', { 
+      logger.error(' Error creating milestone notification:', { 
         error: error.message, 
         userId,
         milestoneData 
@@ -320,7 +320,7 @@ class NotificationService {
       // Broadcast via WebSocket
       await this.broadcastNotification(userId, notification);
       
-      logger.info(`⚙️ Plan adjustment notification created`, {
+      logger.info(` Plan adjustment notification created`, {
         userId,
         notificationId: notification._id,
         reason,
@@ -329,7 +329,7 @@ class NotificationService {
 
       return notification;
     } catch (error) {
-      logger.error('❌ Error creating plan adjustment notification:', { 
+      logger.error(' Error creating plan adjustment notification:', { 
         error: error.message, 
         userId,
         adjustmentData 
@@ -400,7 +400,7 @@ class NotificationService {
         // Broadcast via WebSocket
         await this.broadcastNotification(userId, notification);
         
-        logger.info(`🔄 System update notification created`, {
+        logger.info(`System update notification created`, {
           userId,
           notificationId: notification._id,
           version,
@@ -410,7 +410,7 @@ class NotificationService {
         return notification;
       }
     } catch (error) {
-      logger.error('❌ Error creating system update notification:', { 
+      logger.error(' Error creating system update notification:', { 
         error: error.message, 
         userId,
         updateData 
@@ -450,14 +450,14 @@ class NotificationService {
           timestamp: new Date().toISOString()
         });
         
-        logger.info(`📡 Notification broadcasted via WebSocket`, {
+        logger.info(` Notification broadcasted via WebSocket`, {
           userId,
           notificationId: notification._id,
           type: notification.type
         });
       }
     } catch (error) {
-      logger.error('❌ Error broadcasting notification:', { 
+      logger.error(' Error broadcasting notification:', { 
         error: error.message, 
         userId,
         notificationId: notification._id 
@@ -493,7 +493,7 @@ class NotificationService {
 
       return stats.length > 0 ? stats[0] : { total: 0, unread: 0, byType: [] };
     } catch (error) {
-      logger.error('❌ Error getting notification stats:', { 
+      logger.error(' Error getting notification stats:', { 
         error: error.message, 
         userId 
       });
@@ -517,7 +517,7 @@ class NotificationService {
         isRead: true // Only delete read notifications
       });
       
-      logger.info(`🧹 Old notifications cleaned up for user`, {
+      logger.info(` Old notifications cleaned up for user`, {
         userId,
         deletedCount: result.deletedCount,
         daysOld
@@ -525,7 +525,7 @@ class NotificationService {
 
       return result;
     } catch (error) {
-      logger.error('❌ Error cleaning up old notifications:', { 
+      logger.error(' Error cleaning up old notifications:', { 
         error: error.message, 
         userId,
         daysOld 

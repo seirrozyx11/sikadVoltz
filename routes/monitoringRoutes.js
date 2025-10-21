@@ -1,30 +1,30 @@
 /**
- * 🔍 Production Redis Performance Monitor
+ *  Production Redis Performance Monitor
  * Real-time monitoring endpoint for Render + Redis Cloud
  */
 
 import express from 'express';
 import SessionManager from '../services/sessionManager.js';
-import simpleRedisClient from '../services/simpleRedisClient.js'; // 🔥 Simple Redis client for comparison
+import simpleRedisClient from '../services/simpleRedisClient.js'; //  Simple Redis client for comparison
 import authenticateToken from '../middleware/authenticateToken.js';
 
 const router = express.Router();
 
 /**
- * 📊 Real-time Redis + Performance Dashboard
+ *  Real-time Redis + Performance Dashboard
  * GET /api/v1/monitor/redis-performance
  */
 router.get('/redis-performance', authenticateToken, async (req, res) => {
   try {
     const startTime = Date.now();
     
-    // 🔍 Test Redis Connection & Performance
+    //  Test Redis Connection & Performance
     const redisStatus = await testRedisPerformance();
     
-    // 📈 Get System Performance Metrics  
+    // Get System Performance Metrics  
     const systemMetrics = await getSystemMetrics();
     
-    // ⚡ Calculate API Response Performance
+    //  Calculate API Response Performance
     const responseTime = Date.now() - startTime;
     
     res.json({
@@ -32,16 +32,16 @@ router.get('/redis-performance', authenticateToken, async (req, res) => {
       environment: process.env.NODE_ENV || 'unknown',
       response_time_ms: responseTime,
       
-      // 🚀 Redis Performance Analysis
+      //  Redis Performance Analysis
       redis: redisStatus,
       
-      // 📊 System Performance
+      //  System Performance
       system: systemMetrics,
       
-      // 🎯 Performance Score (0-100)
+      // Performance Score (0-100)
       performance_score: calculatePerformanceScore(redisStatus, responseTime),
       
-      // ✅ Health Status
+      // Health Status
       health_status: redisStatus.connected ? 'excellent' : 'degraded',
       
       // 🔧 Optimization Recommendations
@@ -59,7 +59,7 @@ router.get('/redis-performance', authenticateToken, async (req, res) => {
 });
 
 /**
- * 🔥 Comprehensive Redis Performance Test
+ *  Comprehensive Redis Performance Test
  */
 async function testRedisPerformance() {
   const results = {
@@ -71,7 +71,7 @@ async function testRedisPerformance() {
   };
 
   if (!SessionManager.isRedisAvailable) {
-    results.warning = '⚠️ Redis not available - using memory fallback';
+    results.warning = ' Redis not available - using memory fallback';
     results.impact = 'Performance degraded by 60-80%';
     return results;
   }
@@ -82,7 +82,7 @@ async function testRedisPerformance() {
     await SessionManager.redisClient.ping();
     results.response_times.ping_ms = Date.now() - pingStart;
 
-    // 💾 Test 2: Write Performance (SET)
+    // Test 2: Write Performance (SET)
     const setStart = Date.now();
     await SessionManager.redisClient.set(
       'perf:test:write', 
@@ -97,7 +97,7 @@ async function testRedisPerformance() {
     results.response_times.read_ms = Date.now() - getStart;
     results.operations.read_success = !!testValue;
 
-    // 📊 Test 4: Redis Stats
+    //  Test 4: Redis Stats
     const statsStart = Date.now();
     const redisInfo = await SessionManager.redisClient.info('stats');
     results.response_times.stats_ms = Date.now() - statsStart;
@@ -122,7 +122,7 @@ async function testRedisPerformance() {
       results.cache_hit_ratio = total > 0 ? ((stats.keyspace_hits / total) * 100).toFixed(1) + '%' : '0%';
     }
 
-    // 🗑️ Cleanup test data
+    // Cleanup test data
     await SessionManager.redisClient.del('perf:test:write');
 
   } catch (error) {
@@ -134,7 +134,7 @@ async function testRedisPerformance() {
 }
 
 /**
- * 📈 System Performance Metrics
+ * System Performance Metrics
  */
 async function getSystemMetrics() {
   const memUsage = process.memoryUsage();
@@ -162,7 +162,7 @@ async function getSystemMetrics() {
 }
 
 /**
- * 🎯 Calculate Performance Score (0-100)
+ * Calculate Performance Score (0-100)
  */
 function calculatePerformanceScore(redisStatus, responseTime) {
   let score = 100;
@@ -234,7 +234,7 @@ function generateRecommendations(redisStatus, responseTime) {
     recommendations.push({
       priority: 'info',
       issue: 'All systems optimal',
-      action: '🎉 Redis Cloud + Render performance is excellent!'
+      action: ' Redis Cloud + Render performance is excellent!'
     });
   }
 
@@ -242,13 +242,13 @@ function generateRecommendations(redisStatus, responseTime) {
 }
 
 /**
- * 🚀 Quick Redis Health Check (No Auth Required)
+ *  Quick Redis Health Check (No Auth Required)
  * GET /api/v1/monitor/redis-health
  */
 router.get('/redis-health', async (req, res) => {
   try {
     // � REDIS COMPARISON HEALTH CHECK
-    console.log('🏥 REDIS COMPARISON HEALTH CHECK:');
+    console.log(' REDIS COMPARISON HEALTH CHECK:');
     console.log(`   SessionManager.isRedisAvailable: ${SessionManager.isRedisAvailable}`);
     console.log(`   SessionManager.redisClient exists: ${!!SessionManager.redisClient}`);
     console.log(`   SessionManager.redisClient.isOpen: ${SessionManager.redisClient?.isOpen}`);
@@ -266,17 +266,17 @@ router.get('/redis-health', async (req, res) => {
         startTime: 'unknown'
       },
       
-      // �🔥 SessionManager Redis Status  
+      // � SessionManager Redis Status  
       session_manager: {
         available: SessionManager.isRedisAvailable,
         client_exists: !!SessionManager.redisClient,
         client_open: SessionManager.redisClient?.isOpen || false
       },
       
-      // 🔥 SimpleRedis Status
+      //  SimpleRedis Status
       simple_redis: simpleStatus,
       
-      // 🔥 Overall Status (use SimpleRedis if SessionManager fails)
+      //  Overall Status (use SimpleRedis if SessionManager fails)
       redis_available: SessionManager.isRedisAvailable || simpleStatus.connected,
       storage_type: SessionManager.isRedisAvailable ? 'session_manager_redis' : 
                    simpleStatus.connected ? 'simple_redis_client' : 'memory_fallback'
@@ -288,10 +288,10 @@ router.get('/redis-health', async (req, res) => {
         const pingStart = Date.now();
         await SessionManager.redisClient.ping();
         health.session_manager.ping_ms = Date.now() - pingStart;
-        console.log(`✅ SessionManager PING successful: ${health.session_manager.ping_ms}ms`);
+        console.log(`SessionManager PING successful: ${health.session_manager.ping_ms}ms`);
       } catch (error) {
         health.session_manager.ping_error = error.message;
-        console.log(`❌ SessionManager PING failed: ${error.message}`);
+        console.log(` SessionManager PING failed: ${error.message}`);
       }
     }
 
@@ -302,10 +302,10 @@ router.get('/redis-health', async (req, res) => {
         const pingResult = await simpleRedisClient.ping();
         health.simple_redis.ping_ms = Date.now() - pingStart;
         health.simple_redis.ping_success = pingResult;
-        console.log(`✅ SimpleRedis PING successful: ${health.simple_redis.ping_ms}ms`);
+        console.log(`SimpleRedis PING successful: ${health.simple_redis.ping_ms}ms`);
       } catch (error) {
         health.simple_redis.ping_error = error.message;
-        console.log(`❌ SimpleRedis PING failed: ${error.message}`);
+        console.log(` SimpleRedis PING failed: ${error.message}`);
       }
     }
 
@@ -328,7 +328,7 @@ router.get('/redis-health', async (req, res) => {
 });
 
 /**
- * 🔍 RENDER REDIS DIAGNOSTIC (Temporary Debug Endpoint)
+ *  RENDER REDIS DIAGNOSTIC (Temporary Debug Endpoint)
  * GET /api/v1/monitor/redis-diagnostic
  */
 router.get('/redis-diagnostic', async (req, res) => {
@@ -348,7 +348,7 @@ router.get('/redis-diagnostic', async (req, res) => {
 
   if (process.env.REDIS_URL) {
     try {
-      console.log('🔍 Testing Redis connection for diagnostic...');
+      console.log(' Testing Redis connection for diagnostic...');
       const { createClient } = await import('redis');
       const testClient = createClient({
         username: 'default',
@@ -376,16 +376,16 @@ router.get('/redis-diagnostic', async (req, res) => {
       diagnostic.connection_time_ms = connectTime;
       diagnostic.ping_time_ms = pingTime;
       diagnostic.ping_response = pong;
-      diagnostic.message = '✅ Redis connection working on Render!';
+      diagnostic.message = 'Redis connection working on Render!';
       
-      console.log('✅ Redis diagnostic test passed');
+      console.log('Redis diagnostic test passed');
     } catch (error) {
       diagnostic.redis_test = 'FAILED';
       diagnostic.error_code = error.code;
       diagnostic.error_message = error.message;
       diagnostic.error_stack = error.stack?.split('\n')[0]; // First line only
       
-      console.log('❌ Redis diagnostic test failed:', error.message);
+      console.log(' Redis diagnostic test failed:', error.message);
       
       // Add specific troubleshooting hints
       if (error.code === 'ENOTFOUND') {
@@ -400,7 +400,7 @@ router.get('/redis-diagnostic', async (req, res) => {
     }
   } else {
     diagnostic.redis_test = 'SKIPPED';
-    diagnostic.message = '❌ REDIS_URL environment variable not set on Render';
+    diagnostic.message = ' REDIS_URL environment variable not set on Render';
     diagnostic.troubleshooting = 'Add REDIS_URL to Render environment variables';
   }
 

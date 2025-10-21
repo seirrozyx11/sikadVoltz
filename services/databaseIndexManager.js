@@ -1,5 +1,5 @@
 /**
- * 🚀 DATABASE PERFORMANCE OPTIMIZATION
+ *  DATABASE PERFORMANCE OPTIMIZATION
  * 
  * Creates optimized indexes for fast query performance
  * Run this script after deployment to optimize database queries
@@ -27,7 +27,7 @@ export class DatabaseIndexManager {
    */
   static async createOptimizedIndexes() {
     const startTime = Date.now();
-    logger.info('🚀 Creating optimized database indexes...');
+    logger.info(' Creating optimized database indexes...');
     
     try {
       const indexPromises = [
@@ -53,13 +53,13 @@ export class DatabaseIndexManager {
       await Promise.all(indexPromises);
       
       const duration = Date.now() - startTime;
-      logger.info(`✅ All indexes created successfully in ${duration}ms`);
+      logger.info(`All indexes created successfully in ${duration}ms`);
       
       // Log index statistics
       await this.logIndexStatistics();
       
     } catch (error) {
-      logger.error('❌ Failed to create indexes:', error);
+      logger.error(' Failed to create indexes:', error);
       throw error;
     }
   }
@@ -87,10 +87,10 @@ export class DatabaseIndexManager {
     for (const index of indexes) {
       try {
         await User.collection.createIndex(index);
-        logger.info(`✅ User index created: ${JSON.stringify(index)}`);
+        logger.info(`User index created: ${JSON.stringify(index)}`);
       } catch (error) {
         if (error.code !== 85) { // Index already exists
-          logger.warn(`⚠️  User index warning: ${error.message}`);
+          logger.warn(`  User index warning: ${error.message}`);
         }
       }
     }
@@ -125,10 +125,10 @@ export class DatabaseIndexManager {
     for (const index of indexes) {
       try {
         await CyclingPlan.collection.createIndex(index);
-        logger.info(`✅ CyclingPlan index created: ${JSON.stringify(index)}`);
+        logger.info(`CyclingPlan index created: ${JSON.stringify(index)}`);
       } catch (error) {
         if (error.code !== 85) {
-          logger.warn(`⚠️  CyclingPlan index warning: ${error.message}`);
+          logger.warn(`  CyclingPlan index warning: ${error.message}`);
         }
       }
     }
@@ -161,15 +161,15 @@ export class DatabaseIndexManager {
       for (const index of indexes) {
         try {
           await Telemetry.collection.createIndex(index);
-          logger.info(`✅ Telemetry index created: ${JSON.stringify(index)}`);
+          logger.info(`Telemetry index created: ${JSON.stringify(index)}`);
         } catch (error) {
           if (error.code !== 85) {
-            logger.warn(`⚠️  Telemetry index warning: ${error.message}`);
+            logger.warn(`  Telemetry index warning: ${error.message}`);
           }
         }
       }
     } catch (modelError) {
-      logger.warn('⚠️  Telemetry model not found - skipping telemetry indexes');
+      logger.warn('  Telemetry model not found - skipping telemetry indexes');
     }
   }
   
@@ -197,15 +197,15 @@ export class DatabaseIndexManager {
       for (const index of indexes) {
         try {
           await RideSession.collection.createIndex(index);
-          logger.info(`✅ RideSession index created: ${JSON.stringify(index)}`);
+          logger.info(`RideSession index created: ${JSON.stringify(index)}`);
         } catch (error) {
           if (error.code !== 85) {
-            logger.warn(`⚠️  RideSession index warning: ${error.message}`);
+            logger.warn(`  RideSession index warning: ${error.message}`);
           }
         }
       }
     } catch (modelError) {
-      logger.warn('⚠️  RideSession model not found - skipping session indexes');
+      logger.warn('  RideSession model not found - skipping session indexes');
     }
   }
   
@@ -233,15 +233,15 @@ export class DatabaseIndexManager {
       for (const index of indexes) {
         try {
           await Notification.collection.createIndex(index);
-          logger.info(`✅ Notification index created: ${JSON.stringify(index)}`);
+          logger.info(`Notification index created: ${JSON.stringify(index)}`);
         } catch (error) {
           if (error.code !== 85) {
-            logger.warn(`⚠️  Notification index warning: ${error.message}`);
+            logger.warn(`  Notification index warning: ${error.message}`);
           }
         }
       }
     } catch (modelError) {
-      logger.warn('⚠️  Notification model not found - skipping notification indexes');
+      logger.warn('  Notification model not found - skipping notification indexes');
     }
   }
   
@@ -266,15 +266,15 @@ export class DatabaseIndexManager {
       for (const index of indexes) {
         try {
           await Goal.collection.createIndex(index);
-          logger.info(`✅ Goal index created: ${JSON.stringify(index)}`);
+          logger.info(`Goal index created: ${JSON.stringify(index)}`);
         } catch (error) {
           if (error.code !== 85) {
-            logger.warn(`⚠️  Goal index warning: ${error.message}`);
+            logger.warn(`  Goal index warning: ${error.message}`);
           }
         }
       }
     } catch (modelError) {
-      logger.warn('⚠️  Goal model not found - skipping goal indexes');
+      logger.warn('  Goal model not found - skipping goal indexes');
     }
   }
   
@@ -285,7 +285,7 @@ export class DatabaseIndexManager {
     try {
       const collections = ['users', 'cyclingplans', 'telemetries', 'notifications', 'goals'];
       
-      logger.info('📊 Database Index Statistics:');
+      logger.info(' Database Index Statistics:');
       
       for (const collectionName of collections) {
         try {
@@ -316,7 +316,7 @@ export class DatabaseIndexManager {
    * Remove all custom indexes (for testing/reset)
    */
   static async dropAllCustomIndexes() {
-    logger.warn('🗑️  Dropping all custom indexes...');
+    logger.warn(' Dropping all custom indexes...');
     
     try {
       const collections = ['users', 'cyclingplans', 'telemetries', 'notifications', 'goals'];
@@ -330,7 +330,7 @@ export class DatabaseIndexManager {
           for (const index of indexes) {
             if (index.name !== '_id_') {
               await collection.dropIndex(index.name);
-              logger.info(`🗑️  Dropped index: ${index.name} from ${collectionName}`);
+              logger.info(` Dropped index: ${index.name} from ${collectionName}`);
             }
           }
         } catch (collError) {
@@ -338,10 +338,10 @@ export class DatabaseIndexManager {
         }
       }
       
-      logger.info('✅ All custom indexes dropped');
+      logger.info('All custom indexes dropped');
       
     } catch (error) {
-      logger.error('❌ Failed to drop indexes:', error);
+      logger.error(' Failed to drop indexes:', error);
       throw error;
     }
   }

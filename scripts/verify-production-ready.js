@@ -18,14 +18,14 @@ const __dirname = path.dirname(__filename);
 // Load environment variables
 dotenv.config();
 
-console.log('🚀 FCM Production Deployment Verification');
+console.log(' FCM Production Deployment Verification');
 console.log('=========================================\n');
 
 const checks = [];
 
 function addCheck(name, status, message) {
   checks.push({ name, status, message });
-  const emoji = status ? '✅' : '❌';
+  const emoji = status ? '' : '';
   console.log(`${emoji} ${name}: ${message}`);
 }
 
@@ -77,7 +77,7 @@ const hasMongoUri = !!process.env.MONGODB_URI;
 addCheck('Database Connection', hasMongoUri, hasMongoUri ? 'MongoDB configured' : 'Missing MongoDB URI');
 
 // Summary
-console.log('\n📊 Deployment Readiness Summary:');
+console.log('\n Deployment Readiness Summary:');
 console.log('=================================');
 
 const passedChecks = checks.filter(check => check.status).length;
@@ -87,23 +87,23 @@ const readinessPercentage = Math.round((passedChecks / totalChecks) * 100);
 console.log(`Passed: ${passedChecks}/${totalChecks} checks (${readinessPercentage}%)`);
 
 if (readinessPercentage >= 90) {
-  console.log('🚀 EXCELLENT! Your FCM implementation is production-ready!');
+  console.log(' EXCELLENT! Your FCM implementation is production-ready!');
   console.log('   You can deploy with confidence.');
 } else if (readinessPercentage >= 70) {
-  console.log('⚠️ GOOD! Almost ready for production.');
+  console.log(' GOOD! Almost ready for production.');
   console.log('   Address the failed checks before deploying.');
 } else {
-  console.log('❌ NOT READY! Several critical items need attention.');
+  console.log(' NOT READY! Several critical items need attention.');
   console.log('   Complete the setup before deploying to production.');
 }
 
 // Action Items
-console.log('\n📋 Action Items:');
+console.log('\n Action Items:');
 console.log('================');
 
 const failedChecks = checks.filter(check => !check.status);
 if (failedChecks.length === 0) {
-  console.log('🎉 No action items - you\'re all set!');
+  console.log(' No action items - you\'re all set!');
 } else {
   failedChecks.forEach((check, index) => {
     console.log(`${index + 1}. Fix: ${check.name} - ${check.message}`);
@@ -111,21 +111,21 @@ if (failedChecks.length === 0) {
 }
 
 // Next Steps
-console.log('\n🎯 Next Steps:');
+console.log('\nNext Steps:');
 console.log('==============');
 
 if (readinessPercentage >= 90) {
   console.log('1. 🔧 Get Firebase Service Account Key (if not done)');
-  console.log('2. 🧪 Test FCM: npm run test:fcm');
-  console.log('3. 🚀 Deploy to production');
-  console.log('4. 📱 Test push notifications on real devices');
+  console.log('2.  Test FCM: npm run test:fcm');
+  console.log('3.  Deploy to production');
+  console.log('4. Test push notifications on real devices');
   console.log('5. 🎊 Celebrate your excellent implementation!');
 } else {
-  console.log('1. 📝 Address failed checks above');
-  console.log('2. 🔄 Run this script again');
-  console.log('3. 🧪 Test FCM: npm run test:fcm');
-  console.log('4. 🚀 Deploy when ready');
+  console.log('1. Address failed checks above');
+  console.log('2. Run this script again');
+  console.log('3.  Test FCM: npm run test:fcm');
+  console.log('4.  Deploy when ready');
 }
 
-console.log('\n💡 Pro Tip: Your notification system architecture is excellent!');
+console.log('\n Pro Tip: Your notification system architecture is excellent!');
 console.log('   Once configured, it will rival enterprise apps like Nike Training Club.');

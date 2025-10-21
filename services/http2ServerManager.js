@@ -1,5 +1,5 @@
 /**
- * 🚀 HTTP/2 SERVER OPTIMIZATION
+ *  HTTP/2 SERVER OPTIMIZATION
  * 
  * Enhanced Express server with HTTP/2, server push, and performance optimizations
  * Provides significant performance improvements for API responses
@@ -67,8 +67,8 @@ class HTTP2ServerManager {
 
       this.server.listen(port, '0.0.0.0', () => {
         this.isHTTP2Available = true;
-        logger.info(`🚀 HTTP/2 server listening on port ${port}`);
-        logger.info('✅ Server push and multiplexing enabled');
+        logger.info(` HTTP/2 server listening on port ${port}`);
+        logger.info('Server push and multiplexing enabled');
       });
 
       return this.server;
@@ -87,11 +87,11 @@ class HTTP2ServerManager {
       if (process.env.NODE_ENV === 'production' && this.sslOptions) {
         // Use HTTPS in production
         this.server = https.createServer(this.sslOptions, app);
-        logger.info(`🔒 HTTPS server listening on port ${port}`);
+        logger.info(`HTTPS server listening on port ${port}`);
       } else {
         // Use HTTP for development
         this.server = app.listen(port, '0.0.0.0', () => {
-          logger.info(`🌐 HTTP server listening on port ${port}`);
+          logger.info(`HTTP server listening on port ${port}`);
         });
       }
 
@@ -131,7 +131,7 @@ class HTTP2ServerManager {
   }
 
   /**
-   * 🚀 SERVER PUSH: Pre-push related resources for dashboard
+   *  SERVER PUSH: Pre-push related resources for dashboard
    */
   async applyServerPush(stream, req) {
     try {
@@ -166,7 +166,7 @@ class HTTP2ServerManager {
           
           pushStream.end(JSON.stringify(resourceData));
           
-          logger.info(`📤 Server pushed: ${resource.path}`);
+          logger.info(` Server pushed: ${resource.path}`);
           
         } catch (pushError) {
           logger.warn(`Server push failed for ${resource.path}:`, pushError.message);
@@ -342,7 +342,7 @@ class HTTP2ServerManager {
       next();
     });
 
-    logger.info('✅ HTTP/2 performance optimizations enabled');
+    logger.info('HTTP/2 performance optimizations enabled');
   }
 
   /**

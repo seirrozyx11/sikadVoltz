@@ -297,7 +297,7 @@ export const updateSessionProgressLegacy = async (userId, sessionId, completedHo
   if (session.completedHours >= session.plannedHours) {
     session.status = 'completed';
   } else if (session.status === 'pending') {
-    session.status = 'progress'; // ✅ FIXED: Match frontend calendar expectations ('progress' not 'in_progress')
+    session.status = 'progress'; // FIXED: Match frontend calendar expectations ('progress' not 'in_progress')
   }
 
   // Save the updated plan

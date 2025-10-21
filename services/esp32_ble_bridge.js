@@ -29,7 +29,7 @@ class ESP32BLEBridge {
           perMessageDeflate: false
         });
         logger.info(`ESP32 BLE Bridge attached to main server on path /esp32-bridge`);
-        console.log(`🔗 ESP32 BLE Bridge WebSocket server running on main server path /esp32-bridge`);
+        console.log(` ESP32 BLE Bridge WebSocket server running on main server path /esp32-bridge`);
       } else {
         // Local development: Create separate WebSocket server
         this.wss = new WebSocketServer({ 
@@ -37,7 +37,7 @@ class ESP32BLEBridge {
           perMessageDeflate: false
         });
         logger.info(`ESP32 BLE Bridge started on port ${port}`);
-        console.log(`🔗 ESP32 BLE Bridge WebSocket server running on port ${port}`);
+        console.log(` ESP32 BLE Bridge WebSocket server running on port ${port}`);
       }
 
       this.wss.on('connection', (ws, req) => {

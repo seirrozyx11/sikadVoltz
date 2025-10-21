@@ -18,7 +18,7 @@ class RedisSetup {
   }
 
   async initialize() {
-    console.log('🚀 Initializing Redis for SikadVoltz Backend...');
+    console.log(' Initializing Redis for SikadVoltz Backend...');
     
     try {
       // Create Redis client
@@ -35,7 +35,7 @@ class RedisSetup {
       });
 
       this.client.on('connect', () => {
-        console.log('✅ Connected to Redis');
+        console.log('Connected to Redis');
       });
 
       // Connect
@@ -46,11 +46,11 @@ class RedisSetup {
       await this.setOptimalConfiguration();
       await this.cleanupOldSessions();
       
-      console.log('✅ Redis setup completed successfully!');
+      console.log('Redis setup completed successfully!');
       return true;
       
     } catch (error) {
-      console.error('❌ Redis setup failed:', error.message);
+      console.error(' Redis setup failed:', error.message);
       return false;
     } finally {
       if (this.client) {
@@ -74,11 +74,11 @@ class RedisSetup {
     
     // Store sample session (will expire in 60 seconds)
     await this.client.setEx('session:sample', 60, JSON.stringify(sampleSession));
-    console.log('   ✅ Session pattern created');
+    console.log('   Session pattern created');
   }
 
   async setOptimalConfiguration() {
-    console.log('⚙️  Applying optimal Redis configuration...');
+    console.log('  Applying optimal Redis configuration...');
     
     try {
       // These configurations optimize Redis for session storage
@@ -91,18 +91,18 @@ class RedisSetup {
       for (const [key, value] of configs) {
         try {
           await this.client.configSet(key, value);
-          console.log(`   ✅ Set ${key} = ${value}`);
+          console.log(`   Set ${key} = ${value}`);
         } catch (configError) {
-          console.log(`   ⚠️  Could not set ${key}: ${configError.message}`);
+          console.log(`     Could not set ${key}: ${configError.message}`);
         }
       }
     } catch (error) {
-      console.log('   ⚠️  Configuration adjustment limited (may require Redis admin privileges)');
+      console.log('     Configuration adjustment limited (may require Redis admin privileges)');
     }
   }
 
   async cleanupOldSessions() {
-    console.log('🧹 Cleaning up old sessions...');
+    console.log(' Cleaning up old sessions...');
     
     try {
       // Find all session keys
@@ -132,14 +132,14 @@ class RedisSetup {
         }
       }
       
-      console.log(`   ✅ Cleaned up ${cleanedCount} old sessions`);
+      console.log(`   Cleaned up ${cleanedCount} old sessions`);
     } catch (error) {
-      console.log('   ⚠️  Session cleanup failed:', error.message);
+      console.log('     Session cleanup failed:', error.message);
     }
   }
 
   async showStats() {
-    console.log('\n📊 Redis Statistics:');
+    console.log('\n Redis Statistics:');
     
     try {
       // Get basic info
@@ -175,8 +175,8 @@ if (import.meta.url === `file://${process.argv[1]}`) {
     .then(async (success) => {
       if (success) {
         await setup.showStats();
-        console.log('\n🎉 Redis is ready for production session management!');
-        console.log('\n📝 Next steps:');
+        console.log('\n Redis is ready for production session management!');
+        console.log('\nNext steps:');
         console.log('   1. Start your backend server: npm run dev');
         console.log('   2. Test session creation via API calls');
         console.log('   3. Monitor sessions: redis-cli monitor');

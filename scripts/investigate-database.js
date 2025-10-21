@@ -19,7 +19,7 @@ async function investigateDatabase() {
           collection.name.toLowerCase().includes('goal') ||
           collection.name.toLowerCase().includes('cycling')) {
         const count = await mongoose.connection.db.collection(collection.name).countDocuments();
-        console.log(`\n📊 Collection "${collection.name}": ${count} documents`);
+        console.log(`\n Collection "${collection.name}": ${count} documents`);
         
         if (count > 0) {
           const samples = await mongoose.connection.db.collection(collection.name).find({}).limit(2).toArray();

@@ -13,9 +13,9 @@ import {
   getDailySessionStatus,
   getUpcomingSessions,
   updateSessionProgress,
-  updateSessionProgressRealtime, // 🚨 NEW: Add real-time update function
+  updateSessionProgressRealtime, //  NEW: Add real-time update function
   completeSession,
-  // 📅 Calendar Integration Functions
+  //  Calendar Integration Functions
   getCalendarData,
   enableSessionReminders,
   disableSessionReminders,
@@ -23,12 +23,12 @@ import {
   getWeeklyAnalytics,
   getMonthlyAnalytics,
   rescheduleSession,
-  // 🎯 NEW: Smart Plan Adjustment Functions
+  // NEW: Smart Plan Adjustment Functions
   checkPlanAdjustment,
   suggestNewPlan,
   // performDailyCheck, // Need to check if this exists
   // getPlanAdjustmentHistory, // Need to check if this exists
-  // 🎯 NEW: Automatic Missed Session Detection Functions
+  // NEW: Automatic Missed Session Detection Functions
   // autoDetectMissedSessions, // Need to check if this exists
   // getMissedSessionStatus, // Need to check if this exists
   // forceMissedSessionDetection // Need to check if this exists
@@ -57,7 +57,7 @@ router.post(
   updateSessionProgress
 );
 
-// 🚨 NEW: Real-time session progress update for ESP32
+//  NEW: Real-time session progress update for ESP32
 router.post(
   '/update-session-progress-realtime',
   authenticateToken,
@@ -65,7 +65,7 @@ router.post(
   updateSessionProgressRealtime
 );
 
-// ✅ FIX: Add session sync endpoint for ESP32/BLE bridge
+// FIX: Add session sync endpoint for ESP32/BLE bridge
 router.post(
   '/session/sync',
   authenticateToken,
@@ -145,7 +145,7 @@ router.get('/suggest-reset', authenticateToken, suggestNewPlan);
 // router.get('/missed-status', authenticateToken, getMissedSessionStatus);
 // router.post('/force-detect-missed', authenticateToken, forceMissedSessionDetection);
 
-// 🚨 NEW: Missed Session Detection & Alerts
+//  NEW: Missed Session Detection & Alerts
 router.get('/check-missed-sessions', authenticateToken, async (req, res) => {
   try {
     const userId = req.user?.userId;
@@ -184,7 +184,7 @@ router.post('/manual-detect-missed', authenticateToken, async (req, res) => {
   }
 });
 
-// 🎯 NEW: Recovery Plan Management Endpoints
+// NEW: Recovery Plan Management Endpoints
 
 // Extend current plan by specified weeks
 router.post('/extend-plan', authenticateToken, async (req, res) => {

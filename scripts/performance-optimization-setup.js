@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * 🚀 SIKADVOLTZ PERFORMANCE OPTIMIZATION SETUP
+ *  SIKADVOLTZ PERFORMANCE OPTIMIZATION SETUP
  * 
  * Automated setup script to configure all performance optimizations:
  * 1. Unified dashboard API endpoint
@@ -31,7 +31,7 @@ import WorkoutHistory from '../models/WorkoutHistory.js';
 class PerformanceOptimizationSetup {
   
   async run() {
-    console.log('🚀 SikadVoltz Performance Optimization Setup');
+    console.log(' SikadVoltz Performance Optimization Setup');
     console.log('============================================\n');
     
     const startTime = Date.now();
@@ -56,27 +56,27 @@ class PerformanceOptimizationSetup {
       await this.verifyOptimizations();
       
       const totalTime = Date.now() - startTime;
-      console.log(`\n✅ Setup completed successfully in ${totalTime}ms`);
-      console.log('\n🎯 Performance improvements enabled:');
+      console.log(`\nSetup completed successfully in ${totalTime}ms`);
+      console.log('\nPerformance improvements enabled:');
       console.log('   • Unified dashboard API (/api/v1/dashboard/home)');
       console.log('   • Enhanced Redis caching with 30s TTL');
       console.log('   • Optimized database indexes');
       console.log('   • Smart cache warming');
       console.log('   • Performance monitoring');
       
-      console.log('\n📊 Next steps:');
+      console.log('\n Next steps:');
       console.log('   1. Update Flutter app to use /api/v1/dashboard/home');
       console.log('   2. Monitor performance with /api/v1/dashboard/health');
       console.log('   3. Check cache stats in logs');
       console.log('   4. Consider HTTP/2 for production\n');
       
     } catch (error) {
-      console.error('❌ Setup failed:', error);
-      console.log('⚠️  Continuing without full optimization setup...');
+      console.error(' Setup failed:', error);
+      console.log('  Continuing without full optimization setup...');
       
       // In production, don't fail the build - just log and continue
       if (process.env.NODE_ENV === 'production') {
-        console.log('🚀 Production mode: Server will start without full optimization');
+        console.log(' Production mode: Server will start without full optimization');
         process.exit(0);
       } else {
         process.exit(1);
@@ -93,7 +93,7 @@ class PerformanceOptimizationSetup {
    * Connect to MongoDB database
    */
   async connectDatabase() {
-    console.log('🔌 Connecting to MongoDB...');
+    console.log(' Connecting to MongoDB...');
     
     try {
       const MONGODB_URI = process.env.MONGODB_URI;
@@ -107,10 +107,10 @@ class PerformanceOptimizationSetup {
         useUnifiedTopology: true,
       });
       
-      console.log('✅ Database connected successfully');
+      console.log('Database connected successfully');
       
     } catch (error) {
-      console.error('❌ Database connection failed:', error.message);
+      console.error(' Database connection failed:', error.message);
       throw error;
     }
   }
@@ -125,14 +125,14 @@ class PerformanceOptimizationSetup {
       // Models are imported at the top, which registers them with Mongoose
       // Verify they are properly registered
       const registeredModels = mongoose.modelNames();
-      console.log('✅ Registered models:', registeredModels.join(', '));
+      console.log('Registered models:', registeredModels.join(', '));
       
       if (registeredModels.length === 0) {
         throw new Error('No models registered - check model imports');
       }
       
     } catch (error) {
-      console.error('❌ Model loading failed:', error.message);
+      console.error(' Model loading failed:', error.message);
       throw error;
     }
   }
@@ -141,19 +141,19 @@ class PerformanceOptimizationSetup {
    * Initialize Redis session manager
    */
   async initializeRedis() {
-    console.log('🔥 Initializing Redis session manager...');
+    console.log(' Initializing Redis session manager...');
     
     try {
       const initialized = await SessionManager.initialize();
       
       if (initialized) {
-        console.log('✅ Redis session manager initialized');
+        console.log('Redis session manager initialized');
       } else {
-        console.log('⚠️  Redis not available - using memory fallback');
+        console.log('  Redis not available - using memory fallback');
       }
       
     } catch (error) {
-      console.error('❌ Redis initialization failed:', error.message);
+      console.error(' Redis initialization failed:', error.message);
       // Don't throw - Redis is optional
     }
   }
@@ -162,21 +162,21 @@ class PerformanceOptimizationSetup {
    * Setup database performance indexes
    */
   async setupDatabaseIndexes() {
-    console.log('📊 Creating performance indexes...');
+    console.log(' Creating performance indexes...');
     
     try {
       await DatabaseIndexManager.createOptimizedIndexes();
-      console.log('✅ Database indexes created successfully');
+      console.log('Database indexes created successfully');
       
       // Log performance metrics
       const metrics = await DatabaseIndexManager.getPerformanceMetrics();
-      console.log('📈 Database performance metrics:');
+      console.log('Database performance metrics:');
       console.log(`   • Collections: ${metrics.database?.collections || 0}`);
       console.log(`   • Data size: ${(metrics.database?.dataSize || 0) / 1024 / 1024} MB`);
       console.log(`   • Index size: ${(metrics.database?.indexSize || 0) / 1024 / 1024} MB`);
       
     } catch (error) {
-      console.error('❌ Database index creation failed:', error.message);
+      console.error(' Database index creation failed:', error.message);
       throw error;
     }
   }
@@ -185,25 +185,25 @@ class PerformanceOptimizationSetup {
    * Initialize enhanced caching service
    */
   async initializeEnhancedCaching() {
-    console.log('⚡ Initializing enhanced caching...');
+    console.log(' Initializing enhanced caching...');
     
     try {
       const initialized = await EnhancedCacheService.initialize();
       
       if (initialized) {
-        console.log('✅ Enhanced caching initialized');
+        console.log('Enhanced caching initialized');
         
         // Get cache statistics
         const stats = await EnhancedCacheService.getCacheStatistics();
         if (stats.redis?.connected) {
-          console.log('📊 Cache service ready with Redis backend');
+          console.log(' Cache service ready with Redis backend');
         }
       } else {
-        console.log('⚠️  Enhanced caching disabled (Redis not available)');
+        console.log('  Enhanced caching disabled (Redis not available)');
       }
       
     } catch (error) {
-      console.error('❌ Enhanced caching initialization failed:', error.message);
+      console.error(' Enhanced caching initialization failed:', error.message);
       // Don't throw - caching is optional but recommended
     }
   }
@@ -212,7 +212,7 @@ class PerformanceOptimizationSetup {
    * Verify all optimizations are working
    */
   async verifyOptimizations() {
-    console.log('🔍 Verifying optimizations...');
+    console.log(' Verifying optimizations...');
     
     const checks = [
       this.checkDatabaseConnection(),
@@ -227,19 +227,19 @@ class PerformanceOptimizationSetup {
     results.forEach((result, index) => {
       const checkNames = ['Database', 'Redis', 'Indexes', 'Cache'];
       if (result.status === 'fulfilled' && result.value) {
-        console.log(`   ✅ ${checkNames[index]} check passed`);
+        console.log(`   ${checkNames[index]} check passed`);
         successCount++;
       } else {
-        console.log(`   ⚠️  ${checkNames[index]} check failed:`, result.reason?.message || 'Unknown error');
+        console.log(`     ${checkNames[index]} check failed:`, result.reason?.message || 'Unknown error');
       }
     });
     
-    console.log(`\n📊 Verification: ${successCount}/4 checks passed`);
+    console.log(`\n Verification: ${successCount}/4 checks passed`);
     
     if (successCount >= 2) {
-      console.log('✅ Core optimizations are working');
+      console.log('Core optimizations are working');
     } else {
-      console.log('⚠️  Some optimizations may not be fully functional');
+      console.log('  Some optimizations may not be fully functional');
     }
   }
   

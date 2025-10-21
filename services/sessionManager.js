@@ -13,7 +13,7 @@ class SessionManager {
     this.redisClient = null;
     this.memoryStore = new Map(); // Fallback for development
     this.sessionTTL = 7 * 24 * 60 * 60; // 7 days in seconds
-    this.isInitialized = false; // 🚨 Guard against multiple initializations
+    this.isInitialized = false; //  Guard against multiple initializations
     this.initializationPromise = null; // Store initialization promise
   }
 
@@ -21,15 +21,15 @@ class SessionManager {
    * Initialize session manager with Redis if available
    */
   async initialize() {
-    // 🚨 GUARD: Prevent multiple initializations
+    //  GUARD: Prevent multiple initializations
     if (this.isInitialized) {
-      console.log('⚡ SessionManager already initialized - skipping');
+      console.log(' SessionManager already initialized - skipping');
       return;
     }
     
     // If initialization is already in progress, wait for it
     if (this.initializationPromise) {
-      console.log('⏳ SessionManager initialization in progress - waiting...');
+      console.log(' SessionManager initialization in progress - waiting...');
       return await this.initializationPromise;
     }
     
@@ -50,10 +50,10 @@ class SessionManager {
       if (process.env.REDIS_URL) {
         console.log('📦 Importing redis client...');
         const { createClient } = await import('redis');
-        console.log('✅ Redis module imported successfully');
+        console.log('Redis module imported successfully');
         
         // 🔧 RENDER FIX: Use explicit configuration matching Redis Cloud format
-        console.log('🔗 Creating Redis client with explicit config...');
+        console.log(' Creating Redis client with explicit config...');
         this.redisClient = createClient({
           username: 'default',
           password: 'MzcxWsuM3beem2R2fEW7ju8cHT4CnF2R',
@@ -69,32 +69,32 @@ class SessionManager {
           enable_offline_queue: false
         });
 
-        console.log('📡 Setting up Redis event handlers...');
+        console.log(' Setting up Redis event handlers...');
         this.redisClient.on('error', (err) => {
-          console.error('❌ Redis session client error:', err.code, err.message);
+          console.error(' Redis session client error:', err.code, err.message);
           logger.warn('Redis session client error:', err);
           
           // 🔧 FIX: Only disable Redis for critical connection errors
           // Don't disable for minor operational errors that don't break connection
           const criticalErrors = ['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT', 'ECONNRESET'];
           if (criticalErrors.includes(err.code)) {
-            console.log(`💥 Critical Redis error detected: ${err.code} - Disabling Redis`);
+            console.log(` Critical Redis error detected: ${err.code} - Disabling Redis`);
             this.isRedisAvailable = false;
           } else {
-            console.log(`⚠️ Non-critical Redis error: ${err.code} - Keeping Redis enabled`);
+            console.log(` Non-critical Redis error: ${err.code} - Keeping Redis enabled`);
             // Keep Redis available for non-critical errors
           }
         });
 
         this.redisClient.on('connect', () => {
-          console.log('🔗 Redis session manager connected');
-          logger.info('✅ Redis session manager connected');
+          console.log(' Redis session manager connected');
+          logger.info('Redis session manager connected');
           this.isRedisAvailable = true;
         });
 
         this.redisClient.on('ready', () => {
-          console.log('✅ Redis session manager ready');
-          logger.info('✅ Redis session manager ready');
+          console.log('Redis session manager ready');
+          logger.info('Redis session manager ready');
           this.isRedisAvailable = true; // Ensure this is set to true on ready
         });
 
@@ -104,70 +104,70 @@ class SessionManager {
         });
 
         this.redisClient.on('reconnecting', () => {
-          console.log('🔄 Redis reconnecting...');
+          console.log('Redis reconnecting...');
           // Don't disable Redis during reconnection
         });
 
-        console.log('🚀 Attempting Redis connection...');
-        logger.info('🔗 Connecting to Redis Cloud...');
+        console.log(' Attempting Redis connection...');
+        logger.info(' Connecting to Redis Cloud...');
         await this.redisClient.connect();
-        console.log('✅ Redis connection established');
+        console.log('Redis connection established');
         
         console.log('🏓 Testing Redis PING...');
         const pong = await this.redisClient.ping();
-        console.log(`✅ Redis PING successful: ${pong}`);
+        console.log(`Redis PING successful: ${pong}`);
         
         // 🔧 FINAL FIX: Ensure Redis is marked as available after successful initialization
         this.isRedisAvailable = true;
-        console.log(`🎯 Final Redis status: isRedisAvailable = ${this.isRedisAvailable}`);
-        console.log(`🎯 Redis client exists: ${!!this.redisClient}`);
-        console.log(`🎯 Redis client open: ${this.redisClient?.isOpen}`);
+        console.log(`Final Redis status: isRedisAvailable = ${this.isRedisAvailable}`);
+        console.log(`Redis client exists: ${!!this.redisClient}`);
+        console.log(`Redis client open: ${this.redisClient?.isOpen}`);
         
-        // 🔍 VERIFICATION: Test Redis immediately after setting status
+        //  VERIFICATION: Test Redis immediately after setting status
         setTimeout(async () => {
-          console.log('🧪 POST-INIT VERIFICATION (5s later):');
+          console.log(' POST-INIT VERIFICATION (5s later):');
           console.log(`   isRedisAvailable: ${this.isRedisAvailable}`);
           console.log(`   redisClient exists: ${!!this.redisClient}`);
           if (this.redisClient && this.isRedisAvailable) {
             try {
               const testPong = await this.redisClient.ping();
-              console.log(`   PING test: ${testPong} ✅`);
+              console.log(`   PING test: ${testPong} `);
             } catch (pingError) {
-              console.log(`   PING test failed: ${pingError.message} ❌`);
+              console.log(`   PING test failed: ${pingError.message} `);
             }
           }
         }, 5000);
         
-        logger.info('✅ Redis session manager initialized successfully');
-        console.log('🎉 SessionManager initialization completed successfully');
+        logger.info('Redis session manager initialized successfully');
+        console.log(' SessionManager initialization completed successfully');
         
-        // 🚨 Mark as initialized
+        //  Mark as initialized
         this.isInitialized = true;
         
       } else {
-        console.log('📝 No REDIS_URL found - using memory storage');
-        logger.info('📝 Using in-memory session storage (development mode)');
+        console.log('No REDIS_URL found - using memory storage');
+        logger.info('Using in-memory session storage (development mode)');
         
-        // 🚨 Mark as initialized (memory fallback)
+        //  Mark as initialized (memory fallback)
         this.isInitialized = true;
       }
     } catch (error) {
-      console.error('💥 SessionManager initialization failed:');
+      console.error(' SessionManager initialization failed:');
       console.error(`   Error: ${error.message}`);
       console.error(`   Code: ${error.code}`);
       console.error(`   Stack: ${error.stack?.split('\n').slice(0, 3).join('\n')}`);
       
-      logger.warn('⚠️ Redis unavailable, falling back to memory store:', error.message);
+      logger.warn(' Redis unavailable, falling back to memory store:', error.message);
       logger.warn('Error details:', error.code, error.stack?.split('\n')[0]);
       this.isRedisAvailable = false;
       
-      // 🚨 Mark as initialized (memory fallback due to error)
+      //  Mark as initialized (memory fallback due to error)
       this.isInitialized = true;
       
       // Don't throw the error - just log it and continue with memory fallback
     }
     
-    // 🎯 Return Redis availability status
+    // Return Redis availability status
     return this.isRedisAvailable;
   }
 

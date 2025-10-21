@@ -127,8 +127,8 @@ class EnhancedEmailService {
         from: `"SikadVoltz Security" <${process.env.EMAIL_FROM || process.env.EMAIL_USER}>`,
         to: email,
         subject: options.isResend ? 
-          '🔐 Password Reset Link (Resent) - SikadVoltz' : 
-          '🔐 Reset Your SikadVoltz Password',
+          'Password Reset Link (Resent) - SikadVoltz' : 
+          'Reset Your SikadVoltz Password',
         html: this.getPasswordResetTemplate(resetUrl, email, options),
         text: this.getPasswordResetTextTemplate(resetUrl, email, options)
       };
@@ -260,7 +260,7 @@ class EnhancedEmailService {
         <div style="max-width: 600px; margin: 0 auto; background-color: #ffffff; box-shadow: 0 0 10px rgba(0,0,0,0.1);">
             <!-- Header -->
             <div style="background: linear-gradient(135deg, #92A3FD 0%, #9DCEFF 100%); padding: 40px 20px; text-align: center;">
-                <h1 style="color: white; margin: 0; font-size: 28px; font-weight: bold;">🔐 SikadVoltz</h1>
+                <h1 style="color: white; margin: 0; font-size: 28px; font-weight: bold;">SikadVoltz</h1>
                 <p style="color: white; margin: 10px 0 0 0; font-size: 16px;">Password Reset ${isResend ? '(Resent)' : 'Request'}</p>
             </div>
             
@@ -280,7 +280,7 @@ class EnhancedEmailService {
                 
                 <!-- Mobile App Instructions -->
                 <div style="background-color: #f8f9ff; border-left: 4px solid #92A3FD; padding: 20px; margin: 20px 0;">
-                    <h3 style="color: #333; margin-top: 0;">📱 Mobile App Instructions:</h3>
+                    <h3 style="color: #333; margin-top: 0;">Mobile App Instructions:</h3>
                     <p style="color: #666; margin-bottom: 10px;">
                         This link will open directly in your SikadVoltz mobile app where you can securely reset your password.
                     </p>
@@ -349,10 +349,10 @@ We received a request to reset your password for your SikadVoltz account.
 To reset your password, click or copy this link into your mobile browser:
 ${resetUrl}
 
-📱 MOBILE APP INSTRUCTIONS:
+MOBILE APP INSTRUCTIONS:
 This link will open directly in your SikadVoltz mobile app where you can securely reset your password.
 
-🔒 SECURITY NOTICE:
+SECURITY NOTICE:
 - This link expires in 15 minutes for your security
 - You can only use this link once  
 - If you didn't request this reset, please ignore this email

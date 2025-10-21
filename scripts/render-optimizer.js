@@ -1,7 +1,7 @@
 #!/usr/bin/env node
 
 /**
- * 🚀 RENDER DEPLOYMENT OPTIMIZER
+ *  RENDER DEPLOYMENT OPTIMIZER
  * Automatically configures Render environment for maximum performance
  */
 
@@ -39,29 +39,29 @@ class RenderOptimizer {
     }
 
     async validateEnvironment() {
-        console.log('🔍 Validating Render Environment Variables...\n');
+        console.log(' Validating Render Environment Variables...\n');
         
         const missing = [];
         const present = [];
         
         for (const [key, defaultValue] of Object.entries(this.requiredEnvVars)) {
             if (process.env[key]) {
-                present.push(`✅ ${key} = ${process.env[key]}`);
+                present.push(`${key} = ${process.env[key]}`);
             } else {
-                missing.push(`❌ ${key} (default: ${defaultValue})`);
+                missing.push(` ${key} (default: ${defaultValue})`);
             }
         }
         
-        console.log('📊 Environment Status:');
+        console.log(' Environment Status:');
         console.log('Present Variables:');
         present.forEach(v => console.log(`  ${v}`));
         
         if (missing.length > 0) {
-            console.log('\n⚠️  Missing Variables:');
+            console.log('\n  Missing Variables:');
             missing.forEach(v => console.log(`  ${v}`));
-            console.log('\n📝 Add these in Render Dashboard > Environment');
+            console.log('\nAdd these in Render Dashboard > Environment');
         } else {
-            console.log('\n🎉 All optimization variables configured!');
+            console.log('\n All optimization variables configured!');
         }
         
         return missing.length === 0;
@@ -79,7 +79,7 @@ class RenderOptimizer {
         };
 
         const commandsFile = `
-# 🚀 RENDER ENVIRONMENT SETUP COMMANDS
+#  RENDER ENVIRONMENT SETUP COMMANDS
 
 ## Option 1: Render CLI
 \`\`\`bash
@@ -102,11 +102,11 @@ ${JSON.stringify(this.requiredEnvVars, null, 2)}
             commandsFile
         );
         
-        console.log('📄 Generated: docs/RENDER_SETUP_COMMANDS.md');
+        console.log(' Generated: docs/RENDER_SETUP_COMMANDS.md');
     }
 
     async checkRenderConfig() {
-        console.log('📋 Checking render.yaml configuration...\n');
+        console.log(' Checking render.yaml configuration...\n');
         
         try {
             const renderYaml = await fs.readFile(
@@ -125,28 +125,28 @@ ${JSON.stringify(this.requiredEnvVars, null, 2)}
             console.log('render.yaml Analysis:');
             checks.forEach(check => {
                 const found = check.pattern.test(renderYaml);
-                const status = found ? '✅' : (check.required ? '❌' : '⚠️ ');
+                const status = found ? '' : (check.required ? '' : ' ');
                 console.log(`  ${status} ${check.name}`);
             });
             
         } catch (error) {
-            console.log('⚠️  render.yaml not found - using Render Dashboard config');
+            console.log('  render.yaml not found - using Render Dashboard config');
         }
     }
 
     async performancePreflightCheck() {
-        console.log('\n🚀 Performance Preflight Check...\n');
+        console.log('\n Performance Preflight Check...\n');
         
         // Check Redis connection
         console.log('🔴 Redis Connection:');
-        console.log(`  URL: ${process.env.REDIS_URL ? '✅ Configured' : '❌ Missing REDIS_URL'}`);
+        console.log(`  URL: ${process.env.REDIS_URL ? 'Configured' : ' Missing REDIS_URL'}`);
         
         // Check MongoDB
         console.log('🍃 MongoDB Connection:');
-        console.log(`  URI: ${process.env.MONGODB_URI ? '✅ Configured' : '❌ Missing MONGODB_URI'}`);
+        console.log(`  URI: ${process.env.MONGODB_URI ? 'Configured' : ' Missing MONGODB_URI'}`);
         
         // Check critical performance settings
-        console.log('⚡ Performance Settings:');
+        console.log(' Performance Settings:');
         const perfChecks = [
             ['Cache TTL', process.env.CACHE_TTL_DASHBOARD],
             ['HTTP/2', process.env.ENABLE_HTTP2],
@@ -155,12 +155,12 @@ ${JSON.stringify(this.requiredEnvVars, null, 2)}
         ];
         
         perfChecks.forEach(([name, value]) => {
-            console.log(`  ${value ? '✅' : '❌'} ${name}: ${value || 'Not set'}`);
+            console.log(`  ${value ? '' : ''} ${name}: ${value || 'Not set'}`);
         });
     }
 
     async run() {
-        console.log('🎯 RENDER PERFORMANCE OPTIMIZER\n');
+        console.log('RENDER PERFORMANCE OPTIMIZER\n');
         console.log('Optimizing deployment for 50-250ms response times...\n');
         
         await this.validateEnvironment();
@@ -168,12 +168,12 @@ ${JSON.stringify(this.requiredEnvVars, null, 2)}
         await this.checkRenderConfig();
         await this.performancePreflightCheck();
         
-        console.log('\n📊 Next Steps:');
+        console.log('\n Next Steps:');
         console.log('1. ⬆️  Upgrade to Standard plan (2GB RAM)');
-        console.log('2. 🌏 Set region to Singapore (closer to Philippines)');
-        console.log('3. 📝 Add missing environment variables');
-        console.log('4. 🚀 Deploy and monitor performance');
-        console.log('\n💡 Expected improvement: 800ms → 50-250ms');
+        console.log('2.  Set region to Singapore (closer to Philippines)');
+        console.log('3. Add missing environment variables');
+        console.log('4.  Deploy and monitor performance');
+        console.log('\n Expected improvement: 800ms → 50-250ms');
     }
 }
 

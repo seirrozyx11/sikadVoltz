@@ -58,7 +58,7 @@ router.get('/', async (req, res) => {
       timeAgo: getTimeAgo(notification.createdAt)
     }));
 
-    logger.info(`📋 Retrieved ${notifications.length} notifications for user ${userId}`, {
+    logger.info(` Retrieved ${notifications.length} notifications for user ${userId}`, {
       userId,
       page: parseInt(page),
       limit: parseInt(limit),
@@ -81,7 +81,7 @@ router.get('/', async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('❌ Error fetching notifications:', { 
+    logger.error(' Error fetching notifications:', { 
       error: error.message, 
       userId: req.user?.userId 
     });
@@ -109,7 +109,7 @@ router.get('/unread-count', async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('❌ Error getting unread count:', { 
+    logger.error(' Error getting unread count:', { 
       error: error.message, 
       userId: req.user?.userId 
     });
@@ -142,7 +142,7 @@ router.get('/by-type/:type', async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('❌ Error fetching notifications by type:', { 
+    logger.error(' Error fetching notifications by type:', { 
       error: error.message, 
       userId: req.user?.userId,
       type: req.params.type
@@ -205,7 +205,7 @@ router.patch('/:id/read', async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('❌ Error marking notification as read:', { 
+    logger.error(' Error marking notification as read:', { 
       error: error.message, 
       userId: req.user?.userId,
       notificationId: req.params.id
@@ -248,7 +248,7 @@ router.patch('/read-all', async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('❌ Error marking all notifications as read:', { 
+    logger.error(' Error marking all notifications as read:', { 
       error: error.message, 
       userId: req.user?.userId 
     });
@@ -277,7 +277,7 @@ router.delete('/:id', async (req, res) => {
       });
     }
 
-    logger.info(`🗑️ Notification deleted`, {
+    logger.info(`Notification deleted`, {
       userId,
       notificationId: id,
       type: notification.type
@@ -295,7 +295,7 @@ router.delete('/:id', async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('❌ Error deleting notification:', { 
+    logger.error(' Error deleting notification:', { 
       error: error.message, 
       userId: req.user?.userId,
       notificationId: req.params.id
@@ -319,7 +319,7 @@ router.post('/preferences', async (req, res) => {
     // TODO: Implement user notification preferences model
     // For now, return success to maintain API compatibility
     
-    logger.info(`⚙️ Notification preferences updated`, {
+    logger.info(` Notification preferences updated`, {
       userId,
       preferences
     });
@@ -333,7 +333,7 @@ router.post('/preferences', async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('❌ Error updating notification preferences:', { 
+    logger.error(' Error updating notification preferences:', { 
       error: error.message, 
       userId: req.user?.userId 
     });
@@ -374,7 +374,7 @@ router.get('/preferences', async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('❌ Error fetching notification preferences:', { 
+    logger.error(' Error fetching notification preferences:', { 
       error: error.message, 
       userId: req.user?.userId 
     });
@@ -395,7 +395,7 @@ router.post('/cleanup', async (req, res) => {
     
     const result = await Notification.cleanupExpired();
     
-    logger.info(`🧹 Expired notifications cleaned up`, {
+    logger.info(` Expired notifications cleaned up`, {
       deletedCount: result.deletedCount
     });
 
@@ -408,7 +408,7 @@ router.post('/cleanup', async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('❌ Error cleaning up expired notifications:', { 
+    logger.error(' Error cleaning up expired notifications:', { 
       error: error.message 
     });
     res.status(500).json({
@@ -443,7 +443,7 @@ router.post('/test', async (req, res) => {
       message: 'Test notification created and sent'
     });
   } catch (error) {
-    logger.error('❌ Error creating test notification:', { 
+    logger.error(' Error creating test notification:', { 
       error: error.message, 
       userId: req.user?.userId 
     });

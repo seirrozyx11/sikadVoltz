@@ -145,9 +145,9 @@ if (process.env.DD_API_KEY) {
     },
   };
 
-  console.log('📊 DataDog APM initialized successfully');
+  console.log(' DataDog APM initialized successfully');
 } else {
-  console.log('⚠️  DataDog APM not initialized - DD_API_KEY not found');
+  console.log('  DataDog APM not initialized - DD_API_KEY not found');
   
   // Export dummy functions if DataDog is not configured
   module.exports = {

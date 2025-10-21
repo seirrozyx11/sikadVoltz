@@ -80,7 +80,7 @@ export async function detectAndMarkMissedSessions(userId) {
           totalMissedHours: plan.totalMissedHours
         });
         
-        logger.info(`📢 Missed session notification created for user ${userId}`);
+        logger.info(`Missed session notification created for user ${userId}`);
       } catch (notificationError) {
         logger.error('Failed to create missed session notification:', {
           userId,
@@ -217,7 +217,7 @@ export async function realtimeMissedSessionCheck(userId) {
     // Generate user-friendly alerts
     const alerts = [];
     
-    // ✅ FIXED: Only show alerts for unacknowledged missed sessions
+    // FIXED: Only show alerts for unacknowledged missed sessions
     const unacknowledgedMissedSessions = plan.dailySessions.filter(session => 
       session.status === 'missed' && !session.acknowledged
     );

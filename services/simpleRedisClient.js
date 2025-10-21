@@ -14,7 +14,7 @@ class SimpleRedisClient {
 
   async initialize() {
     try {
-      console.log('🔥 SimpleRedis: Initializing with direct approach...');
+      console.log(' SimpleRedis: Initializing with direct approach...');
       
       // Use the exact configuration that works in your examples
       this.client = createClient({
@@ -31,7 +31,7 @@ class SimpleRedisClient {
 
       // Simple event handlers
       this.client.on('error', (err) => {
-        console.error('❌ SimpleRedis error:', err.message);
+        console.error(' SimpleRedis error:', err.message);
         // Don't set isConnected to false for all errors
         if (['ECONNREFUSED', 'ENOTFOUND', 'ETIMEDOUT'].includes(err.code)) {
           this.isConnected = false;
@@ -39,12 +39,12 @@ class SimpleRedisClient {
       });
 
       this.client.on('connect', () => {
-        console.log('✅ SimpleRedis connected');
+        console.log('SimpleRedis connected');
         this.isConnected = true;
       });
 
       this.client.on('ready', () => {
-        console.log('✅ SimpleRedis ready');
+        console.log('SimpleRedis ready');
         this.isConnected = true;
       });
 
@@ -53,14 +53,14 @@ class SimpleRedisClient {
       
       // Test
       const pong = await this.client.ping();
-      console.log(`✅ SimpleRedis PING: ${pong}`);
+      console.log(`SimpleRedis PING: ${pong}`);
       
       this.isConnected = true;
-      console.log('🎉 SimpleRedis initialization completed successfully');
+      console.log(' SimpleRedis initialization completed successfully');
       
       return true;
     } catch (error) {
-      console.error('❌ SimpleRedis initialization failed:', error.message);
+      console.error(' SimpleRedis initialization failed:', error.message);
       this.isConnected = false;
       return false;
     }

@@ -18,7 +18,7 @@ class RedisHealthChecker {
   }
 
   async checkConnection() {
-    console.log('🔍 Testing Redis Connection...');
+    console.log(' Testing Redis Connection...');
     console.log(`📍 Redis URL: ${this.redisUrl}`);
     
     try {
@@ -33,23 +33,23 @@ class RedisHealthChecker {
 
       // Set up error handler
       this.client.on('error', (err) => {
-        console.error('❌ Redis Client Error:', err.message);
+        console.error(' Redis Client Error:', err.message);
       });
 
       // Connect to Redis
-      console.log('🔌 Connecting to Redis...');
+      console.log(' Connecting to Redis...');
       await this.client.connect();
       
       // Test basic operations
       await this.runBasicTests();
       await this.testSessionOperations();
       
-      console.log('✅ Redis health check completed successfully!');
+      console.log('Redis health check completed successfully!');
       return true;
       
     } catch (error) {
-      console.error('❌ Redis health check failed:', error.message);
-      console.log('\n💡 Troubleshooting:');
+      console.error(' Redis health check failed:', error.message);
+      console.log('\n Troubleshooting:');
       console.log('   1. Check if Redis is running: docker-compose -f docker-compose.redis.yml up -d');
       console.log('   2. Verify REDIS_URL in .env file');
       console.log('   3. Check network connectivity');
@@ -62,7 +62,7 @@ class RedisHealthChecker {
   }
 
   async runBasicTests() {
-    console.log('\n🧪 Running Basic Redis Tests...');
+    console.log('\n Running Basic Redis Tests...');
     
     // Test PING
     const pong = await this.client.ping();
@@ -76,7 +76,7 @@ class RedisHealthChecker {
     const retrievedValue = await this.client.get(testKey);
     
     if (retrievedValue === testValue) {
-      console.log('   ✅ SET/GET operations working');
+      console.log('   SET/GET operations working');
     } else {
       throw new Error('SET/GET test failed');
     }
@@ -86,14 +86,14 @@ class RedisHealthChecker {
     const deletedValue = await this.client.get(testKey);
     
     if (deletedValue === null) {
-      console.log('   ✅ DELETE operation working');
+      console.log('   DELETE operation working');
     } else {
       throw new Error('DELETE test failed');
     }
   }
 
   async testSessionOperations() {
-    console.log('\n👤 Testing Session Management Operations...');
+    console.log('\n Testing Session Management Operations...');
     
     const sessionId = `session:test-${Date.now()}`;
     const sessionData = {
@@ -106,14 +106,14 @@ class RedisHealthChecker {
     
     // Test session storage
     await this.client.setEx(sessionId, 3600, JSON.stringify(sessionData));
-    console.log('   ✅ Session stored successfully');
+    console.log('   Session stored successfully');
     
     // Test session retrieval
     const retrievedSession = await this.client.get(sessionId);
     const parsedSession = JSON.parse(retrievedSession);
     
     if (parsedSession.userId === sessionData.userId) {
-      console.log('   ✅ Session retrieval working');
+      console.log('   Session retrieval working');
     } else {
       throw new Error('Session retrieval test failed');
     }
@@ -121,7 +121,7 @@ class RedisHealthChecker {
     // Test session expiry
     const ttl = await this.client.ttl(sessionId);
     if (ttl > 0 && ttl <= 3600) {
-      console.log(`   ✅ Session TTL working (${ttl}s remaining)`);
+      console.log(`   Session TTL working (${ttl}s remaining)`);
     } else {
       throw new Error('Session TTL test failed');
     }
@@ -131,14 +131,14 @@ class RedisHealthChecker {
     const deletedSession = await this.client.get(sessionId);
     
     if (deletedSession === null) {
-      console.log('   ✅ Session cleanup working');
+      console.log('   Session cleanup working');
     } else {
       throw new Error('Session cleanup test failed');
     }
   }
 
   async getRedisInfo() {
-    console.log('\n📊 Redis Server Information:');
+    console.log('\n Redis Server Information:');
     
     try {
       const info = await this.client.info();
@@ -176,15 +176,15 @@ if (import.meta.url === `file://${process.argv[1]}`) {
   checker.checkConnection()
     .then((success) => {
       if (success) {
-        console.log('\n🎉 Redis is ready for SikadVoltz session management!');
+        console.log('\n Redis is ready for SikadVoltz session management!');
         process.exit(0);
       } else {
-        console.log('\n💥 Redis health check failed!');
+        console.log('\n Redis health check failed!');
         process.exit(1);
       }
     })
     .catch((error) => {
-      console.error('💥 Health check error:', error);
+      console.error(' Health check error:', error);
       process.exit(1);
     });
 }

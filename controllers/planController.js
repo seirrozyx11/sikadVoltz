@@ -1100,7 +1100,7 @@ function calculateLongestStreak(sessions) {
   return maxStreak;
 }
 
-// 📅 NEW FEATURE: Calendar Integration
+//  NEW FEATURE: Calendar Integration
 export const getCalendarData = async (req, res) => {
   try {
     const userId = req.user?.userId;
@@ -1133,7 +1133,7 @@ export const getCalendarData = async (req, res) => {
 
     // Format calendar data
     const calendarData = monthSessions.map(session => {
-      // ✅ FIXED: Map backend status to frontend calendar expectations
+      // FIXED: Map backend status to frontend calendar expectations
       let calendarStatus = session.status;
       if (calendarStatus === 'pending') {
         calendarStatus = 'scheduled'; // Map 'pending' to 'scheduled' for frontend calendar
@@ -1180,7 +1180,7 @@ export const getCalendarData = async (req, res) => {
   }
 };
 
-// 📅 NEW FEATURE: Enable Session Reminders
+//  NEW FEATURE: Enable Session Reminders
 export const enableSessionReminders = async (req, res) => {
   try {
     const userId = req.user?.userId;
@@ -1225,7 +1225,7 @@ export const enableSessionReminders = async (req, res) => {
   }
 };
 
-// 📅 NEW FEATURE: Disable Session Reminders
+//  NEW FEATURE: Disable Session Reminders
 export const disableSessionReminders = async (req, res) => {
   try {
     const userId = req.user?.userId;
@@ -1262,7 +1262,7 @@ export const disableSessionReminders = async (req, res) => {
   }
 };
 
-// 📅 NEW FEATURE: Get Reminder Status
+//  NEW FEATURE: Get Reminder Status
 export const getReminderStatus = async (req, res) => {
   try {
     const userId = req.user?.userId;
@@ -1299,7 +1299,7 @@ export const getReminderStatus = async (req, res) => {
   }
 };
 
-// 📅 NEW FEATURE: Weekly Analytics
+//  NEW FEATURE: Weekly Analytics
 export const getWeeklyAnalytics = async (req, res) => {
   try {
     const userId = req.user?.userId;
@@ -1372,7 +1372,7 @@ export const getWeeklyAnalytics = async (req, res) => {
   }
 };
 
-// 📅 NEW FEATURE: Monthly Analytics
+//  NEW FEATURE: Monthly Analytics
 export const getMonthlyAnalytics = async (req, res) => {
   try {
     const userId = req.user?.userId;
@@ -1460,7 +1460,7 @@ export const getMonthlyAnalytics = async (req, res) => {
   }
 };
 
-// 📅 NEW FEATURE: Reschedule Session
+//  NEW FEATURE: Reschedule Session
 export const rescheduleSession = async (req, res) => {
   try {
     const userId = req.user?.userId;
@@ -1534,7 +1534,7 @@ export const rescheduleSession = async (req, res) => {
   }
 };
 
-// 🎯 NEW FEATURE: Smart Plan Adjustment
+// NEW FEATURE: Smart Plan Adjustment
 export const checkPlanAdjustment = async (req, res) => {
   try {
     const userId = req.user?.userId;
@@ -1560,7 +1560,7 @@ export const checkPlanAdjustment = async (req, res) => {
   }
 };
 
-// 🔄 NEW FEATURE: Suggest Plan Reset
+// NEW FEATURE: Suggest Plan Reset
 export const suggestNewPlan = async (req, res) => {
   try {
     const userId = req.user?.userId;
@@ -1586,7 +1586,7 @@ export const suggestNewPlan = async (req, res) => {
   }
 };
 
-// ⏰ NEW FEATURE: Daily Plan Health Check
+//  NEW FEATURE: Daily Plan Health Check
 export const performDailyCheck = async (req, res) => {
   try {
     const userId = req.user?.userId;
@@ -1612,7 +1612,7 @@ export const performDailyCheck = async (req, res) => {
   }
 };
 
-// 📊 NEW FEATURE: Get Plan Adjustment History
+//  NEW FEATURE: Get Plan Adjustment History
 export const getPlanAdjustmentHistory = async (req, res) => {
   try {
     const userId = req.user?.userId;
@@ -1655,7 +1655,7 @@ export const getPlanAdjustmentHistory = async (req, res) => {
   }
 };
 
-// 🎯 NEW: Automatic Missed Session Detection Controllers
+// NEW: Automatic Missed Session Detection Controllers
 
 /**
  * Real-time missed session check with automatic detection
@@ -1774,7 +1774,7 @@ export const forceMissedSessionDetection = async (req, res) => {
 };
 
 /**
- * 🚨 CRITICAL FIX: Real-time session progress update for ESP32
+ *  CRITICAL FIX: Real-time session progress update for ESP32
  * This function is MISSING and causing "Error syncing session progress"
  */
 export const updateSessionProgressRealtime = async (req, res) => {
@@ -1794,7 +1794,7 @@ export const updateSessionProgressRealtime = async (req, res) => {
       return errorResponse(res, 401, 'Authentication required');
     }
 
-    logger.info(`🔄 Real-time session update for user ${userId}`, {
+    logger.info(`Real-time session update for user ${userId}`, {
       distance, speed, sessionTime, watts, sessionActive
     });
 
@@ -1884,7 +1884,7 @@ export const updateSessionProgressRealtime = async (req, res) => {
 
       await plan.save();
 
-      logger.info(`✅ Session updated successfully for user ${userId}`, {
+      logger.info(`Session updated successfully for user ${userId}`, {
         sessionId: todaySession._id,
         distance: todaySession.currentDistance,
         calories: todaySession.caloriesBurned,
@@ -1918,7 +1918,7 @@ export const updateSessionProgressRealtime = async (req, res) => {
     }
 
   } catch (error) {
-    logger.error('❌ Real-time session update error:', error);
+    logger.error(' Real-time session update error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to update session progress',

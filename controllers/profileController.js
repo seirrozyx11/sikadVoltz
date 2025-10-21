@@ -210,9 +210,12 @@ export const getProfileStatus = async (req, res) => {
       user.profile.weight &&
       user.profile.birthDate;
 
+    // FIX: Return data in consistent API format expected by frontend
     return res.status(200).json({
       success: true,
-      profileCompleted: !!isCompleted
+      data: {
+        profileCompleted: !!isCompleted
+      }
     });
   } catch (err) {
     console.error("Error fetching profile status:", err);

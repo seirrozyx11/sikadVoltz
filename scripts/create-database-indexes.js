@@ -39,14 +39,14 @@ async function createIndexSafely(collection, indexSpec, options = {}) {
     
     if (!indexExists) {
       await collection.createIndex(indexSpec, options);
-      console.log(`  ✅ Created index: ${indexName}`);
+      console.log(`  Created index: ${indexName}`);
       return true;
     } else {
-      console.log(`  ⚡ Index exists: ${indexName}`);
+      console.log(`   Index exists: ${indexName}`);
       return false;
     }
   } catch (error) {
-    console.log(`  ⚠️  Failed to create index ${options.name}: ${error.message}`);
+    console.log(`    Failed to create index ${options.name}: ${error.message}`);
     return false;
   }
 }
@@ -56,17 +56,17 @@ async function createIndexSafely(collection, indexSpec, options = {}) {
  */
 async function createDatabaseIndexes() {
   try {
-    console.log('🚀 Starting database index optimization...');
+    console.log(' Starting database index optimization...');
     
     // Connect to MongoDB
     await mongoose.connect(MONGODB_URI);
-    console.log('📊 Connected to MongoDB');
+    console.log(' Connected to MongoDB');
 
     const db = mongoose.connection.db;
     let newIndexesCreated = 0;
     
     // 1. USER COLLECTION INDEXES
-    console.log('\n📋 Creating User indexes...');
+    console.log('\n Creating User indexes...');
     const userCollection = db.collection('users');
     
     // Authentication queries
@@ -96,7 +96,7 @@ async function createDatabaseIndexes() {
     if (await createIndexSafely(userCollection, { updatedAt: -1 }, { name: 'user_updated' })) newIndexesCreated++;
 
     // 2. TELEMETRY COLLECTION INDEXES
-    console.log('📊 Creating Telemetry indexes...');
+    console.log(' Creating Telemetry indexes...');
     await db.collection('telemetries').createIndexes([
       // Primary query patterns
       { key: { userId: 1, timestamp: -1 }, name: 'user_timestamp_desc' },
@@ -120,7 +120,7 @@ async function createDatabaseIndexes() {
     ]);
 
     // 3. RIDE SESSION COLLECTION INDEXES
-    console.log('🚴 Creating RideSession indexes...');
+    console.log(' Creating RideSession indexes...');
     await db.collection('ridesessions').createIndexes([
       // Session queries
       { key: { sessionId: 1 }, unique: true, name: 'session_id_unique' },
@@ -146,7 +146,7 @@ async function createDatabaseIndexes() {
     ]);
 
     // 4. ESP32 DEVICE COLLECTION INDEXES
-    console.log('📱 Creating ESP32Device indexes...');
+    console.log('Creating ESP32Device indexes...');
     await db.collection('esp32devices').createIndexes([
       { key: { deviceId: 1 }, unique: true, name: 'device_id_unique' },
       { key: { userId: 1, isActive: 1 }, name: 'user_active_devices' },
@@ -155,7 +155,7 @@ async function createDatabaseIndexes() {
     ]);
 
     // 5. CYCLING PLAN COLLECTION INDEXES
-    console.log('🎯 Creating CyclingPlan indexes...');
+    console.log('Creating CyclingPlan indexes...');
     await db.collection('cyclingplans').createIndexes([
       // User plan queries
       { key: { user: 1, isActive: 1 }, name: 'user_active_plans' },
@@ -176,7 +176,7 @@ async function createDatabaseIndexes() {
     ]);
 
     // 6. WORKOUT HISTORY COLLECTION INDEXES
-    console.log('📈 Creating WorkoutHistory indexes...');
+    console.log('Creating WorkoutHistory indexes...');
     await db.collection('workouthistories').createIndexes([
       // User history queries
       { key: { user: 1, startDate: -1 }, name: 'user_start_date' },
@@ -196,7 +196,7 @@ async function createDatabaseIndexes() {
     ]);
 
     // 7. GOAL COLLECTION INDEXES
-    console.log('🎯 Creating Goal indexes...');
+    console.log('Creating Goal indexes...');
     await db.collection('goals').createIndexes([
       { key: { userId: 1, isActive: 1 }, name: 'user_active_goals' },
       { key: { userId: 1, createdAt: -1 }, name: 'user_goal_created' },
@@ -205,7 +205,7 @@ async function createDatabaseIndexes() {
     ]);
 
     // 8. NOTIFICATION COLLECTION INDEXES
-    console.log('🔔 Creating Notification indexes...');
+    console.log(' Creating Notification indexes...');
     await db.collection('notifications').createIndexes([
       { key: { userId: 1, createdAt: -1 }, name: 'user_notification_created' },
       { key: { userId: 1, read: 1 }, name: 'user_read_status' },
@@ -214,7 +214,7 @@ async function createDatabaseIndexes() {
     ]);
 
     // 9. TOKEN BLACKLIST COLLECTION INDEXES
-    console.log('🔒 Creating TokenBlacklist indexes...');
+    console.log('Creating TokenBlacklist indexes...');
     await db.collection('tokenblacklists').createIndexes([
       { key: { token: 1 }, unique: true, name: 'token_unique' },
       { key: { expiresAt: 1 }, expireAfterSeconds: 0, name: 'token_ttl' },
@@ -222,7 +222,7 @@ async function createDatabaseIndexes() {
     ]);
 
     // 10. Create compound indexes for complex queries
-    console.log('🔗 Creating compound performance indexes...');
+    console.log(' Creating compound performance indexes...');
     
     // User activity analytics
     await db.collection('users').createIndex(
@@ -256,22 +256,22 @@ async function createDatabaseIndexes() {
       { name: 'session_performance' }
     );
 
-    console.log('\n✅ Database index optimization completed successfully!');
+    console.log('\nDatabase index optimization completed successfully!');
     
     // Display index statistics
     const collections = ['users', 'telemetries', 'ridesessions', 'esp32devices', 'cyclingplans', 'workouthistories', 'goals', 'notifications', 'tokenblacklists'];
     
-    console.log('\n📊 Index Summary:');
+    console.log('\n Index Summary:');
     for (const collectionName of collections) {
       try {
         const indexes = await db.collection(collectionName).listIndexes().toArray();
-        console.log(`  📋 ${collectionName}: ${indexes.length} indexes`);
+        console.log(`   ${collectionName}: ${indexes.length} indexes`);
       } catch (error) {
-        console.log(`  ⚠️  ${collectionName}: Collection not found`);
+        console.log(`    ${collectionName}: Collection not found`);
       }
     }
 
-    console.log('\n🎯 Performance Benefits:');
+    console.log('\nPerformance Benefits:');
     console.log('  • User authentication queries: 5-10x faster');
     console.log('  • Activity log queries: 10-20x faster');  
     console.log('  • Real-time telemetry: 15-30x faster');
@@ -282,12 +282,12 @@ async function createDatabaseIndexes() {
     logger.info('Database indexes created successfully');
     
   } catch (error) {
-    console.error('❌ Error creating database indexes:', error);
+    console.error(' Error creating database indexes:', error);
     logger.error('Database index creation failed:', error);
     process.exit(1);
   } finally {
     await mongoose.connection.close();
-    console.log('\n🔌 Database connection closed');
+    console.log('\n Database connection closed');
     process.exit(0);
   }
 }

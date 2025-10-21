@@ -17,14 +17,14 @@ const googleClient = new OAuth2Client(process.env.GOOGLE_WEB_CLIENT_ID);
 const createToken = (user, includeRefresh = false) => {
   const accessToken = jwt.sign(
     { userId: user._id, email: user.email },
-    process.env.JWT_SECRET, // 🔒 SECURITY: No fallback - validated by environmentValidator
+    process.env.JWT_SECRET, // SECURITY: No fallback - validated by environmentValidator
     { expiresIn: process.env.JWT_EXPIRES_IN || '24h' }
   );
   
   if (includeRefresh) {
     const refreshToken = jwt.sign(
       { userId: user._id, email: user.email, type: 'refresh' },
-      process.env.JWT_SECRET, // 🔒 SECURITY: No fallback - validated by environmentValidator
+      process.env.JWT_SECRET, // SECURITY: No fallback - validated by environmentValidator
       { expiresIn: process.env.JWT_REFRESH_EXPIRES_IN || '7d' }
     );
     
@@ -43,7 +43,7 @@ const authenticateUser = async (req, res, next) => {
 
   const token = authHeader.split(' ')[1];
   try {
-    const decoded = jwt.verify(token, process.env.JWT_SECRET); // 🔒 SECURITY: No fallback
+    const decoded = jwt.verify(token, process.env.JWT_SECRET); // SECURITY: No fallback
 
     // Check blacklist
     const isBlacklisted = await TokenBlacklist.exists({ token });
@@ -250,7 +250,7 @@ router.post('/logout', authenticateUser, async (req, res) => {
   }
 });
 
-// 👤 Profile
+//  Profile
 router.get('/profile', authenticateUser, (req, res) => {
   res.json({
     success: true,
@@ -259,7 +259,7 @@ router.get('/profile', authenticateUser, (req, res) => {
   });
 });
 
-// 🔐 Admin: Unlock Account (for emergency use)
+// Admin: Unlock Account (for emergency use)
 router.post('/admin/unlock-account', authenticateUser, async (req, res) => {
   try {
     const { email } = req.body;
@@ -453,7 +453,7 @@ router.post('/refresh-token', async (req, res) => {
     }
     
     // Verify refresh token
-    const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET); // 🔒 SECURITY: No fallback
+    const decoded = jwt.verify(refreshToken, process.env.JWT_SECRET); // SECURITY: No fallback
     
     // Check if it's actually a refresh token
     if (decoded.type !== 'refresh') {
@@ -554,7 +554,7 @@ router.post('/fcm-token', authenticateUser, async (req, res) => {
       });
     }
 
-    logger.info(`📱 FCM token updated for user`, {
+    logger.info(`FCM token updated for user`, {
       userId,
       platform: platform || 'unknown',
       tokenPrefix: fcm_token.substring(0, 20) + '...',
@@ -573,7 +573,7 @@ router.post('/fcm-token', authenticateUser, async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('❌ Error updating FCM token:', { 
+    logger.error(' Error updating FCM token:', { 
       error: error.message, 
       userId: req.user?.userId 
     });
@@ -613,7 +613,7 @@ router.delete('/fcm-token', authenticateUser, async (req, res) => {
       });
     }
 
-    logger.info(`🗑️ FCM token removed for user`, { userId });
+    logger.info(`FCM token removed for user`, { userId });
 
     res.json({
       success: true,
@@ -621,7 +621,7 @@ router.delete('/fcm-token', authenticateUser, async (req, res) => {
     });
 
   } catch (error) {
-    logger.error('❌ Error removing FCM token:', { 
+    logger.error(' Error removing FCM token:', { 
       error: error.message, 
       userId: req.user?.userId 
     });

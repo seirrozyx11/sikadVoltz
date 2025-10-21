@@ -144,7 +144,7 @@ function calculateDailyDeficit(totalCalories, timeframeWeeks) {
  * MET Values by Activity Level:
  * - sedentary: 6.0 (light cycling for beginners)
  * - light: 7.0 (light-moderate cycling)
- * - moderate: 8.0 (moderate cycling) ✅ DEFAULT
+ * - moderate: 8.0 (moderate cycling) DEFAULT
  * - active: 9.0 (hard cycling)
  * - very_active: 10.0 (very hard cycling)
  * 
@@ -163,7 +163,7 @@ function calculateDailyCyclingHours(weight, dailyDeficit, activityLevel = 'moder
   const metValues = {
     'sedentary': 6.0,      // Light cycling (beginner)
     'light': 7.0,          // Light-moderate cycling
-    'moderate': 8.0,       // Moderate cycling ✅ DEFAULT
+    'moderate': 8.0,       // Moderate cycling DEFAULT
     'active': 9.0,         // Hard cycling
     'very_active': 10.0,   // Very hard cycling
     'very active': 10.0,   // Handle space variant
