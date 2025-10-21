@@ -1,14 +1,14 @@
-const Badge = require('../models/Badge');
-const Milestone = require('../models/Milestone');
-const Quest = require('../models/Quest');
-const User = require('../models/User');
-const notificationService = require('../services/notificationService');
+import Badge from '../models/Badge.js';
+import Milestone from '../models/Milestone.js';
+import Quest from '../models/Quest.js';
+import User from '../models/User.js';
+import * as notificationService from '../services/notificationService.js';
 
 /**
  * Get user badges
  * GET /api/users/me/badges
  */
-exports.getUserBadges = async (req, res) => {
+export const getUserBadges = async (req, res) => {
   try {
     const userId = req.userId; // Set by authenticateToken middleware
 
@@ -32,7 +32,7 @@ exports.getUserBadges = async (req, res) => {
  * Get user milestones
  * GET /api/users/me/milestones
  */
-exports.getUserMilestones = async (req, res) => {
+export const getUserMilestones = async (req, res) => {
   try {
     const userId = req.userId;
     const limit = parseInt(req.query.limit) || 50;
@@ -57,7 +57,7 @@ exports.getUserMilestones = async (req, res) => {
  * Get user rank and XP
  * GET /api/users/me/rank
  */
-exports.getUserRank = async (req, res) => {
+export const getUserRank = async (req, res) => {
   try {
     const userId = req.userId;
 
@@ -111,7 +111,7 @@ exports.getUserRank = async (req, res) => {
  * Get user quests
  * GET /api/users/me/quests
  */
-exports.getUserQuests = async (req, res) => {
+export const getUserQuests = async (req, res) => {
   try {
     const userId = req.userId;
     const status = req.query.status; // active, completed, expired
@@ -141,7 +141,7 @@ exports.getUserQuests = async (req, res) => {
  * Award badge to user
  * POST /api/users/me/badges
  */
-exports.awardBadge = async (req, res) => {
+export const awardBadge = async (req, res) => {
   try {
     const userId = req.userId;
     const { type, name, description, icon, color, target, rarity, xpReward } = req.body;
@@ -215,7 +215,7 @@ exports.awardBadge = async (req, res) => {
  * Create milestone for user
  * POST /api/users/me/milestones
  */
-exports.createMilestone = async (req, res) => {
+export const createMilestone = async (req, res) => {
   try {
     const userId = req.userId;
     const { type, title, description, value, unit, icon, color, xpReward } = req.body;
@@ -289,7 +289,7 @@ exports.createMilestone = async (req, res) => {
  * Update quest progress
  * PATCH /api/users/me/quests/:questId
  */
-exports.updateQuestProgress = async (req, res) => {
+export const updateQuestProgress = async (req, res) => {
   try {
     const userId = req.userId;
     const { questId } = req.params;
@@ -392,5 +392,3 @@ function calculateRank(level) {
   if (level >= 10) return 'Silver';
   return 'Bronze';
 }
-
-module.exports = exports;

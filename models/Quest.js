@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const questSchema = new mongoose.Schema({
   userId: {
@@ -164,4 +164,4 @@ questSchema.statics.createDailyQuests = async function(userId) {
   return await this.insertMany(dailyQuests);
 };
 
-module.exports = mongoose.model('Quest', questSchema);
+export default mongoose.model('Quest', questSchema);

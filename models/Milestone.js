@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const milestoneSchema = new mongoose.Schema({
   userId: {
@@ -87,4 +87,4 @@ milestoneSchema.statics.getUnnotifiedMilestones = async function(userId) {
     .lean();
 };
 
-module.exports = mongoose.model('Milestone', milestoneSchema);
+export default mongoose.model('Milestone', milestoneSchema);

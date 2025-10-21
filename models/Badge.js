@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 const badgeSchema = new mongoose.Schema({
   userId: {
@@ -93,4 +93,4 @@ badgeSchema.statics.awardBadge = async function(userId, badgeData) {
   return await badge.save();
 };
 
-module.exports = mongoose.model('Badge', badgeSchema);
+export default mongoose.model('Badge', badgeSchema);
