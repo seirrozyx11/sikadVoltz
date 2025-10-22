@@ -32,7 +32,6 @@ import notificationRoutes from './routes/notificationRoutes.js';
 import passwordResetRoutes from './routes/passwordReset.js';
 import adminTokenRoutes from './routes/adminTokenRetrieval.js';
 import oauthRoutes from './routes/oauth.js';
-import testRoutes from './routes/test.js';
 import monitoringRoutes from './routes/monitoringRoutes.js';
 import userStatusRoutes from './routes/userStatusRoutes.js'; // Dual-Strategy Notification System
 import userRoutes from './routes/userRoutes.js'; // Achievement system routes
@@ -261,7 +260,6 @@ app.use('/api/users', deprecationWarning, userRoutes); // Achievement system
 app.use('/api/user/tutorials', deprecationWarning, tutorialRoutes); // Tutorial system (email-based tracking)
 app.use('/api/admin', deprecationWarning, adminTokenRoutes);
 app.use('/api/oauth', deprecationWarning, oauthRoutes);
-app.use('/api/test', deprecationWarning, testRoutes);
 app.use('/api/dashboard', deprecationWarning, dashboardRoutes);
 
 //  REDIS COMPARISON DEBUG ENDPOINT

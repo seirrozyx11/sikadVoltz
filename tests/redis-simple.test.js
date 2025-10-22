@@ -9,8 +9,10 @@ describe('Redis Cloud Connection Test', () => {
   let redisClient;
 
   beforeAll(async () => {
-    // Set Redis URL from your configuration
-    process.env.REDIS_URL = 'redis://default:MzcxWsuM3beem2R2fEW7ju8cHT4CnF2R@redis-19358.c295.ap-southeast-1-1.ec2.redns.redis-cloud.com:19358';
+    // Ensure Redis URL is set from environment variables (.env.test)
+    if (!process.env.REDIS_URL) {
+      throw new Error('REDIS_URL environment variable not set. Please set it in .env.test file.');
+    }
   });
 
   test('Should connect to Redis Cloud successfully', async () => {

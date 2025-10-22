@@ -1,16 +1,33 @@
 import express from 'express';
 import UserTutorial from '../models/UserTutorial.js';
+import User from '../models/User.js';
+import authenticateToken from '../middleware/authenticateToken.js';
 
 const router = express.Router();
+
+// Apply authentication middleware to ALL routes
+router.use(authenticateToken);
 
 // 1️⃣ GET /api/user/tutorials/status - Check if tutorial completed
 router.get('/status', async (req, res) => {
   try {
-    const { email, tutorialKey } = req.query;
+    const userId = req.user.userId; // ← Use authenticated userId
+    const { tutorialKey } = req.query;
     
-    if (!email || !tutorialKey) {
+    // Get user's email from User model
+    const user = await User.findById(userId).select('email');
+    if (!user || !user.email) {
+      return res.status(404).json({ 
+        error: 'User not found',
+        success: false
+      });
+    }
+    
+    const email = user.email;
+    
+    if (!tutorialKey) {
       return res.status(400).json({ 
-        error: 'Email and tutorialKey are required',
+        error: 'tutorialKey is required',
         success: false
       });
     }
@@ -50,11 +67,23 @@ router.get('/status', async (req, res) => {
 // 2️⃣ POST /api/user/tutorials/complete - Mark tutorial as completed
 router.post('/complete', async (req, res) => {
   try {
-    const { email, tutorialKey, completedAt, deviceInfo } = req.body;
+    const userId = req.user.userId; // ← Use authenticated userId
+    const { tutorialKey, completedAt, deviceInfo } = req.body;
     
-    if (!email || !tutorialKey) {
+    // Get user's email from User model
+    const user = await User.findById(userId).select('email');
+    if (!user || !user.email) {
+      return res.status(404).json({ 
+        error: 'User not found',
+        success: false
+      });
+    }
+    
+    const email = user.email;
+    
+    if (!tutorialKey) {
       return res.status(400).json({ 
-        error: 'Email and tutorialKey are required',
+        error: 'tutorialKey is required',
         success: false
       });
     }
@@ -101,11 +130,23 @@ router.post('/complete', async (req, res) => {
 // 3️⃣ POST /api/user/tutorials/skip - Mark tutorial as skipped
 router.post('/skip', async (req, res) => {
   try {
-    const { email, tutorialKey, deviceInfo } = req.body;
+    const userId = req.user.userId; // ← Use authenticated userId
+    const { tutorialKey, skippedAt, deviceInfo } = req.body;
     
-    if (!email || !tutorialKey) {
+    // Get user's email from User model
+    const user = await User.findById(userId).select('email');
+    if (!user || !user.email) {
+      return res.status(404).json({ 
+        error: 'User not found',
+        success: false
+      });
+    }
+    
+    const email = user.email;
+    
+    if (!tutorialKey) {
       return res.status(400).json({ 
-        error: 'Email and tutorialKey are required',
+        error: 'tutorialKey is required',
         success: false
       });
     }
@@ -149,14 +190,18 @@ router.post('/skip', async (req, res) => {
 // 4️⃣ GET /api/user/tutorials/completed - Get all completed tutorials
 router.get('/completed', async (req, res) => {
   try {
-    const { email } = req.query;
+    const userId = req.user.userId; // ← Use authenticated userId
     
-    if (!email) {
-      return res.status(400).json({ 
-        error: 'Email is required',
+    // Get user's email from User model
+    const user = await User.findById(userId).select('email');
+    if (!user || !user.email) {
+      return res.status(404).json({ 
+        error: 'User not found',
         success: false
       });
     }
+    
+    const email = user.email;
     
     const userTutorial = await UserTutorial.findOne({ email });
     
@@ -201,17 +246,21 @@ router.get('/completed', async (req, res) => {
   }
 });
 
-// 5️⃣ DELETE /api/user/tutorials/reset - Reset all tutorials (testing/admin)
+// 5️⃣ DELETE /api/user/tutorials/reset - Reset all tutorials for a user
 router.delete('/reset', async (req, res) => {
   try {
-    const { email } = req.query;
+    const userId = req.user.userId; // ← Use authenticated userId
     
-    if (!email) {
-      return res.status(400).json({ 
-        error: 'Email is required',
+    // Get user's email from User model
+    const user = await User.findById(userId).select('email');
+    if (!user || !user.email) {
+      return res.status(404).json({ 
+        error: 'User not found',
         success: false
       });
     }
+    
+    const email = user.email;
     
     const result = await UserTutorial.findOneAndDelete({ email });
     
@@ -307,14 +356,19 @@ router.get('/analytics', async (req, res) => {
 // 7️⃣ PUT /api/user/tutorials/settings - Update tutorial settings
 router.put('/settings', async (req, res) => {
   try {
-    const { email, autoPlayTutorials, skipOnLogin } = req.body;
+    const userId = req.user.userId; // ← Use authenticated userId
+    const { autoPlayTutorials, skipOnLogin } = req.body;
     
-    if (!email) {
-      return res.status(400).json({ 
-        error: 'Email is required',
+    // Get user's email from User model
+    const user = await User.findById(userId).select('email');
+    if (!user || !user.email) {
+      return res.status(404).json({ 
+        error: 'User not found',
         success: false
       });
     }
+    
+    const email = user.email;
     
     let userTutorial = await UserTutorial.findOne({ email });
     

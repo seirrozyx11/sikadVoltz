@@ -1,4 +1,5 @@
 import express from 'express';
+import mongoose from 'mongoose';
 import Notification from '../models/Notification.js';
 import NotificationService from '../services/notificationService.js';
 import authenticateToken from '../middleware/authenticateToken.js';
@@ -450,6 +451,79 @@ router.post('/test', async (req, res) => {
     res.status(500).json({
       success: false,
       message: 'Failed to create test notification'
+    });
+  }
+});
+
+/**
+ * POST /api/notifications/trigger-missed-check
+ * Manually trigger missed session check for current user (IMMEDIATE)
+ */
+router.post('/trigger-missed-check', async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    
+    // Import the CyclingPlan model
+    const CyclingPlan = mongoose.model('CyclingPlan');
+    
+    // Get user's active plan
+    const plan = await CyclingPlan.findOne({ 
+      user: userId, 
+      isActive: true 
+    });
+
+    if (!plan) {
+      return res.status(404).json({
+        success: false,
+        message: 'No active plan found'
+      });
+    }
+
+    // Calculate total missed sessions by checking past dates
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    let totalMissedCount = 0;
+    for (const session of plan.dailySessions) {
+      const sessionDate = new Date(session.date);
+      sessionDate.setHours(0, 0, 0, 0);
+      
+      // If session is in the past and not completed
+      if (sessionDate < today && session.status !== 'completed' && session.status !== 'done') {
+        totalMissedCount++;
+      }
+    }
+
+    // Create appropriate notification based on total missed count
+    const notification = await NotificationService.createMissedSessionNotification(
+      userId,
+      {
+        count: totalMissedCount,
+        sessions: [],
+        planAdjusted: totalMissedCount >= 7,
+        consecutiveMissedDays: 0,
+        totalMissedCount: totalMissedCount,
+        suggestedAction: totalMissedCount >= 7 ? 'reset_plan' : 'redistribute'
+      }
+    );
+
+    res.status(201).json({
+      success: true,
+      data: { 
+        notification,
+        totalMissedCount,
+        notificationType: totalMissedCount >= 7 ? 'plan_reset_required' : 'missed_session'
+      },
+      message: `✅ Notification created for ${totalMissedCount} missed sessions`
+    });
+  } catch (error) {
+    logger.error('❌ Error triggering missed check:', { 
+      error: error.message, 
+      userId: req.user?.userId 
+    });
+    res.status(500).json({
+      success: false,
+      message: 'Failed to trigger missed session check'
     });
   }
 });
