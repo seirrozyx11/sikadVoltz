@@ -117,7 +117,14 @@ const connectDB = async () => {
 // Create Express app
 const app = express();
 
-// � CRITICAL FIX: Body parsing MUST come before security middleware
+// 🔒 SECURITY: Trust proxy for Render deployment (required for rate limiting behind reverse proxy)
+// This allows Express to trust the X-Forwarded-For header set by Render's load balancer
+if (IS_RENDER) {
+  app.set('trust proxy', 1); // Trust first proxy (Render's load balancer)
+  logger.info('Trust proxy enabled for Render deployment');
+}
+
+// 🔒 CRITICAL FIX: Body parsing MUST come before security middleware
 // This is required because rate limiting middleware accesses req.body.email
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
