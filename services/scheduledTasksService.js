@@ -120,24 +120,27 @@ class ScheduledTasksService {
                  (session.completedHours > 0 || session.status === 'completed');
         });
 
-        // **NEW**: Check consecutive missed days
-        const missedDays = await this.calculateConsecutiveMissedDays(user._id, plan._id);
+        // **CRITICAL FIX**: Use TOTAL missed count from plan, not just consecutive days
+        // This ensures we detect 7+ total missed sessions even if not consecutive
+        const totalMissedCount = plan.missedCount || 0;
+        const consecutiveMissedDays = await this.calculateConsecutiveMissedDays(user._id, plan._id);
 
         if (!yesterdaySession) {
-          // Create missed session notification
+          // Create missed session notification with BOTH counts
           const notification = await NotificationService.createMissedSessionNotification(
             user._id,
             {
-              count: missedDays,
+              count: totalMissedCount > 0 ? totalMissedCount : consecutiveMissedDays,
               sessions: [{ date: yesterday }],
-              planAdjusted: missedDays > 3,
-              consecutiveMissedDays: missedDays,
+              planAdjusted: totalMissedCount > 3,
+              consecutiveMissedDays: consecutiveMissedDays,
+              totalMissedCount: totalMissedCount, // ← CRITICAL: Pass total missed count
               suggestedAction: 'start_session'
             }
           );
 
           totalNotificationsSent++;
-          logger.info(`Sent missed session notification to user ${user._id} (${missedDays} missed days)`);
+          logger.info(`✅ Sent missed session notification to user ${user._id} - Total: ${totalMissedCount}, Consecutive: ${consecutiveMissedDays}`);
         }
       }
 

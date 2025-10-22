@@ -21,10 +21,11 @@ class NotificationService {
       
       let title, message, priority, actions;
       
-      // Check if user has missed more than 7 days - suggest reset
-      if (consecutiveMissedDays >= 7 || totalMissedCount >= 7) {
+      // 🔥 CRITICAL FIX: Check TOTAL missed count first (not just new count)
+      // This ensures 7+ total missed sessions triggers reset notification
+      if (totalMissedCount >= 7 || consecutiveMissedDays >= 7) {
         title = '⚠️ Plan Reset Recommended';
-        message = `You've missed ${consecutiveMissedDays || totalMissedCount} consecutive days. Creating a fresh plan will help you restart with achievable goals.`;
+        message = `You've missed ${totalMissedCount} sessions total${consecutiveMissedDays >= 7 ? ` (${consecutiveMissedDays} consecutive days)` : ''}. Creating a fresh plan will help you restart with achievable goals.`;
         priority = 'critical';
         
         actions = [
@@ -42,7 +43,28 @@ class NotificationService {
             isPrimary: false
           }
         ];
-      } else if (count === 1) {
+      } else if (totalMissedCount > 0 && totalMissedCount <= 6) {
+        // 1-6 missed sessions - suggest redistribution
+        title = 'Missed Sessions Detected';
+        message = `You've missed ${totalMissedCount} session${totalMissedCount > 1 ? 's' : ''} so far. You can redistribute hours to catch up!`;
+        priority = 'high';
+        
+        actions = [
+          {
+            type: 'navigation',
+            label: 'Redistribute',
+            data: { route: '/plan-details' },
+            isPrimary: true
+          },
+          {
+            type: 'navigation',
+            label: 'View Plan',
+            data: { route: '/plan-details' },
+            isPrimary: false
+          }
+        ];
+      } else if (count === 1 && totalMissedCount === 1) {
+        // First missed session ever
         title = 'Missed Session Alert';
         message = `You missed your cycling session today. Your plan has been ${planAdjusted ? 'adjusted' : 'updated'}.`;
         priority = 'medium';
@@ -103,7 +125,7 @@ class NotificationService {
 
       const notification = new Notification({
         userId,
-        type: consecutiveMissedDays >= 7 || totalMissedCount >= 7 ? 'plan_reset_required' : 'missed_session',
+        type: totalMissedCount >= 7 || consecutiveMissedDays >= 7 ? 'plan_reset_required' : 'missed_session',
         title,
         message,
         priority,
@@ -114,7 +136,7 @@ class NotificationService {
           planAdjusted,
           consecutiveMissedDays,
           totalMissedCount,
-          requiresReset: consecutiveMissedDays >= 7 || totalMissedCount >= 7,
+          requiresReset: totalMissedCount >= 7 || consecutiveMissedDays >= 7,
           timestamp: new Date()
         },
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
