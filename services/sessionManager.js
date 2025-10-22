@@ -56,7 +56,7 @@ class SessionManager {
         console.log(' Creating Redis client with explicit config...');
         this.redisClient = createClient({
           username: 'default',
-          password: 'MzcxWsuM3beem2R2fEW7ju8cHT4CnF2R',
+          password: process.env.REDIS_PASSWORD || '$!k@dO2025V0lTz2024TO2025V0lTz',
           socket: {
             host: 'redis-19358.c295.ap-southeast-1-1.ec2.redns.redis-cloud.com',
             port: 19358,
