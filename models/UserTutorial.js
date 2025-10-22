@@ -61,7 +61,7 @@ const userTutorialSchema = new mongoose.Schema({
 });
 
 // Indexes for performance
-userTutorialSchema.index({ email: 1 });
+// Note: email index is already created via unique: true and index: true in schema definition
 userTutorialSchema.index({ 'tutorials.tutorialKey': 1 });
 
 // Method to check if tutorial is completed
