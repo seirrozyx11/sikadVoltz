@@ -172,17 +172,36 @@ async function redistributeMissedHours(plan, missedSessions, strategy) {
     throw new Error(`Redistribution would require ${newDailyHours.toFixed(2)} hours/day, exceeding safe limit of ${maxDailyHours} hours`);
   }
 
-  // Update remaining sessions with new hours
+  // 🔥 CALORIE CALCULATION: Get user weight for accurate calorie redistribution
+  const user = await User.findById(plan.user);
+  const userWeight = user?.weight || 70; // Default to 70kg if not set
+  
+  // 🔥 Calculate calories using standard MET formula (400 kcal/hour average for moderate cycling)
+  const CALORIES_PER_HOUR = 400; // Standard cycling calorie burn rate
+  const originalDailyCalories = originalDailyHours * CALORIES_PER_HOUR;
+  const newDailyCalories = newDailyHours * CALORIES_PER_HOUR;
+  
+  // Update remaining sessions with new hours AND calories
   const updatedSessions = [];
   remainingSessions.forEach(session => {
     const sessionIndex = plan.dailySessions.indexOf(session);
+    
+    // Update hours
     plan.dailySessions[sessionIndex].plannedHours = newDailyHours;
     plan.dailySessions[sessionIndex].adjustedHours = newDailyHours - originalDailyHours;
+    
+    // 🔥 NEW: Update calories
+    plan.dailySessions[sessionIndex].plannedCalories = newDailyCalories;
+    plan.dailySessions[sessionIndex].adjustedCalories = newDailyCalories - originalDailyCalories;
+    
     updatedSessions.push({
       date: session.date,
       oldHours: originalDailyHours,
       newHours: newDailyHours,
-      adjustment: newDailyHours - originalDailyHours
+      adjustment: newDailyHours - originalDailyHours,
+      oldCalories: originalDailyCalories, // 🔥 NEW
+      newCalories: newDailyCalories, // 🔥 NEW
+      calorieAdjustment: newDailyCalories - originalDailyCalories // 🔥 NEW
     });
   });
 
@@ -191,6 +210,7 @@ async function redistributeMissedHours(plan, missedSessions, strategy) {
     date: new Date(),
     missedHours: totalMissedHours,
     newDailyTarget: newDailyHours,
+    newDailyCalories: newDailyCalories, // 🔥 NEW: Track calorie changes
     reason: 'missed_day',
     redistributionMethod: 'distribute_remaining'
   });
@@ -207,7 +227,12 @@ async function redistributeMissedHours(plan, missedSessions, strategy) {
     remainingDays: adjustedRemainingDays,
     gracePeriodDays,
     updatedSessions,
-    adjustmentDate: new Date()
+    adjustmentDate: new Date(),
+    calorieAdjustment: { // 🔥 NEW: Return calorie adjustment details
+      originalDailyCalories,
+      newDailyCalories,
+      calorieIncrease: newDailyCalories - originalDailyCalories
+    }
   };
 }
 

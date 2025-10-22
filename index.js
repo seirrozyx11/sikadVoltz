@@ -38,6 +38,7 @@ import testRoutes from './routes/test.js';
 import monitoringRoutes from './routes/monitoringRoutes.js';
 import userStatusRoutes from './routes/userStatusRoutes.js'; // Dual-Strategy Notification System
 import userRoutes from './routes/userRoutes.js'; // Achievement system routes
+import tutorialRoutes from './routes/tutorialRoutes.js'; // Tutorial system (email-based tracking)
 // Import services
 import RealTimeTelemetryService from './services/realTimeTelemetryService.js';
 import ScheduledTasksService from './services/scheduledTasksService.js';
@@ -252,6 +253,7 @@ app.use('/api/progress', deprecationWarning, progressRoutes);
 app.use('/api/notifications', deprecationWarning, notificationRoutes);
 app.use('/api/user-status', deprecationWarning, userStatusRoutes); // Dual-Strategy Notification System
 app.use('/api/users', deprecationWarning, userRoutes); // Achievement system
+app.use('/api/user/tutorials', deprecationWarning, tutorialRoutes); // Tutorial system (email-based tracking)
 app.use('/api/admin', deprecationWarning, adminTokenRoutes);
 app.use('/api/oauth', deprecationWarning, oauthRoutes);
 app.use('/api/test', deprecationWarning, testRoutes);

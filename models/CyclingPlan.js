@@ -10,8 +10,10 @@ const sessionSchema = new mongoose.Schema({
       default: 'pending'
     },
     caloriesBurned: { type: Number, default: 0 },
+    plannedCalories: { type: Number, default: 0 }, // 🔥 NEW: Target calories for this session
     missedHours: { type: Number, default: 0 }, // Track hours that need to be carried over
     adjustedHours: { type: Number, default: 0 }, // Track additional hours from previous missed sessions
+    adjustedCalories: { type: Number, default: 0 }, // 🔥 NEW: Additional calories from redistribution
     
     // NEW: Action tracking for missed session management
     actionHistory: [{
@@ -56,6 +58,7 @@ const sessionSchema = new mongoose.Schema({
       date: { type: Date, default: Date.now },
       missedHours: Number,
       newDailyTarget: Number,
+      newDailyCalories: Number, // 🔥 NEW: Track calorie changes in history
       reason: { 
         type: String, 
         enum: ['missed_day', 'weekly_reset', 'manual_adjustment', 'reschedule_action', 'redistribute_action'],
