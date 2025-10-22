@@ -151,8 +151,9 @@ class SecurityMiddleware {
       legacyHeaders: false,
       // Custom key generator: IP + email combination
       // This prevents users on shared networks from blocking each other
-      keyGenerator: (req) => {
-        const ip = req.ip || 'unknown-ip';
+      keyGenerator: (req, res) => {
+        // Use the ipKeyGenerator helper for proper IPv6 handling
+        const ip = res.locals.ipKeyGenerator?.(req) || req.ip || 'unknown-ip';
         const email = req.body?.email || req.body?.idToken || 'no-email';
         // For Google OAuth, use a portion of the idToken as identifier
         const identifier = email.length > 50 ? email.substring(0, 20) : email;
