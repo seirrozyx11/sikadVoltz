@@ -147,6 +147,16 @@ async function redistributeMissedHours(plan, missedSessions, strategy) {
   const totalMissedHours = strategy.totalMissedHours;
   const gracePeriodDays = strategy.gracePeriodDays;
   
+  // 🔥 CRITICAL FIX: Mark missed sessions as 'redistributed' so calendar shows them distinctly
+  missedSessions.forEach(missed => {
+    const sessionIndex = missed.sessionIndex;
+    plan.dailySessions[sessionIndex].status = 'redistributed';
+    plan.dailySessions[sessionIndex].redistributedAt = new Date();
+  });
+  
+  const missedSessionsMarked = missedSessions.length;
+  logger.info(`Marked ${missedSessionsMarked} missed sessions as 'redistributed'`);
+  
   // Get remaining sessions
   const remainingSessions = plan.dailySessions.filter(session => {
     const sessionDate = new Date(session.date);
@@ -224,6 +234,8 @@ async function redistributeMissedHours(plan, missedSessions, strategy) {
     originalDailyHours,
     newDailyHours,
     totalMissedHours,
+    missedSessionsMarked, // 🔥 NEW: Number of sessions marked as redistributed
+    remainingSessions: remainingSessions.length, // 🔥 NEW: Number of remaining sessions
     remainingDays: adjustedRemainingDays,
     gracePeriodDays,
     updatedSessions,
