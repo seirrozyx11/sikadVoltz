@@ -95,10 +95,18 @@ export const createPlan = async (req, res) => {
 
       await workoutHistory.save();
       
+      // CRITICAL FIX: Mark all sessions in the plan as archived
+      plan.dailySessions.forEach(session => {
+        session.isArchived = true;
+        session.planStatus = 'archived';
+      });
+      
       // Deactivate the plan
       plan.isActive = false;
       plan.status = 'abandoned';
       await plan.save();
+      
+      console.log(`🗄️ Archived plan ${plan._id} with ${plan.dailySessions.length} sessions marked as archived`);
     }
 
     // Generate basic cycling plan structure
@@ -409,7 +417,11 @@ export const getCurrentPlan = async (req, res) => {
       return errorResponse(res, 401, 'Authentication required');
     }
 
-    const plan = await CyclingPlan.findOne({ user: userId })
+    const plan = await CyclingPlan.findOne({ 
+      user: userId,
+      isActive: true,
+      status: { $ne: 'archived' } // Only get active, non-archived plans
+    })
       .sort({ createdAt: -1 }) // Get the most recent plan
       .populate('goal');
 
@@ -417,7 +429,12 @@ export const getCurrentPlan = async (req, res) => {
       return errorResponse(res, 404, 'No active plan found');
     }
 
-    // Calculate real-time totals including active sessions
+    // 🗄️ CRITICAL FIX: Filter out archived sessions before sending to frontend
+    const activeSessions = plan.dailySessions.filter(session => 
+      !session.isArchived && session.planStatus !== 'archived'
+    );
+
+    // Calculate real-time totals including active sessions (using filtered sessions)
     const activeSessionCalories = plan.activeSessions
       ?.filter(s => s.isActive)
       ?.reduce((sum, s) => sum + s.caloriesBurned, 0) || 0;
@@ -426,11 +443,11 @@ export const getCurrentPlan = async (req, res) => {
       ?.filter(s => s.isActive)
       ?.reduce((sum, s) => sum + s.completedHours, 0) || 0;
 
-    // Get today's session with progress
+    // Get today's session with progress (using filtered active sessions)
     const today = new Date();
     today.setHours(0, 0, 0, 0);
     
-    const todaySession = plan.dailySessions.find(session => {
+    const todaySession = activeSessions.find(session => {
       const sessionDate = new Date(session.date);
       sessionDate.setHours(0, 0, 0, 0);
       return sessionDate.getTime() === today.getTime();
@@ -451,15 +468,15 @@ export const getCurrentPlan = async (req, res) => {
       }
     }
 
-    // 🔧 CALORIE FIX: Calculate total target calories from all sessions
-    const totalTargetCalories = plan.dailySessions.reduce((sum, session) => {
+    // 🔧 CALORIE FIX: Calculate total target calories from active sessions only
+    const totalTargetCalories = activeSessions.reduce((sum, session) => {
       // Each session should have a target calorie amount based on planned hours
       const sessionTargetCalories = (session.plannedHours || 0) * 400; // 400 cal/hour average
       return sum + sessionTargetCalories;
     }, 0);
 
-    // 🔧 CALORIE FIX: Calculate total burned calories from completed sessions
-    const totalBurnedCalories = plan.dailySessions
+    // 🔧 CALORIE FIX: Calculate total burned calories from completed active sessions
+    const totalBurnedCalories = activeSessions
       .filter(session => session.status === 'completed')
       .reduce((sum, session) => sum + (session.caloriesBurned || 0), 0);
 
@@ -468,6 +485,7 @@ export const getCurrentPlan = async (req, res) => {
 
     const responseData = {
       ...plan.toObject(),
+      dailySessions: activeSessions, // 🗄️ CRITICAL FIX: Return only active sessions
       planType: currentPlanType, // Ensure planType is always present
       // 🔧 ENHANCED: Add calorie information to plan summary
       planSummary: {
@@ -1109,10 +1127,13 @@ export const getCalendarData = async (req, res) => {
     const targetYear = parseInt(year);
     const targetMonth = parseInt(month) - 1; // JavaScript months are 0-indexed
     
-    // Find active plan
+    console.log(`📅 Calendar request for ${targetYear}/${targetMonth + 1} by user ${userId}`);
+    
+    // Find active plan (exclude archived plans explicitly)
     const plan = await CyclingPlan.findOne({ 
       user: userId, 
-      isActive: true 
+      isActive: true,
+      status: { $ne: 'archived' } // Explicitly exclude archived plans
     });
 
     if (!plan) {
@@ -1126,9 +1147,15 @@ export const getCalendarData = async (req, res) => {
     const startDate = new Date(targetYear, targetMonth, 1);
     const endDate = new Date(targetYear, targetMonth + 1, 0);
     
+    // CRITICAL FIX: Filter out archived sessions to prevent old plan data from showing
     const monthSessions = plan.dailySessions.filter(session => {
       const sessionDate = new Date(session.date);
-      return sessionDate >= startDate && sessionDate <= endDate;
+      const inDateRange = sessionDate >= startDate && sessionDate <= endDate;
+      
+      // Filter out archived sessions (from old plans that were replaced)
+      const notArchived = !session.isArchived && session.planStatus !== 'archived';
+      
+      return inDateRange && notArchived;
     });
 
     // Format calendar data
@@ -1147,7 +1174,10 @@ export const getCalendarData = async (req, res) => {
         caloriesBurned: session.caloriesBurned,
         missedHours: session.missedHours,
         adjustedHours: session.adjustedHours,
-        isToday: new Date(session.date).toDateString() === new Date().toDateString()
+        isToday: new Date(session.date).toDateString() === new Date().toDateString(),
+        // CRITICAL FIX: Add archived flags for frontend filtering
+        isArchived: session.isArchived || false,
+        planStatus: plan.status || 'active'
       };
     });
 
@@ -1161,13 +1191,22 @@ export const getCalendarData = async (req, res) => {
       totalCaloriesBurned: monthSessions.reduce((sum, s) => sum + s.caloriesBurned, 0)
     };
 
+    console.log(`✅ Calendar data: ${monthSessions.length} active sessions (archived filtered out)`);
+    console.log(`   Plan status: ${plan.status}, isActive: ${plan.isActive}`);
+    console.log(`   Stats: ${monthStats.completedSessions} completed, ${monthStats.missedSessions} missed`);
+
     res.json({
       success: true,
       data: {
         year: targetYear,
         month: targetMonth + 1,
         sessions: calendarData,
-        statistics: monthStats
+        statistics: monthStats,
+        planInfo: {
+          status: plan.status,
+          isActive: plan.isActive,
+          createdAt: plan.createdAt
+        }
       }
     });
 

@@ -15,6 +15,14 @@ const sessionSchema = new mongoose.Schema({
     adjustedHours: { type: Number, default: 0 }, // Track additional hours from previous missed sessions
     adjustedCalories: { type: Number, default: 0 }, // 🔥 NEW: Additional calories from redistribution
     
+    // 🗄️ CRITICAL FIX: Archive tracking fields
+    isArchived: { type: Boolean, default: false }, // Mark sessions from archived plans
+    planStatus: { 
+      type: String, 
+      enum: ['active', 'archived', 'abandoned', 'completed'],
+      default: 'active'
+    },
+    
     // NEW: Action tracking for missed session management
     actionHistory: [{
       action: {
