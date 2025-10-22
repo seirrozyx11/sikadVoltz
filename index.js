@@ -18,8 +18,6 @@ import SecurityMiddleware from './middleware/security.js';
 import { initWebSocket, getWebSocketService } from './services/websocketService.js';
 import esp32BLEBridge from './services/esp32_ble_bridge.js'; // Enabled for real-time ESP32 communication
 import HTTP2ServerManager from './services/http2ServerManager.js';
-
-// Import routes
 import authRouter from './routes/auth.js';
 import planRoutes from './routes/planRoutes.js';
 import profileRoutes from './routes/profileRoutes.js';
@@ -39,11 +37,11 @@ import monitoringRoutes from './routes/monitoringRoutes.js';
 import userStatusRoutes from './routes/userStatusRoutes.js'; // Dual-Strategy Notification System
 import userRoutes from './routes/userRoutes.js'; // Achievement system routes
 import tutorialRoutes from './routes/tutorialRoutes.js'; // Tutorial system (email-based tracking)
-// Import services
 import RealTimeTelemetryService from './services/realTimeTelemetryService.js';
 import ScheduledTasksService from './services/scheduledTasksService.js';
 import SessionManager from './services/sessionManager.js';
 import simpleRedisClient from './services/simpleRedisClient.js'; //  Simple Redis client for comparison
+import User from './models/User.js';
 
 // Environment setup
 const __filename = fileURLToPath(import.meta.url);
@@ -850,6 +848,40 @@ const startServer = async () => {
           logger.error(' Failed to initialize scheduled tasks:', taskError);
         }
       }, 5000); // 5 second delay to ensure everything else is ready
+      
+      // Monitor online users every 30 seconds
+      const monitorOnlineUsers = async () => {
+        try {
+          const onlineUsers = await User.countDocuments({ isOnline: true });
+          
+          if (onlineUsers > 0) {
+            const userText = onlineUsers === 1 ? 'User' : 'Users';
+            logger.info(`👥 ${onlineUsers} Online ${userText} Detected and ${onlineUsers === 1 ? 'is' : 'are'} using the app`);
+            console.log(`\x1b[32m👥 ${onlineUsers} Online ${userText} Detected and ${onlineUsers === 1 ? 'is' : 'are'} using the app\x1b[0m`);
+          }
+          
+          // Optional: Log detailed info in development mode
+          if (!IS_RENDER && onlineUsers > 0) {
+            const onlineUsersList = await User.find({ isOnline: true })
+              .select('email name lastActive')
+              .limit(10);
+            
+            console.log('   Active users:', onlineUsersList.map(u => ({
+              email: u.email,
+              name: u.name,
+              lastActive: u.lastActive
+            })));
+          }
+        } catch (error) {
+          logger.error('Failed to monitor online users:', error);
+        }
+      };
+      
+      // Start monitoring immediately, then every 30 seconds
+      setTimeout(async () => {
+        await monitorOnlineUsers();
+        setInterval(monitorOnlineUsers, 20000); // Every 20 seconds
+      }, 3000); // Start after 3 seconds to ensure DB is ready
       
       // Initialize ESP32 BLE Bridge for real-time communication
       try {
