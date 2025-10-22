@@ -52,10 +52,7 @@ class SimpleIndexCreator {
       throw new Error('MONGODB_URI not found');
     }
     
-    await mongoose.connect(MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    await mongoose.connect(MONGODB_URI);
     
     console.log('Connected to MongoDB');
   }

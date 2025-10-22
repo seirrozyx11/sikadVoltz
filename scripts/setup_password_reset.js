@@ -65,10 +65,7 @@ const setupPasswordReset = async () => {
 const validateSetup = async () => {
   // Connect to database if not already connected
   if (mongoose.connection.readyState === 0) {
-    await mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    await mongoose.connect(process.env.MONGODB_URI);
   }
   
   const User = mongoose.model('User');

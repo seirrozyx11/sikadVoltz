@@ -20,10 +20,7 @@ const createIndexes = async () => {
     console.log(' Creating password reset indexes...');
     
     // Connect to MongoDB
-    await mongoose.connect(process.env.MONGODB_URI, {
-      useNewUrlParser: true,
-      useUnifiedTopology: true,
-    });
+    await mongoose.connect(process.env.MONGODB_URI);
     
     console.log('Connected to MongoDB');
     
