@@ -1,6 +1,7 @@
-const express = require('express');
+import express from 'express';
+import UserTutorial from '../models/UserTutorial.js';
+
 const router = express.Router();
-const UserTutorial = require('../models/UserTutorial');
 
 // 1️⃣ GET /api/user/tutorials/status - Check if tutorial completed
 router.get('/status', async (req, res) => {
@@ -353,4 +354,4 @@ router.put('/settings', async (req, res) => {
   }
 });
 
-module.exports = router;
+export default router;

@@ -1,4 +1,4 @@
-const mongoose = require('mongoose');
+import mongoose from 'mongoose';
 
 // Tutorial step schema
 const tutorialSchema = new mongoose.Schema({
@@ -108,4 +108,4 @@ userTutorialSchema.methods.markSkipped = function(tutorialKey, deviceInfo = {}) 
   }
 };
 
-module.exports = mongoose.model('UserTutorial', userTutorialSchema);
+export default mongoose.model('UserTutorial', userTutorialSchema);
