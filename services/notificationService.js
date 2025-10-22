@@ -17,42 +17,93 @@ class NotificationService {
    */
   static async createMissedSessionNotification(userId, missedSessionData) {
     try {
-      const { count = 1, sessions = [], planAdjusted = false } = missedSessionData;
+      const { count = 1, sessions = [], planAdjusted = false, consecutiveMissedDays = 0, totalMissedCount = count } = missedSessionData;
       
       let title, message, priority, actions;
       
-      if (count === 1) {
+      // Check if user has missed more than 7 days - suggest reset
+      if (consecutiveMissedDays >= 7 || totalMissedCount >= 7) {
+        title = '⚠️ Plan Reset Recommended';
+        message = `You've missed ${consecutiveMissedDays || totalMissedCount} consecutive days. Creating a fresh plan will help you restart with achievable goals.`;
+        priority = 'critical';
+        
+        actions = [
+          {
+            type: 'navigation',
+            label: 'Reset Plan',
+            data: { route: '/goal-frames' },
+            isPrimary: true,
+            style: 'destructive' // Red button styling
+          },
+          {
+            type: 'navigation',
+            label: 'View Current Plan',
+            data: { route: '/plan-details' },
+            isPrimary: false
+          }
+        ];
+      } else if (count === 1) {
         title = 'Missed Session Alert';
         message = `You missed your cycling session today. Your plan has been ${planAdjusted ? 'adjusted' : 'updated'}.`;
         priority = 'medium';
+        
+        actions = [
+          {
+            type: 'navigation',
+            label: 'View Plan',
+            data: { route: '/plan-details' },
+            isPrimary: true
+          },
+          {
+            type: 'api_call',
+            label: 'Reschedule',
+            data: { endpoint: '/plans/reschedule' },
+            isPrimary: false
+          }
+        ];
       } else if (count <= 3) {
         title = 'Multiple Missed Sessions';
         message = `You've missed ${count} sessions this week. Let's get back on track!`;
         priority = 'high';
+        
+        actions = [
+          {
+            type: 'navigation',
+            label: 'View Plan',
+            data: { route: '/plan-details' },
+            isPrimary: true
+          },
+          {
+            type: 'api_call',
+            label: 'Reschedule',
+            data: { endpoint: '/plans/reschedule' },
+            isPrimary: false
+          }
+        ];
       } else {
         title = 'Critical: Plan Adjustment Required';
         message = `You've missed ${count} sessions. Your plan needs immediate attention.`;
         priority = 'critical';
+        
+        actions = [
+          {
+            type: 'navigation',
+            label: 'View Plan',
+            data: { route: '/plan-details' },
+            isPrimary: true
+          },
+          {
+            type: 'api_call',
+            label: 'Reschedule',
+            data: { endpoint: '/plans/reschedule' },
+            isPrimary: false
+          }
+        ];
       }
-
-      actions = [
-        {
-          type: 'navigation',
-          label: 'View Plan',
-          data: { route: '/plan-details' },
-          isPrimary: true
-        },
-        {
-          type: 'api_call',
-          label: 'Reschedule',
-          data: { endpoint: '/plans/reschedule' },
-          isPrimary: false
-        }
-      ];
 
       const notification = new Notification({
         userId,
-        type: 'missed_session',
+        type: consecutiveMissedDays >= 7 || totalMissedCount >= 7 ? 'plan_reset_required' : 'missed_session',
         title,
         message,
         priority,
@@ -61,6 +112,9 @@ class NotificationService {
           count,
           sessions,
           planAdjusted,
+          consecutiveMissedDays,
+          totalMissedCount,
+          requiresReset: consecutiveMissedDays >= 7 || totalMissedCount >= 7,
           timestamp: new Date()
         },
         expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000) // 7 days
