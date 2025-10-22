@@ -859,13 +859,12 @@ const startServer = async () => {
         try {
           const onlineUsers = await User.countDocuments({ isOnline: true });
           
-          if (onlineUsers > 0) {
-            const userText = onlineUsers === 1 ? 'User' : 'Users';
-            logger.info(`👥 ${onlineUsers} Online ${userText} Detected and ${onlineUsers === 1 ? 'is' : 'are'} using the app`);
-            console.log(`\x1b[32m👥 ${onlineUsers} Online ${userText} Detected and ${onlineUsers === 1 ? 'is' : 'are'} using the app\x1b[0m`);
-          }
+          // Always log the online user count (even if 0)
+          const userText = onlineUsers === 1 ? 'User' : 'Users';
+          logger.info(`👥 ${onlineUsers} Online ${userText} currently active`);
+          console.log(`\x1b[32m👥 ${onlineUsers} Online ${userText} currently active\x1b[0m`);
           
-          // Optional: Log detailed info in development mode
+          // Optional: Log detailed info in development mode (only if users exist)
           if (!IS_RENDER && onlineUsers > 0) {
             const onlineUsersList = await User.find({ isOnline: true })
               .select('email name lastActive')
