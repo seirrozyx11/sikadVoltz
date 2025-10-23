@@ -571,11 +571,26 @@ router.post('/session/end', authenticateToken, async (req, res) => {
       });
     }
 
-    // Complete the session
+    // Complete the session in RideSession collection
     await RideSession.completeSession(session.sessionId, finalMetrics);
 
-    // Get updated session
+    // Get updated session with final metrics
     const completedSession = await RideSession.findOne({ sessionId: session.sessionId });
+    
+    // 🔥 CRITICAL FIX: Also update CyclingPlan to link ESP32 workout with daily session
+    try {
+      const SessionTrackerService = (await import('../services/session_tracker_service.js')).default;
+      await SessionTrackerService.completeSession(userId, {
+        sessionId: completedSession.sessionId,
+        finalCalories: completedSession.totalCalories || 0,
+        finalHours: (completedSession.duration || 0) / 60, // Convert minutes to hours
+        finalDistance: completedSession.totalDistance || 0
+      });
+      logger.info('✅ Linked ESP32 session to cycling plan', { sessionId: completedSession.sessionId });
+    } catch (linkError) {
+      // Don't fail the request if linking fails - session is still saved
+      logger.warn('⚠️ Failed to link ESP32 session to plan (non-critical)', { error: linkError.message });
+    }
 
     logger.info('Session completed', {
       sessionId: session.sessionId,

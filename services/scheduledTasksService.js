@@ -35,6 +35,24 @@ class ScheduledTasksService {
         timezone: 'Asia/Manila' // Adjust to your timezone
       });
 
+      // **NEW**: Morning reminder at 10 AM (for today's sessions)
+      const morningReminderJob = cron.schedule('0 10 * * *', async () => {
+        logger.info('🔔 Running 10 AM session reminder...');
+        await this.sendSessionReminders('morning');
+      }, {
+        scheduled: false,
+        timezone: 'Asia/Manila'
+      });
+
+      // **NEW**: Evening reminder at 7 PM (for today's sessions)
+      const eveningReminderJob = cron.schedule('0 19 * * *', async () => {
+        logger.info('🔔 Running 7 PM (19:00) session reminder...');
+        await this.sendSessionReminders('evening');
+      }, {
+        scheduled: false,
+        timezone: 'Asia/Manila'
+      });
+
       // **NEW**: Daily summary notifications at 8 PM
       const dailySummaryJob = cron.schedule('0 20 * * *', async () => {
         logger.info(' Running daily summary notifications...');
@@ -64,6 +82,8 @@ class ScheduledTasksService {
 
       // Store jobs for management
       this.cronJobs.set('missedSessions', missedSessionsJob);
+      this.cronJobs.set('morningReminder', morningReminderJob);
+      this.cronJobs.set('eveningReminder', eveningReminderJob);
       this.cronJobs.set('dailySummary', dailySummaryJob);
       this.cronJobs.set('weeklyProgress', weeklyProgressJob);
       this.cronJobs.set('cleanup', cleanupJob);
@@ -191,6 +211,87 @@ class ScheduledTasksService {
     } catch (error) {
       logger.error('Error calculating consecutive missed days:', error);
       return 0;
+    }
+  }
+
+  /**
+   * Send session reminders for today's planned sessions
+   * @param {string} timeOfDay - 'morning' or 'evening'
+   */
+  static async sendSessionReminders(timeOfDay = 'morning') {
+    try {
+      const User = mongoose.model('User');
+      const CyclingPlan = mongoose.model('CyclingPlan');
+      const fcmService = (await import('./fcmService.js')).default;
+      
+      // Get all active users with cycling plans
+      const activeUsers = await User.find({ 
+        isActive: true,
+        'profile.weight': { $exists: true, $gt: 0 }, // Only users with complete profiles
+        'notificationPreferences.sessionReminders': { $ne: false } // Check preferences
+      }).select('_id email fcmToken notificationPreferences');
+
+      let remindersSet = 0;
+
+      for (const user of activeUsers) {
+        // Get user's active cycling plan
+        const plan = await CyclingPlan.findOne({
+          userId: user._id,
+          isActive: true,
+          status: { $ne: 'completed' }
+        });
+
+        if (!plan) continue;
+
+        // Check if user has a session scheduled for TODAY
+        const today = new Date();
+        today.setHours(0, 0, 0, 0);
+
+        const todaySession = plan.dailySessions.find(session => {
+          const sessionDate = new Date(session.date);
+          sessionDate.setHours(0, 0, 0, 0);
+          return sessionDate.getTime() === today.getTime();
+        });
+
+        // Send reminder ONLY if:
+        // 1. User has a session today
+        // 2. Session is NOT completed yet
+        // 3. Session is NOT missed
+        if (todaySession && todaySession.status !== 'completed' && todaySession.status !== 'missed') {
+          const plannedHours = todaySession.plannedHours || plan.planSummary.dailyCyclingHours;
+          
+          // Send FCM push notification
+          if (user.fcmToken) {
+            await fcmService.sendSessionReminderNotification(user._id, {
+              sessionTime: timeOfDay === 'morning' ? 'today' : 'this evening',
+              sessionType: 'cycling',
+              plannedHours: plannedHours
+            });
+          }
+
+          // Also create in-app notification
+          await NotificationService.createMilestoneNotification(
+            user._id,
+            {
+              type: 'session_reminder',
+              title: timeOfDay === 'morning' 
+                ? '🌅 Good Morning! Session Reminder' 
+                : '🌆 Evening Reminder!',
+              message: `You have a ${plannedHours}h cycling session scheduled for today. Let's crush it!`,
+              plannedHours,
+              timeOfDay,
+              sessionDate: today
+            }
+          );
+
+          remindersSet++;
+          logger.info(`📨 Sent ${timeOfDay} reminder to user ${user._id} - ${plannedHours}h session`);
+        }
+      }
+
+      logger.info(`✅ ${timeOfDay === 'morning' ? '10 AM' : '7 PM'} reminders completed. Sent ${remindersSet} notifications.`);
+    } catch (error) {
+      logger.error(` Error sending ${timeOfDay} session reminders:`, error);
     }
   }
 
