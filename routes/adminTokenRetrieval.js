@@ -2,7 +2,7 @@
  * Admin Token Retrieval Routes
  * 
  * Backup endpoints to manually retrieve reset tokens when email fails.
- * These are admin-only endpoints for troubleshooting email delivery issues.
+ * 
  */
 
 import express from 'express';
