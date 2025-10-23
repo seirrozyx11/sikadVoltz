@@ -29,7 +29,7 @@ router.get('/goal', authenticateToken, async (req, res) => {
     const tdee = calculateTDEE(bmr, user.profile.activityLevel || 'moderate');
     
     // Add some basic goal calculation (can be adjusted based on user's goals)
-    const calorieGoal = Math.round(tdee * 0.8); // Example: 20% calorie deficit
+    const calorieGoal = Math.round(tdee * 0.8); // Example: 20% calorie deficitt
 
     res.json({
       bmr: Math.round(bmr),
