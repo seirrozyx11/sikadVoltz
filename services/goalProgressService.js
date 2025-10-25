@@ -9,7 +9,7 @@
  */
 
 import Goal from '../models/Goal.js';
-import RideSession from '../models/Telemetry.js';
+import { RideSession } from '../models/Telemetry.js';
 import mongoose from 'mongoose';
 
 class GoalProgressService {
@@ -267,7 +267,7 @@ class GoalProgressService {
       }
 
       // Get recent sessions (last 10)
-      const recentSessions = await RideSession.RideSession
+      const recentSessions = await RideSession
         .find({ goalId })
         .sort({ endTime: -1 })
         .limit(10)
@@ -328,14 +328,14 @@ class GoalProgressService {
     const { limit = 50, offset = 0, sortBy = 'endTime', order = -1 } = options;
 
     try {
-      const sessions = await RideSession.RideSession
+      const sessions = await RideSession
         .find({ goalId })
         .sort({ [sortBy]: order })
         .skip(offset)
         .limit(limit)
         .lean();
 
-      const total = await RideSession.RideSession.countDocuments({ goalId });
+      const total = await RideSession.countDocuments({ goalId });
 
       return {
         sessions,
