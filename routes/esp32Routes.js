@@ -292,7 +292,7 @@ router.post('/register', authenticateToken, async (req, res) => {
 router.post('/session/start', authenticateToken, async (req, res) => {
   try {
     const userId = req.user?.userId;
-    const { deviceId } = req.body;
+    const { deviceId, startTime } = req.body;
     
     if (!deviceId) {
       return res.status(400).json({
@@ -301,26 +301,101 @@ router.post('/session/start', authenticateToken, async (req, res) => {
       });
     }
     
-    // TODO: Implement when models are available
-    // Mock session creation for now
-    const session = {
-      sessionId: `session_${Date.now()}`,
+    // Check if there's already an active session
+    const existingSession = await RideSession.findOne({
+      userId,
+      status: 'active'
+    });
+    
+    if (existingSession) {
+      logger.info(`User ${userId} already has active session: ${existingSession.sessionId}`);
+      return res.json({
+        success: true,
+        data: {
+          sessionId: existingSession.sessionId,
+          userId: existingSession.userId,
+          deviceId: existingSession.deviceId,
+          startTime: existingSession.startTime,
+          status: existingSession.status,
+          message: 'Resumed existing session'
+        }
+      });
+    }
+    
+    // Register or update device
+    let device = await ESP32Device.findOne({ deviceId, userId });
+    if (!device) {
+      device = await ESP32Device.create({
+        deviceId,
+        userId,
+        deviceName: deviceId,
+        lastSeen: new Date(),
+        isActive: true
+      });
+      logger.info(`✅ New device registered: ${deviceId} for user ${userId}`);
+    } else {
+      device.lastSeen = new Date();
+      device.isActive = true;
+      await device.save();
+    }
+    
+    // Find active plan to link session to goal
+    let goalId = null;
+    let planId = null;
+    
+    try {
+      const activePlan = await CyclingPlan.findOne({
+        user: userId,
+        isActive: true
+      }).select('_id goal');
+      
+      if (activePlan) {
+        planId = activePlan._id;
+        goalId = activePlan.goal;
+        logger.info('🔗 Linking session to plan and goal', { 
+          planId: planId?.toString(), 
+          goalId: goalId?.toString() 
+        });
+      } else {
+        logger.warn('⚠️ No active plan found, session will not be linked to goal', { userId });
+      }
+    } catch (planError) {
+      logger.error('Error finding active plan for session:', planError);
+    }
+    
+    // Create new session
+    const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    const session = await RideSession.create({
       userId,
       deviceId,
-      startTime: new Date(),
-      status: 'active'
-    };
+      sessionId,
+      startTime: startTime ? new Date(startTime) : new Date(),
+      status: 'active',
+      planId,
+      goalId
+    });
     
-    logger.info(`New ride session started: ${session.sessionId} for user ${userId}`);
+    logger.info(`✅ New ride session started: ${session.sessionId} for user ${userId}`, {
+      planId: planId?.toString(),
+      goalId: goalId?.toString()
+    });
     
     res.json({
       success: true,
-      data: session,
+      data: {
+        sessionId: session.sessionId,
+        userId: session.userId,
+        deviceId: session.deviceId,
+        startTime: session.startTime,
+        status: session.status,
+        planId: session.planId,
+        goalId: session.goalId
+      },
       message: 'Ride session started successfully'
     });
     
   } catch (error) {
-    logger.error('Start session error:', error);
+    logger.error('❌ Start session error:', error);
     res.status(500).json({
       success: false,
       error: 'Failed to start session',
@@ -440,6 +515,96 @@ router.post('/telemetry', authenticateToken, async (req, res) => {
       success: false,
       error: 'Failed to process telemetry',
       details: error.message
+    });
+  }
+});
+
+// ============================================================================
+// 📡 REALTIME SESSION UPDATE (Auto-save every 5 seconds from Flutter)
+// ============================================================================
+router.post('/realtime', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    const { sessionId, metrics } = req.body;
+    
+    if (!sessionId || !metrics) {
+      return res.status(400).json({
+        success: false,
+        error: 'Session ID and metrics are required'
+      });
+    }
+    
+    // Find active session
+    const session = await RideSession.findOne({
+      sessionId,
+      userId,
+      status: 'active'
+    });
+    
+    if (!session) {
+      return res.status(404).json({
+        success: false,
+        error: 'Active session not found'
+      });
+    }
+    
+    // Create telemetry data point
+    const telemetry = await Telemetry.create({
+      deviceId: session.deviceId,
+      userId,
+      sessionId,
+      metrics: {
+        speed: metrics.currentKPH || 0,
+        cadence: metrics.currentRPM || 0,
+        distance: metrics.totalDistance || 0,
+        watts: 0,
+        pulseCount: 0
+      },
+      battery: {
+        voltage: 0,
+        level: 0
+      },
+      workoutActive: true,
+      timestamp: new Date(metrics.timestamp || Date.now())
+    });
+    
+    // Update session metrics in real-time
+    await session.updateMetrics(telemetry);
+    
+    // Calculate calories burned
+    const user = await User.findById(userId).select('profile');
+    if (user?.profile) {
+      const caloriesBurned = await calculateCyclingCalories(
+        userId,
+        metrics.totalDistance || 0,
+        0, // duration in minutes (calculated from session start)
+        metrics.currentKPH || 0
+      );
+      
+      // Update session calories
+      session.caloriesBurned = caloriesBurned;
+      await session.save();
+    }
+    
+    res.json({
+      success: true,
+      data: {
+        sessionId,
+        updated: true,
+        currentMetrics: {
+          speed: metrics.currentKPH,
+          rpm: metrics.currentRPM,
+          distance: metrics.totalDistance,
+          calories: session.caloriesBurned
+        }
+      }
+    });
+    
+  } catch (error) {
+    logger.error('❌ Realtime update error:', error);
+    res.status(500).json({
+      success: false,
+      error: error.message
     });
   }
 });
