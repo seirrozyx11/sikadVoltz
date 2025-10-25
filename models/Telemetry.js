@@ -90,6 +90,16 @@ const rideSessionSchema = new mongoose.Schema({
   },
   plannedHours: { type: Number, default: 0 },
   actualHours: { type: Number, default: 0 },
+  
+  // ========== NEW FIELD FOR DATA FLOW FIX ==========
+  // Issue #4: Link session directly to goal for progress tracking
+  goalId: { 
+    type: mongoose.Schema.Types.ObjectId, 
+    ref: 'Goal',
+    index: true
+  },
+  // ========== END NEW FIELD ==========
+  
   // Route data
   route: [{
     lat: Number,

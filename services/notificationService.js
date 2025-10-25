@@ -10,6 +10,62 @@ import fcmService from './fcmService.js';
 class NotificationService {
   
   /**
+   * Generic notification creation (Issue #10)
+   * Used by AchievementService and GoalProgressService
+   * @param {string} userId - User ID
+   * @param {Object} notificationData - Notification details
+   * @returns {Promise<Notification>} Created notification
+   */
+  static async createNotification(userId, notificationData) {
+    try {
+      const {
+        type,
+        title,
+        message,
+        priority = 'medium',
+        actions = [],
+        data = {},
+        expiresAt = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000) // 30 days default
+      } = notificationData;
+
+      const notification = new Notification({
+        userId,
+        type,
+        title,
+        message,
+        priority,
+        actions,
+        data: {
+          ...data,
+          timestamp: new Date()
+        },
+        expiresAt
+      });
+
+      await notification.save();
+      
+      // Broadcast via WebSocket or FCM
+      await this.broadcastNotification(userId, notification);
+      
+      logger.info(`Generic notification created`, {
+        userId,
+        notificationId: notification._id,
+        type,
+        priority
+      });
+
+      return notification;
+    } catch (error) {
+      logger.error('Error creating notification:', { 
+        error: error.message, 
+        userId,
+        notificationData 
+      });
+      throw error;
+    }
+  }
+
+  /**
    * Create a missed session notification
    * @param {string} userId - User ID
    * @param {Object} missedSessionData - Missed session details

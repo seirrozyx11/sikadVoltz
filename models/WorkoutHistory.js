@@ -12,6 +12,15 @@ const workoutHistorySchema = new mongoose.Schema({
     ref: 'CyclingPlan',
     required: true
   },
+  
+  // ========== NEW FIELD FOR DATA FLOW FIX ==========
+  // Issue #8: Link to all sessions that were part of this workout history
+  linkedSessions: [{
+    type: mongoose.Schema.Types.ObjectId,
+    ref: 'RideSession'
+  }],
+  // ========== END NEW FIELD ==========
+  
   startDate: {
     type: Date,
     required: true

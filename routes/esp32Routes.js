@@ -97,14 +97,44 @@ router.post('/ride-data', authenticateToken, validateRideData, async (req, res) 
       if (!session && state === 'active') {
         // Create new session
         const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+        
+        // ========== DATA FLOW FIX: Link session to goal (Issue #4) ==========
+        // Find active plan to get goalId
+        let goalId = null;
+        let planId = null;
+        
+        try {
+          const activePlan = await CyclingPlan.findOne({
+            user: userId,
+            isActive: true
+          }).select('_id goal');
+          
+          if (activePlan) {
+            planId = activePlan._id;
+            goalId = activePlan.goal;
+            logger.info('🔗 Linking session to plan and goal', { 
+              sessionId, 
+              planId: planId?.toString(), 
+              goalId: goalId?.toString() 
+            });
+          } else {
+            logger.warn('⚠️ No active plan found, session will not be linked to goal', { userId });
+          }
+        } catch (planError) {
+          logger.error('Error finding active plan for session:', planError);
+        }
+        // ========== END DATA FLOW FIX ==========
+        
         session = await RideSession.create({
           userId,
           deviceId: device.deviceId,
           sessionId,
           startTime: new Date(),
-          status: 'active'
+          status: 'active',
+          planId, // Link to plan
+          goalId  // ✅ NEW: Link to goal for progress tracking
         });
-        logger.info(' New ride session created', { sessionId, userId });
+        logger.info('✅ New ride session created', { sessionId, userId, planId, goalId });
       }
 
       // Store telemetry data point

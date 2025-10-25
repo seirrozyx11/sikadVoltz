@@ -1,5 +1,7 @@
 import CyclingPlan from '../models/CyclingPlan.js';
 import User from '../models/User.js';
+import GoalProgressService from './goalProgressService.js';
+import AchievementService from './achievementService.js';
 
 /**
  * Session Tracker Service
@@ -248,6 +250,174 @@ class SessionTrackerService {
 
       // Finalize user activity log
       await this.finalizeUserActivity(userId, sessionData);
+
+      // ========== DATA FLOW FIX: CONNECT TO GOALS & ACHIEVEMENTS ==========
+      console.log('[SessionTracker] 🔗 Connecting session to goal and achievement systems...');
+      
+      try {
+        // 1. Update goal progress (Issues #1-5, #7)
+        if (plan.goal) {
+          const goalUpdateData = {
+            _id: sessionId, // Session ID for linking
+            sessionId,
+            totalDistance: sessionEntry?.finalDistance || 0,
+            totalCalories: sessionEntry?.finalCalories || 0,
+            duration: (sessionEntry?.finalHours || 0) * 3600, // Convert hours to seconds
+            avgSpeed: sessionEntry?.finalDistance && sessionEntry?.finalHours 
+              ? (sessionEntry.finalDistance / sessionEntry.finalHours) 
+              : 0,
+            avgPower: sessionEntry?.avgPower || 0,
+            endTime: sessionEntry?.completedAt || new Date()
+          };
+
+          await GoalProgressService.updateGoalFromSession(plan.goal, goalUpdateData);
+          console.log('[SessionTracker] ✅ Goal progress updated');
+        } else {
+          console.log('[SessionTracker] ⚠️ Plan has no linked goal, skipping goal update');
+        }
+
+        // 2. Award XP and check achievements (Issue #6)
+        const sessionAchievementData = {
+          totalDistance: sessionEntry?.finalDistance || 0,
+          totalCalories: sessionEntry?.finalCalories || 0,
+          duration: (sessionEntry?.finalHours || 0) * 3600,
+          avgSpeed: sessionEntry?.finalDistance && sessionEntry?.finalHours 
+            ? (sessionEntry.finalDistance / sessionEntry.finalHours) 
+            : 0,
+          avgPower: sessionEntry?.avgPower || 0,
+          maxSpeed: sessionEntry?.maxSpeed || 0,
+          maxPower: sessionEntry?.maxPower || 0
+        };
+
+        // Award XP
+        const xpResult = await AchievementService.awardWorkoutXP(userId, sessionAchievementData);
+        console.log('[SessionTracker] ✅ XP awarded:', xpResult.xpEarned);
+
+        // Update streak
+        await AchievementService.updateStreak(userId, sessionEntry?.completedAt);
+        console.log('[SessionTracker] ✅ Streak updated');
+
+        // Check milestones
+        const user = await User.findById(userId);
+        const milestoneStats = {
+          totalDistance: (user.totalDistanceCycled || 0) + (sessionEntry?.finalDistance || 0),
+          totalWorkouts: (user.totalWorkouts || 0) + 1,
+          totalCalories: (user.totalCaloriesBurned || 0) + (sessionEntry?.finalCalories || 0)
+        };
+        const newMilestones = await AchievementService.checkMilestones(userId, milestoneStats);
+        if (newMilestones.length > 0) {
+          console.log('[SessionTracker] ✅ New milestones achieved:', newMilestones.length);
+        }
+
+        // Check badges
+        const newBadges = await AchievementService.checkBadgeProgress(userId, sessionAchievementData);
+        if (newBadges.length > 0) {
+          console.log('[SessionTracker] ✅ New badges unlocked:', newBadges.length);
+        }
+
+        // ========== ISSUE #8: AUTO-ARCHIVE COMPLETED PLANS ==========
+        // Check if plan is fully completed
+        if (plan.completedDays >= plan.totalDays && plan.isActive) {
+          console.log('[SessionTracker] 🏁 Plan completed! Creating workout history...');
+          
+          try {
+            const WorkoutHistory = (await import('../models/WorkoutHistory.js')).default;
+            const RideSession = (await import('../models/Telemetry.js')).RideSession;
+            
+            // Get all sessions for this plan
+            const planSessions = await RideSession.find({ 
+              planId: plan._id,
+              status: 'completed'
+            }).select('_id totalDistance totalCalories avgSpeed duration');
+
+            // Calculate statistics
+            const totalDistance = planSessions.reduce((sum, s) => sum + (s.totalDistance || 0), 0);
+            const totalCalories = planSessions.reduce((sum, s) => sum + (s.totalCalories || 0), 0);
+            const totalDuration = planSessions.reduce((sum, s) => sum + (s.duration || 0), 0);
+            const avgSpeed = planSessions.length > 0 
+              ? planSessions.reduce((sum, s) => sum + (s.avgSpeed || 0), 0) / planSessions.length 
+              : 0;
+
+            // Create workout history
+            const workoutHistory = await WorkoutHistory.create({
+              user: userId,
+              plan: plan._id,
+              linkedSessions: planSessions.map(s => s._id),
+              startDate: plan.originalPlan?.startDate || plan.createdAt,
+              endDate: new Date(),
+              status: 'completed',
+              statistics: {
+                totalSessions: planSessions.length,
+                completedSessions: planSessions.length,
+                missedSessions: plan.totalDays - planSessions.length,
+                totalHours: totalDuration / 3600,
+                completedHours: totalDuration / 3600,
+                caloriesBurned: totalCalories,
+                averageIntensity: 2, // Default intensity
+                originalGoal: {
+                  type: 'cycling_plan',
+                  targetValue: plan.totalDays,
+                  timeframe: plan.totalDays
+                }
+              },
+              planSummary: {
+                planType: 'cycling',
+                dailyCyclingHours: plan.planSummary?.dailyCyclingHours || 1,
+                totalPlanDays: plan.totalDays,
+                completionRate: (planSessions.length / plan.totalDays) * 100
+              },
+              notes: `Plan completed on ${new Date().toLocaleDateString()}`
+            });
+
+            // Mark plan as inactive
+            plan.isActive = false;
+            await plan.save();
+
+            console.log('[SessionTracker] ✅ Workout history created:', workoutHistory._id);
+            console.log('[SessionTracker] ✅ Plan marked as inactive');
+
+            // Send completion notification
+            const NotificationService = (await import('./notificationService.js')).default;
+            await NotificationService.createNotification(userId, {
+              type: 'plan_completed',
+              title: '🎉 Plan Completed!',
+              message: `Congratulations! You've completed your ${plan.totalDays}-day cycling plan with ${planSessions.length} sessions and ${totalDistance.toFixed(1)}km total distance!`,
+              priority: 'high',
+              actions: [
+                {
+                  type: 'navigation',
+                  label: 'View History',
+                  data: { route: '/workout-history' },
+                  isPrimary: true
+                },
+                {
+                  type: 'navigation',
+                  label: 'Create New Plan',
+                  data: { route: '/goal-frames' },
+                  isPrimary: false
+                }
+              ],
+              data: {
+                planId: plan._id,
+                workoutHistoryId: workoutHistory._id,
+                totalSessions: planSessions.length,
+                totalDistance,
+                totalCalories
+              }
+            });
+
+          } catch (archiveError) {
+            console.error('[SessionTracker] ⚠️ Error creating workout history:', archiveError);
+          }
+        }
+        // ========== END ISSUE #8 ==========
+
+      } catch (integrationError) {
+        // Don't fail the entire session if goal/achievement update fails
+        console.error('[SessionTracker] ⚠️ Error in goal/achievement integration:', integrationError);
+        console.error('[SessionTracker] Session completed, but goal/achievement tracking failed');
+      }
+      // ========== END DATA FLOW FIX ==========
 
       return {
         success: true,
