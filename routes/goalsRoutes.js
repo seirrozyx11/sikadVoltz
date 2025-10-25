@@ -6,6 +6,31 @@ import authenticateToken from '../middleware/authenticateToken.js';
 
 const router = express.Router();
 
+// Get all user goals (or filter by status)
+router.get('/', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    const { status } = req.query; // Optional: filter by status (active, completed, paused)
+
+    const query = { user: userId };
+    if (status) {
+      query.status = status;
+    }
+
+    const goals = await Goal.find(query)
+      .sort({ createdAt: -1 }) // Newest first
+      .lean();
+
+    res.status(200).json({ 
+      success: true, 
+      goals,
+      count: goals.length 
+    });
+  } catch (error) {
+    res.status(500).json({ success: false, error: error.message });
+  }
+});
+
 // Create a new goal
 router.post('/', authenticateToken, async (req, res) => {
   try {
