@@ -488,6 +488,46 @@ router.post('/telemetry', authenticateToken, async (req, res) => {
       }
     }
 
+    // **CRITICAL FIX**: Save telemetry data to database
+    let savedTelemetry = null;
+    if (sessionId) {
+      try {
+        savedTelemetry = await Telemetry.create({
+          deviceId,
+          userId,
+          sessionId,
+          metrics: {
+            speed: telemetryData.speed,
+            cadence: telemetryData.cadence,
+            distance: telemetryData.distance,
+            watts: telemetryData.power,
+            pulseCount: 0
+          },
+          battery: {
+            voltage: telemetryData.voltage,
+            level: 0
+          },
+          workoutActive: isSessionActive,
+          timestamp: new Date()
+        });
+        
+        logger.info(`✅ Telemetry saved to database`, {
+          telemetryId: savedTelemetry._id,
+          sessionId,
+          metrics: savedTelemetry.metrics
+        });
+        
+        // Update session metrics if session exists
+        const session = await RideSession.findOne({ sessionId, status: 'active' });
+        if (session) {
+          await session.updateMetrics({ metrics: savedTelemetry.metrics });
+          logger.info(`✅ Session metrics updated`, { sessionId });
+        }
+      } catch (dbError) {
+        logger.error('❌ Failed to save telemetry to database:', dbError);
+      }
+    }
+
     // Publish to real-time service if available
     const telemetryService = req.app.locals.telemetryService;
     if (telemetryService) {
@@ -503,6 +543,8 @@ router.post('/telemetry', authenticateToken, async (req, res) => {
       message: 'Telemetry received and processed',
       data: {
         processed: telemetryData,
+        saved: !!savedTelemetry,
+        telemetryId: savedTelemetry?._id,
         sessionActive: isSessionActive,
         autoSession: telemetryData.auto_session,
         timestamp: new Date().toISOString()
