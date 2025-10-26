@@ -1,8 +1,7 @@
 import express from 'express';
 import authenticateToken from '../middleware/authenticateToken.js';
 import CyclingPlan from '../models/CyclingPlan.js';
-import { Telemetry } from '../models/Telemetry.js';
-import RideSession from '../models/RideSession.js';
+import { Telemetry, RideSession } from '../models/Telemetry.js';
 
 const router = express.Router();
 
