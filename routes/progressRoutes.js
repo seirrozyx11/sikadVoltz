@@ -2,8 +2,60 @@ import express from 'express';
 import authenticateToken from '../middleware/authenticateToken.js';
 import CyclingPlan from '../models/CyclingPlan.js';
 import { Telemetry } from '../models/Telemetry.js';
+import RideSession from '../models/RideSession.js';
 
 const router = express.Router();
+
+// 🆕 Get today's accumulated progress (for dashboard)
+router.get('/today', authenticateToken, async (req, res) => {
+  try {
+    const userId = req.user.userId;
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    const tomorrow = new Date(today);
+    tomorrow.setDate(tomorrow.getDate() + 1);
+    
+    // Get all completed sessions for today
+    const sessions = await RideSession.find({
+      userId,
+      startTime: { $gte: today, $lt: tomorrow },
+      status: 'completed'
+    });
+    
+    // Calculate totals
+    const totalCalories = sessions.reduce((sum, s) => sum + (s.totalCalories || 0), 0);
+    const totalDistance = sessions.reduce((sum, s) => sum + (s.totalDistance || 0), 0);
+    const totalDuration = sessions.reduce((sum, s) => sum + (s.duration || 0), 0);
+    const totalHours = totalDuration / (1000 * 60 * 60);
+    
+    console.log(`📊 [Today Progress] User ${userId}: ${sessions.length} sessions, ${totalCalories.toFixed(1)} kcal, ${totalDistance.toFixed(2)} km`);
+    
+    res.json({
+      success: true,
+      data: {
+        totalCalories,
+        totalHours,
+        totalDistance,
+        sessionCount: sessions.length,
+        sessions: sessions.map(s => ({
+          id: s.sessionId,
+          startTime: s.startTime,
+          duration: s.duration,
+          calories: s.totalCalories,
+          distance: s.totalDistance
+        }))
+      }
+    });
+  } catch (error) {
+    console.error('[ProgressRoutes] Error getting today progress:', error);
+    res.status(500).json({ 
+      success: false, 
+      message: 'Failed to fetch today progress',
+      error: error.message 
+    });
+  }
+});
 
 // Get cycling progress data for a date range 
 router.get('/progress', authenticateToken, async (req, res) => {

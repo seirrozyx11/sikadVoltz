@@ -609,52 +609,8 @@ router.post('/realtime', authenticateToken, async (req, res) => {
   }
 });
 
-// End ride session
-router.post('/session/end', authenticateToken, async (req, res) => {
-  try {
-    const userId = req.user?.userId;
-    const { sessionId, deviceId } = req.body;
-    
-    if (!sessionId) {
-      return res.status(400).json({
-        success: false,
-        error: 'Session ID is required'
-      });
-    }
-    
-    // TODO: Implement when models are available
-    // Mock session completion for now
-    const completedSession = {
-      sessionId,
-      userId,
-      deviceId,
-      endTime: new Date(),
-      status: 'completed',
-      summary: {
-        duration: '30 minutes',
-        distance: '5.2 km',
-        avgSpeed: '10.4 km/h',
-        calories: 150
-      }
-    };
-    
-    logger.info(`Session completed: ${sessionId}`);
-    
-    res.json({
-      success: true,
-      data: completedSession,
-      message: 'Session completed successfully'
-    });
-    
-  } catch (error) {
-    logger.error('End session error:', error);
-    res.status(500).json({
-      success: false,
-      error: 'Failed to end session',
-      details: error.message
-    });
-  }
-});
+// ❌ REMOVED: Duplicate /session/end endpoint (old mock implementation)
+// ✅ Using the enhanced version below (line 747+) with SessionTrackerService integration
 
 // GET /api/esp32/sessions - Get user's ESP32 sessions
 router.get('/sessions', authenticateToken, async (req, res) => {
