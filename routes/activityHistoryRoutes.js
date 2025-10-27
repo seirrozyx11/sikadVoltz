@@ -168,63 +168,102 @@ router.get('/chart-data', authenticateToken, async (req, res) => {
     
     // Group sessions by time range
     const chartData = [];
+    const now = new Date();
     
     if (timeRange === 'weekly') {
-      // Group by week
-      const weekMap = new Map();
+      // Group by day of week (7 days)
+      const dayMap = new Map();
       
+      // Get start of current week (Sunday = 0)
+      const weekStart = new Date(now);
+      weekStart.setDate(now.getDate() - now.getDay());
+      weekStart.setHours(0, 0, 0, 0);
+      
+      // Initialize all 7 days with zero values
+      for (let i = 0; i < 7; i++) {
+        const dayDate = new Date(weekStart);
+        dayDate.setDate(weekStart.getDate() + i);
+        const dayKey = dayDate.toISOString().split('T')[0];
+        dayMap.set(dayKey, {
+          date: dayKey,
+          dayOfWeek: i, // 0=Sun, 1=Mon, ..., 6=Sat
+          distance: 0,
+          calories: 0,
+          duration: 0,
+          sessions: 0,
+        });
+      }
+      
+      // Add session data to corresponding days
       sessions.forEach(session => {
-        const date = new Date(session.startTime);
-        const weekStart = new Date(date);
-        weekStart.setDate(date.getDate() - date.getDay()); // Start of week
-        weekStart.setHours(0, 0, 0, 0);
-        const weekKey = weekStart.toISOString().split('T')[0];
+        const sessionDate = new Date(session.startTime);
+        sessionDate.setHours(0, 0, 0, 0);
+        const dayKey = sessionDate.toISOString().split('T')[0];
         
-        if (!weekMap.has(weekKey)) {
-          weekMap.set(weekKey, {
-            date: weekKey,
-            distance: 0,
-            calories: 0,
-            duration: 0,
-            sessions: 0,
-          });
+        if (dayMap.has(dayKey)) {
+          const dayData = dayMap.get(dayKey);
+          dayData.distance += session.totalDistance || 0;
+          dayData.calories += session.totalCalories || 0;
+          dayData.duration += session.duration || 0;
+          dayData.sessions += 1;
         }
-        
-        const weekData = weekMap.get(weekKey);
-        weekData.distance += session.totalDistance || 0;
-        weekData.calories += session.totalCalories || 0;
-        weekData.duration += session.duration || 0;
-        weekData.sessions += 1;
       });
       
-      chartData.push(...Array.from(weekMap.values()));
+      // Convert to array in order
+      chartData.push(...Array.from(dayMap.values()).sort((a, b) => a.dayOfWeek - b.dayOfWeek));
+      
     } else if (timeRange === 'monthly') {
-      // Group by month
-      const monthMap = new Map();
+      // Group by day of month (all days in current month)
+      const dayMap = new Map();
       
+      // Get first and last day of current month
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1);
+      const lastDay = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+      const daysInMonth = lastDay.getDate();
+      
+      // Initialize all days of month with zero values
+      for (let day = 1; day <= daysInMonth; day++) {
+        const dayDate = new Date(now.getFullYear(), now.getMonth(), day);
+        const dayKey = dayDate.toISOString().split('T')[0];
+        dayMap.set(dayKey, {
+          date: dayKey,
+          dayOfMonth: day,
+          distance: 0,
+          calories: 0,
+          duration: 0,
+          sessions: 0,
+        });
+      }
+      
+      // Add session data to corresponding days
       sessions.forEach(session => {
-        const date = new Date(session.startTime);
-        const monthKey = `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}`;
+        const sessionDate = new Date(session.startTime);
+        const isCurrentMonth = sessionDate.getMonth() === now.getMonth() && 
+                               sessionDate.getFullYear() === now.getFullYear();
         
-        if (!monthMap.has(monthKey)) {
-          monthMap.set(monthKey, {
-            date: monthKey,
-            distance: 0,
-            calories: 0,
-            duration: 0,
-            sessions: 0,
-          });
+        if (isCurrentMonth) {
+          sessionDate.setHours(0, 0, 0, 0);
+          const dayKey = sessionDate.toISOString().split('T')[0];
+          
+          if (dayMap.has(dayKey)) {
+            const dayData = dayMap.get(dayKey);
+            dayData.distance += session.totalDistance || 0;
+            dayData.calories += session.totalCalories || 0;
+            dayData.duration += session.duration || 0;
+            dayData.sessions += 1;
+          }
         }
-        
-        const monthData = monthMap.get(monthKey);
-        monthData.distance += session.totalDistance || 0;
-        monthData.calories += session.totalCalories || 0;
-        monthData.duration += session.duration || 0;
-        monthData.sessions += 1;
       });
       
-      chartData.push(...Array.from(monthMap.values()));
+      // Convert to array in order
+      chartData.push(...Array.from(dayMap.values()).sort((a, b) => a.dayOfMonth - b.dayOfMonth));
     }
+    
+    console.log(`[ActivityHistory] Chart data for ${timeRange}:`, {
+      totalDataPoints: chartData.length,
+      totalSessions: sessions.length,
+      sampleData: chartData.slice(0, 3),
+    });
     
     res.json({
       success: true,
