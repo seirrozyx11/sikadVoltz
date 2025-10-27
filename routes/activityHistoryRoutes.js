@@ -28,24 +28,42 @@ router.get('/overview', authenticateToken, async (req, res) => {
       .sort({ createdAt: -1 })
       .lean();
     
-    // Calculate total stats across all plans
-    let totalDistance = 0;
-    let totalCalories = 0;
-    let totalDuration = 0;
+    // FIXED: Get all completed ride sessions to calculate accurate distance
+    const completedRideSessions = await RideSession.find({ 
+      userId, 
+      status: 'completed' 
+    }).lean();
+    
+    console.log(`[ActivityHistory] Found ${completedRideSessions.length} completed ride sessions for user ${userId}`);
+    
+    // Calculate total stats from ride sessions (more accurate)
+    const totalDistanceFromSessions = completedRideSessions.reduce((sum, session) => {
+      const distance = session.totalDistance || 0;
+      console.log(`  Session ${session._id}: ${distance} km`);
+      return sum + distance;
+    }, 0);
+    const totalCaloriesFromSessions = completedRideSessions.reduce((sum, s) => sum + (s.totalCalories || 0), 0);
+    const totalDurationFromSessions = completedRideSessions.reduce((sum, s) => sum + ((s.duration || 0) / 3600), 0); // Convert seconds to hours
+    
+    console.log(`[ActivityHistory] Total from sessions: ${totalDistanceFromSessions} km, ${totalCaloriesFromSessions} kcal, ${totalDurationFromSessions.toFixed(2)} hrs`);
+    
+    // Calculate total stats across all plans (for completion tracking)
+    let totalDistance = totalDistanceFromSessions; // Use session data for distance
+    let totalCalories = totalCaloriesFromSessions; // Use session data for calories
+    let totalDuration = totalDurationFromSessions; // Use session data for duration
     let totalSessions = 0;
-    let completedSessions = 0;
+    let completedSessions = completedRideSessions.length; // Use actual completed sessions count
     
     const planHistory = await Promise.all(allPlans.map(async (plan) => {
       const completedSessionsInPlan = plan.dailySessions.filter(s => s.status === 'completed' || s.status === 'redistributed');
+      
+      // Don't re-add to totals since we already calculated from ride sessions
+      totalSessions += plan.dailySessions.length;
+      
+      // Calculate plan-specific stats (for display purposes)
       const planDistance = completedSessionsInPlan.reduce((sum, s) => sum + (s.distance || 0), 0);
       const planCalories = completedSessionsInPlan.reduce((sum, s) => sum + (s.caloriesBurned || 0), 0);
       const planDuration = completedSessionsInPlan.reduce((sum, s) => sum + (s.completedHours || 0), 0);
-      
-      totalDistance += planDistance;
-      totalCalories += planCalories;
-      totalDuration += planDuration;
-      totalSessions += plan.dailySessions.length;
-      completedSessions += completedSessionsInPlan.length;
       
       return {
         planId: plan._id,
