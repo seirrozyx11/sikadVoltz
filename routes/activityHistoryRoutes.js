@@ -54,11 +54,21 @@ router.get('/overview', authenticateToken, async (req, res) => {
     let totalSessions = 0;
     let completedSessions = completedRideSessions.length; // Use actual completed sessions count
     
+    // Track active plan for completion rate
+    let activePlanTotalSessions = 0;
+    let activePlanCompletedSessions = 0;
+    
     const planHistory = await Promise.all(allPlans.map(async (plan) => {
       const completedSessionsInPlan = plan.dailySessions.filter(s => s.status === 'completed' || s.status === 'redistributed');
       
       // Don't re-add to totals since we already calculated from ride sessions
       totalSessions += plan.dailySessions.length;
+      
+      // Track active plan sessions for completion rate
+      if (plan.isActive) {
+        activePlanTotalSessions = plan.dailySessions.length;
+        activePlanCompletedSessions = completedSessionsInPlan.length;
+      }
       
       // Calculate plan-specific stats (for display purposes)
       const planDistance = completedSessionsInPlan.reduce((sum, s) => sum + (s.distance || 0), 0);
@@ -84,6 +94,11 @@ router.get('/overview', authenticateToken, async (req, res) => {
       };
     }));
     
+    // Calculate completion rate from active plan only (not all plans)
+    const completionRate = activePlanTotalSessions > 0 
+      ? (activePlanCompletedSessions / activePlanTotalSessions) * 100 
+      : 0;
+    
     res.json({
       success: true,
       data: {
@@ -94,7 +109,7 @@ router.get('/overview', authenticateToken, async (req, res) => {
           distance: totalDistance,
           calories: totalCalories,
           duration: totalDuration,
-          completionRate: totalSessions > 0 ? (completedSessions / totalSessions) * 100 : 0,
+          completionRate,
         },
         plans: planHistory,
         workoutHistory,
