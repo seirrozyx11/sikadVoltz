@@ -365,6 +365,15 @@ router.post('/session/start', authenticateToken, async (req, res) => {
     
     // Create new session
     const sessionId = `session_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+    
+    logger.info(`📝 Creating RideSession in database...`, {
+      userId,
+      deviceId,
+      sessionId,
+      planId: planId?.toString(),
+      goalId: goalId?.toString()
+    });
+    
     const session = await RideSession.create({
       userId,
       deviceId,
@@ -376,9 +385,19 @@ router.post('/session/start', authenticateToken, async (req, res) => {
     });
     
     logger.info(`✅ New ride session started: ${session.sessionId} for user ${userId}`, {
+      sessionDbId: session._id?.toString(),
       planId: planId?.toString(),
-      goalId: goalId?.toString()
+      goalId: goalId?.toString(),
+      collection: 'ridesessions'
     });
+    
+    // Verify session was saved
+    const verifySession = await RideSession.findOne({ sessionId });
+    if (verifySession) {
+      logger.info(`✅ Session verified in database: ${sessionId}`);
+    } else {
+      logger.error(`❌ Session NOT found in database after creation: ${sessionId}`);
+    }
     
     res.json({
       success: true,
@@ -490,12 +509,29 @@ router.post('/telemetry', authenticateToken, async (req, res) => {
 
     // **CRITICAL FIX**: Save telemetry data to database
     let savedTelemetry = null;
-    if (sessionId) {
+    let effectiveSessionId = sessionId;
+    
+    // If no sessionId provided, find active session for this user
+    if (!effectiveSessionId) {
+      try {
+        const activeSession = await RideSession.findOne({ userId, status: 'active' });
+        if (activeSession) {
+          effectiveSessionId = activeSession.sessionId;
+          logger.info(`📍 Found active session: ${effectiveSessionId}`);
+        } else {
+          logger.warn(`⚠️ No sessionId provided and no active session found for user ${userId}`);
+        }
+      } catch (findError) {
+        logger.error('❌ Error finding active session:', findError);
+      }
+    }
+    
+    if (effectiveSessionId) {
       try {
         savedTelemetry = await Telemetry.create({
           deviceId,
           userId,
-          sessionId,
+          sessionId: effectiveSessionId,
           metrics: {
             speed: telemetryData.speed,
             cadence: telemetryData.cadence,
@@ -513,19 +549,23 @@ router.post('/telemetry', authenticateToken, async (req, res) => {
         
         logger.info(`✅ Telemetry saved to database`, {
           telemetryId: savedTelemetry._id,
-          sessionId,
+          sessionId: effectiveSessionId,
           metrics: savedTelemetry.metrics
         });
         
         // Update session metrics if session exists
-        const session = await RideSession.findOne({ sessionId, status: 'active' });
+        const session = await RideSession.findOne({ sessionId: effectiveSessionId, status: 'active' });
         if (session) {
           await session.updateMetrics({ metrics: savedTelemetry.metrics });
-          logger.info(`✅ Session metrics updated`, { sessionId });
+          logger.info(`✅ Session metrics updated`, { sessionId: effectiveSessionId });
+        } else {
+          logger.warn(`⚠️ Session ${effectiveSessionId} not found for metrics update`);
         }
       } catch (dbError) {
         logger.error('❌ Failed to save telemetry to database:', dbError);
       }
+    } else {
+      logger.warn(`⚠️ Cannot save telemetry: no sessionId available`);
     }
 
     // Publish to real-time service if available
