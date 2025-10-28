@@ -115,7 +115,13 @@ router.get('/health-screening', authenticateToken, async (req, res) => {
       });
     }
 
-    if (!user.healthScreening) {
+    // BUG FIX: Check for actual valid data, not just object existence
+    const hasValidScreeningData = user.healthScreening && 
+                                   user.healthScreening.riskLevel && 
+                                   user.healthScreening.riskScore !== undefined && 
+                                   user.healthScreening.screeningDate;
+
+    if (!hasValidScreeningData) {
       return res.json({
         success: true,
         message: 'No health screening data found',

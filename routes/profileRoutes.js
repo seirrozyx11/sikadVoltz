@@ -64,7 +64,14 @@ router.get('/health-screening', authenticateToken, async (req, res) => {
     }
     
     // Check if health screening is completed
-    if (!user.healthScreening) {
+    // BUG FIX: Must check for actual data, not just object existence
+    //HealthScreening object might exist with empty/default values from Mongoose
+    const hasValidScreeningData = user.healthScreening && 
+                                   user.healthScreening.riskLevel && 
+                                   user.healthScreening.riskScore !== undefined && 
+                                   user.healthScreening.screeningDate;
+    
+    if (!hasValidScreeningData) {
       return res.json({
         success: true,
         data: {
@@ -78,17 +85,23 @@ router.get('/health-screening', authenticateToken, async (req, res) => {
     
     const screening = user.healthScreening;
     
+    // Validate screening is not expired (6 months validity)
+    const now = new Date();
+    const sixMonthsAgo = new Date(now.getTime() - (6 * 30 * 24 * 60 * 60 * 1000));
+    const isValid = screening.screeningDate > sixMonthsAgo;
+    
     return res.json({
       success: true,
       data: {
         screening_completed: true,
         has_complete_data: true,
-        can_proceed: screening.riskLevel !== 'HIGH',
-        requires_screening: false,
+        can_proceed: screening.riskLevel !== 'HIGH' && isValid,
+        requires_screening: !isValid, // Require new screening if expired
         risk_level: screening.riskLevel,
         risk_score: screening.riskScore,
         screening_date: screening.screeningDate,
-        is_quick_screening: screening.isQuickScreening
+        is_quick_screening: screening.isQuickScreening,
+        is_valid: isValid
       }
     });
     
