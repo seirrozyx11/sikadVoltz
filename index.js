@@ -224,6 +224,7 @@ v1Router.use('/esp32', esp32Routes);
 v1Router.use('/workout-history', workoutHistoryRoutes);
 v1Router.use('/progress', progressRoutes);
 v1Router.use('/health-screening', healthScreeningRoutes); // Fixed duplicate profile route
+v1Router.use('/activity-history', activityHistoryRoutes); // Activity history and chart data
 v1Router.use('/notifications', notificationRoutes);
 v1Router.use('/users', userRoutes); // Achievement system
 v1Router.use('/admin', adminTokenRoutes);
