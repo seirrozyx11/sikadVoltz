@@ -199,6 +199,11 @@ export async function generateCyclingPlan(userId, goalId) {
     const caloriesPerHour = calculateCyclingCaloriesDirect(user.profile.weight, 1, 'moderate');
     const dailyCyclingHours = dailyCalorieGoal / caloriesPerHour;
     
+    // Feasibility Check: Fail if daily_cycling_hours < 0.75 (below healthy minimum)
+    if (dailyCyclingHours < 0.75) {
+        throw new Error('Daily cycling hours below 45 minutes - below healthy minimum for effective results');
+    }
+    
     // Feasibility Check: Fail if daily_cycling_hours > 3 (exceeds safe limits)
     if (dailyCyclingHours > 3) {
         throw new Error('Daily cycling hours exceed 3 hours - unsafe limit');

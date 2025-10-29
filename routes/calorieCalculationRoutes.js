@@ -74,6 +74,14 @@ router.post('/calculate-plan', authenticateToken, async (req, res) => {
         const caloriesPerHour = calculateCyclingCaloriesDirect(user.profile.weight, 1, 'moderate');
         const dailyCyclingHours = dailyCalorieGoal / caloriesPerHour;
         
+        if (dailyCyclingHours < 0.75) {
+            return res.status(400).json({
+                success: false,
+                error: 'Daily cycling hours below 45 minutes - below healthy minimum for effective results',
+                recommendation: 'Please shorten the plan duration or increase weight loss goal for more effective results'
+            });
+        }
+        
         if (dailyCyclingHours > 3) {
             return res.status(400).json({
                 success: false,

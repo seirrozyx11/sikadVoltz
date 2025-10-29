@@ -267,7 +267,15 @@ function validatePlanSafety({
     );
   }
   
-  // Check cycling hours
+  // Check cycling hours - minimum
+  if (dailyCyclingHours < 0.75) {
+    warnings.push(
+      `Daily cycling requirement (${dailyCyclingHours.toFixed(2)} hours, ${Math.round(dailyCyclingHours * 60)} minutes) ` +
+      `is below the healthy minimum of 45 minutes. Consider extending your timeframe for more effective and sustainable results.`
+    );
+  }
+  
+  // Check cycling hours - maximum
   if (dailyCyclingHours > 3.0) {
     warnings.push(
       `Daily cycling requirement (${dailyCyclingHours.toFixed(2)} hours) exceeds safe limit of 3 hours. ` +
