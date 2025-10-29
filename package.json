@@ -26,6 +26,7 @@
     "firebase:setup": "node scripts/setup-firebase.js",
     "test:fcm": "cross-env NODE_ENV=development node scripts/test-fcm.js",
     "test:fcm:live": "node scripts/test-fcm-live.js",
+    "validate:push": "node scripts/validate-push-setup.js",
     "verify:production": "node scripts/verify-production-ready.js",
     "optimize:setup": "node scripts/performance-optimization-setup.js",
     "optimize:indexes": "node -e \"import('./services/databaseIndexManager.js').then(m => m.DatabaseIndexManager.createOptimizedIndexes())\"",
