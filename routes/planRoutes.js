@@ -26,6 +26,9 @@ import {
   // NEW: Smart Plan Adjustment Functions
   checkPlanAdjustment,
   suggestNewPlan,
+  // NEW: Selective Plan Update Functions
+  previewPlanUpdate,
+  updatePlanSelectively,
   // performDailyCheck, // Need to check if this exists
   // getPlanAdjustmentHistory, // Need to check if this exists
   // NEW: Automatic Missed Session Detection Functions
@@ -139,6 +142,10 @@ router.get('/check-adjustment', authenticateToken, checkPlanAdjustment);
 router.get('/suggest-reset', authenticateToken, suggestNewPlan);
 // router.post('/daily-check', authenticateToken, performDailyCheck);
 // router.get('/adjustment-history', authenticateToken, getPlanAdjustmentHistory);
+
+// NEW: Selective Plan Update Endpoints
+router.post('/preview-update', authenticateToken, previewPlanUpdate);
+router.put('/update-selective', authenticateToken, updatePlanSelectively);
 
 //Automatic Missed Session Detection Endpoints
 // router.get('/auto-detect-missed', authenticateToken, autoDetectMissedSessions);

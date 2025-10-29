@@ -1966,5 +1966,307 @@ export const updateSessionProgressRealtime = async (req, res) => {
   }
 };
 
+// ============================================
+// NEW: Selective Plan Update Functions
+// ============================================
 
+/**
+ * Preview plan update impact before committing changes
+ * Shows what will change if the user proceeds with the update
+ */
+export const previewPlanUpdate = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    const { fieldsToUpdate, newValues } = req.body;
 
+    if (!userId) {
+      return errorResponse(res, 401, 'Authentication required');
+    }
+
+    if (!fieldsToUpdate || !Array.isArray(fieldsToUpdate) || fieldsToUpdate.length === 0) {
+      return errorResponse(res, 400, 'fieldsToUpdate array is required');
+    }
+
+    if (!newValues || typeof newValues !== 'object') {
+      return errorResponse(res, 400, 'newValues object is required');
+    }
+
+    // Find the active plan and goal
+    const plan = await CyclingPlan.findOne({ user: userId, isActive: true }).populate('goal');
+    
+    if (!plan) {
+      return errorResponse(res, 404, 'No active plan found');
+    }
+
+    const goal = plan.goal;
+    const impact = {
+      fieldsToUpdate: fieldsToUpdate,
+      changes: {},
+      warnings: [],
+      sessionsToRegenerate: 0,
+      completedSessionsPreserved: 0
+    };
+
+    // Count current sessions
+    const completedSessions = plan.dailySessions.filter(s => s.status === 'completed');
+    const pendingSessions = plan.dailySessions.filter(s => s.status === 'pending');
+    
+    impact.completedSessionsPreserved = completedSessions.length;
+    impact.sessionsToRegenerate = pendingSessions.length;
+
+    // Calculate impacts for each field
+    if (fieldsToUpdate.includes('targetWeight')) {
+      const currentWeight = goal.targetWeight;
+      const newWeight = newValues.targetWeight;
+      impact.changes.targetWeight = {
+        current: currentWeight,
+        new: newWeight,
+        difference: newWeight - currentWeight
+      };
+      
+      // Check if weight change is safe
+      const weightDifference = Math.abs(goal.currentWeight - newWeight);
+      const timelineWeeks = Math.ceil(plan.planSummary.totalPlanDays / 7);
+      const weeklyChange = weightDifference / timelineWeeks;
+      
+      const maxSafeWeeklyChange = goal.goalType === 'weight_loss' ? 1.0 : 0.5;
+      if (weeklyChange > maxSafeWeeklyChange) {
+        impact.warnings.push(`New weight goal requires ${weeklyChange.toFixed(2)} kg/week, exceeding safe limit of ${maxSafeWeeklyChange} kg/week`);
+      }
+    }
+
+    if (fieldsToUpdate.includes('timeline')) {
+      const currentWeeks = Math.ceil(plan.planSummary.totalPlanDays / 7);
+      const newWeeks = newValues.timelineWeeks;
+      const newTotalDays = newWeeks * 7;
+      
+      impact.changes.timeline = {
+        currentWeeks: currentWeeks,
+        newWeeks: newWeeks,
+        currentTotalDays: plan.planSummary.totalPlanDays,
+        newTotalDays: newTotalDays,
+        difference: newWeeks - currentWeeks
+      };
+
+      // Update session count estimate
+      impact.sessionsToRegenerate = Math.floor(newTotalDays / 2); // Estimate ~3 sessions per week
+      
+      if (newWeeks < currentWeeks) {
+        impact.warnings.push(`Timeline shortened by ${currentWeeks - newWeeks} weeks - plan will be more intense`);
+      } else if (newWeeks > currentWeeks) {
+        impact.warnings.push(`Timeline extended by ${newWeeks - currentWeeks} weeks - more gradual approach`);
+      }
+    }
+
+    if (fieldsToUpdate.includes('dailyHours')) {
+      const currentHours = plan.planSummary.dailyCyclingHours;
+      const newHours = newValues.dailyCyclingHours;
+      
+      impact.changes.dailyHours = {
+        current: currentHours,
+        new: newHours,
+        difference: newHours - currentHours
+      };
+
+      // Validate session duration limits (45min - 3hrs)
+      if (newHours < 0.75) {
+        impact.warnings.push('Daily cycling hours below 45 minutes - below healthy minimum');
+      }
+      if (newHours > 3.0) {
+        impact.warnings.push('Daily cycling hours exceed 3 hours - unsafe limit');
+      }
+    }
+
+    if (fieldsToUpdate.includes('dailyCalories')) {
+      const currentCalories = plan.planSummary.dailyCalorieGoal;
+      const newCalories = newValues.dailyCalorieGoal;
+      
+      impact.changes.dailyCalories = {
+        current: currentCalories,
+        new: newCalories,
+        difference: newCalories - currentCalories
+      };
+
+      // Validate calorie deficit limits
+      if (Math.abs(newCalories) > 1000) {
+        impact.warnings.push('Daily calorie deficit/surplus exceeds 1000 kcal - may be unsafe');
+      }
+    }
+
+    res.json({
+      success: true,
+      message: 'Plan update preview generated',
+      data: {
+        currentPlan: {
+          targetWeight: goal.targetWeight,
+          timelineWeeks: Math.ceil(plan.planSummary.totalPlanDays / 7),
+          dailyHours: plan.planSummary.dailyCyclingHours,
+          dailyCalories: plan.planSummary.dailyCalorieGoal
+        },
+        impact: impact
+      }
+    });
+
+  } catch (error) {
+    console.error('Preview plan update error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to preview plan update',
+      details: error.message
+    });
+  }
+};
+
+/**
+ * Apply selective plan updates
+ * Updates only the fields user selected and regenerates plan accordingly
+ */
+export const updatePlanSelectively = async (req, res) => {
+  try {
+    const userId = req.user?.userId;
+    const { fieldsToUpdate, newValues } = req.body;
+
+    if (!userId) {
+      return errorResponse(res, 401, 'Authentication required');
+    }
+
+    if (!fieldsToUpdate || !Array.isArray(fieldsToUpdate) || fieldsToUpdate.length === 0) {
+      return errorResponse(res, 400, 'fieldsToUpdate array is required');
+    }
+
+    if (!newValues || typeof newValues !== 'object') {
+      return errorResponse(res, 400, 'newValues object is required');
+    }
+
+    // Find the active plan and goal
+    const plan = await CyclingPlan.findOne({ user: userId, isActive: true }).populate('goal');
+    
+    if (!plan) {
+      return errorResponse(res, 404, 'No active plan found');
+    }
+
+    const goal = plan.goal;
+    const oldValues = {};
+    
+    // Store old values for history
+    oldValues.targetWeight = goal.targetWeight;
+    oldValues.timelineWeeks = Math.ceil(plan.planSummary.totalPlanDays / 7);
+    oldValues.dailyHours = plan.planSummary.dailyCyclingHours;
+    oldValues.dailyCalories = plan.planSummary.dailyCalorieGoal;
+
+    // Preserve completed sessions
+    const completedSessions = plan.dailySessions.filter(s => s.status === 'completed');
+    
+    // Update Goal document if targetWeight or timeline changed
+    if (fieldsToUpdate.includes('targetWeight')) {
+      goal.targetWeight = newValues.targetWeight;
+    }
+
+    if (fieldsToUpdate.includes('timeline')) {
+      const newTimelineWeeks = newValues.timelineWeeks;
+      const startDate = new Date(goal.startDate);
+      const newTargetDate = new Date(startDate);
+      newTargetDate.setDate(startDate.getDate() + (newTimelineWeeks * 7));
+      goal.targetDate = newTargetDate;
+    }
+
+    await goal.save();
+
+    // Regenerate the plan with updated parameters
+    const newPlan = await generateCyclingPlan(userId, goal._id);
+
+    if (!newPlan) {
+      return errorResponse(res, 500, 'Failed to regenerate plan with new parameters');
+    }
+
+    // If only dailyHours or dailyCalories changed (no timeline/weight change),
+    // preserve session dates and just update hours/calories
+    if (!fieldsToUpdate.includes('targetWeight') && !fieldsToUpdate.includes('timeline')) {
+      if (fieldsToUpdate.includes('dailyHours') || fieldsToUpdate.includes('dailyCalories')) {
+        const updatedHours = fieldsToUpdate.includes('dailyHours') ? newValues.dailyCyclingHours : plan.planSummary.dailyCyclingHours;
+        const updatedCalories = fieldsToUpdate.includes('dailyCalories') ? newValues.dailyCalorieGoal : plan.planSummary.dailyCalorieGoal;
+        
+        // Update pending sessions
+        newPlan.dailySessions.forEach((session, index) => {
+          if (session.status === 'pending') {
+            session.plannedHours = updatedHours;
+            session.plannedCalories = updatedCalories;
+          }
+        });
+        
+        newPlan.planSummary.dailyCyclingHours = updatedHours;
+        newPlan.planSummary.dailyCalorieGoal = updatedCalories;
+      }
+    }
+
+    // Merge completed sessions back into new plan
+    completedSessions.forEach(completedSession => {
+      const sessionDate = new Date(completedSession.date);
+      sessionDate.setHours(0, 0, 0, 0);
+      
+      // Find matching session in new plan
+      const matchingSessionIndex = newPlan.dailySessions.findIndex(s => {
+        const sDate = new Date(s.date);
+        sDate.setHours(0, 0, 0, 0);
+        return sDate.getTime() === sessionDate.getTime();
+      });
+
+      if (matchingSessionIndex !== -1) {
+        // Replace with completed session
+        newPlan.dailySessions[matchingSessionIndex] = completedSession;
+      } else {
+        // Add completed session to beginning (in case timeline shortened)
+        newPlan.dailySessions.unshift(completedSession);
+      }
+    });
+
+    // Sort sessions by date
+    newPlan.dailySessions.sort((a, b) => new Date(a.date) - new Date(b.date));
+
+    // Add adjustment history
+    newPlan.adjustmentHistory = newPlan.adjustmentHistory || [];
+    newPlan.adjustmentHistory.push({
+      date: new Date(),
+      reason: 'manual_adjustment',
+      fieldsChanged: fieldsToUpdate,
+      oldValues: oldValues,
+      newValues: newValues,
+      userChoiceReason: 'Selective plan update by user'
+    });
+
+    await newPlan.save();
+
+    res.json({
+      success: true,
+      message: 'Plan updated successfully',
+      data: {
+        updatedPlan: {
+          _id: newPlan._id,
+          planSummary: newPlan.planSummary,
+          totalSessions: newPlan.dailySessions.length,
+          completedSessions: completedSessions.length,
+          pendingSessions: newPlan.dailySessions.filter(s => s.status === 'pending').length
+        },
+        fieldsUpdated: fieldsToUpdate,
+        changes: {
+          targetWeight: fieldsToUpdate.includes('targetWeight') ? 
+            { from: oldValues.targetWeight, to: newValues.targetWeight } : null,
+          timeline: fieldsToUpdate.includes('timeline') ? 
+            { from: oldValues.timelineWeeks, to: newValues.timelineWeeks } : null,
+          dailyHours: fieldsToUpdate.includes('dailyHours') ? 
+            { from: oldValues.dailyHours, to: newValues.dailyCyclingHours } : null,
+          dailyCalories: fieldsToUpdate.includes('dailyCalories') ? 
+            { from: oldValues.dailyCalories, to: newValues.dailyCalorieGoal } : null
+        }
+      }
+    });
+
+  } catch (error) {
+    console.error('Update plan selectively error:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update plan',
+      details: error.message
+    });
+  }
+};
