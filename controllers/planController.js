@@ -2058,38 +2058,36 @@ export const previewPlanUpdate = async (req, res) => {
       }
     }
 
-    if (fieldsToUpdate.includes('dailyHours')) {
-      const currentHours = plan.planSummary.dailyCyclingHours;
-      const newHours = newValues.dailyCyclingHours;
+    if (fieldsToUpdate.includes('activityLevel')) {
+      // Get user to access current activity level
+      const user = await User.findById(userId);
+      const currentActivityLevel = user?.profile?.activityLevel || 'moderate';
+      const newActivityLevel = newValues.activityLevel;
       
-      impact.changes.dailyHours = {
-        current: currentHours,
-        new: newHours,
-        difference: newHours - currentHours
+      // Calculate TDEE impact
+      const tdeeService = require('../services/tdeeService');
+      const bmr = tdeeService.calculateBMR(
+        goal.currentWeight,
+        user?.profile?.height || 170,
+        user?.profile?.age || 30,
+        user?.profile?.gender || 'male'
+      );
+      
+      const currentTDEE = tdeeService.calculateTDEE(bmr, currentActivityLevel);
+      const newTDEE = tdeeService.calculateTDEE(bmr, newActivityLevel);
+      
+      impact.changes.activityLevel = {
+        current: currentActivityLevel,
+        new: newActivityLevel,
+        currentTDEE: Math.round(currentTDEE),
+        newTDEE: Math.round(newTDEE),
+        tdeeDifference: Math.round(newTDEE - currentTDEE)
       };
 
-      // Validate session duration limits (45min - 3hrs)
-      if (newHours < 0.75) {
-        impact.warnings.push('Daily cycling hours below 45 minutes - below healthy minimum');
-      }
-      if (newHours > 3.0) {
-        impact.warnings.push('Daily cycling hours exceed 3 hours - unsafe limit');
-      }
-    }
-
-    if (fieldsToUpdate.includes('dailyCalories')) {
-      const currentCalories = plan.planSummary.dailyCalorieGoal;
-      const newCalories = newValues.dailyCalorieGoal;
-      
-      impact.changes.dailyCalories = {
-        current: currentCalories,
-        new: newCalories,
-        difference: newCalories - currentCalories
-      };
-
-      // Validate calorie deficit limits
-      if (Math.abs(newCalories) > 1000) {
-        impact.warnings.push('Daily calorie deficit/surplus exceeds 1000 kcal - may be unsafe');
+      if (newTDEE > currentTDEE) {
+        impact.warnings.push(`Higher activity level increases TDEE by ${Math.round(newTDEE - currentTDEE)} kcal/day - daily cycling hours may decrease`);
+      } else if (newTDEE < currentTDEE) {
+        impact.warnings.push(`Lower activity level decreases TDEE by ${Math.round(currentTDEE - newTDEE)} kcal/day - daily cycling hours may increase`);
       }
     }
 
@@ -2100,8 +2098,10 @@ export const previewPlanUpdate = async (req, res) => {
         currentPlan: {
           targetWeight: goal.targetWeight,
           timelineWeeks: Math.ceil(plan.planSummary.totalPlanDays / 7),
-          dailyHours: plan.planSummary.dailyCyclingHours,
-          dailyCalories: plan.planSummary.dailyCalorieGoal
+          activityLevel: (await User.findById(userId))?.profile?.activityLevel || 'moderate',
+          // Show calculated values for reference
+          calculatedDailyHours: plan.planSummary.dailyCyclingHours,
+          calculatedDailyCalories: plan.planSummary.dailyCalorieGoal
         },
         impact: impact
       }
@@ -2145,14 +2145,19 @@ export const updatePlanSelectively = async (req, res) => {
       return errorResponse(res, 404, 'No active plan found');
     }
 
+    // Get user profile to update activity level if needed
+    const user = await User.findById(userId);
+    if (!user) {
+      return errorResponse(res, 404, 'User not found');
+    }
+
     const goal = plan.goal;
     const oldValues = {};
     
     // Store old values for history
     oldValues.targetWeight = goal.targetWeight;
     oldValues.timelineWeeks = Math.ceil(plan.planSummary.totalPlanDays / 7);
-    oldValues.dailyHours = plan.planSummary.dailyCyclingHours;
-    oldValues.dailyCalories = plan.planSummary.dailyCalorieGoal;
+    oldValues.activityLevel = user.profile?.activityLevel || 'moderate';
 
     // Preserve completed sessions
     const completedSessions = plan.dailySessions.filter(s => s.status === 'completed');
@@ -2170,33 +2175,24 @@ export const updatePlanSelectively = async (req, res) => {
       goal.targetDate = newTargetDate;
     }
 
+    // Update user's activity level if changed
+    if (fieldsToUpdate.includes('activityLevel')) {
+      if (!user.profile) {
+        user.profile = {};
+      }
+      user.profile.activityLevel = newValues.activityLevel;
+      await user.save();
+    }
+
     await goal.save();
 
     // Regenerate the plan with updated parameters
+    // This will automatically use the new activityLevel from user profile
+    // and recalculate dailyCyclingHours and dailyCalorieGoal
     const newPlan = await generateCyclingPlan(userId, goal._id);
 
     if (!newPlan) {
       return errorResponse(res, 500, 'Failed to regenerate plan with new parameters');
-    }
-
-    // If only dailyHours or dailyCalories changed (no timeline/weight change),
-    // preserve session dates and just update hours/calories
-    if (!fieldsToUpdate.includes('targetWeight') && !fieldsToUpdate.includes('timeline')) {
-      if (fieldsToUpdate.includes('dailyHours') || fieldsToUpdate.includes('dailyCalories')) {
-        const updatedHours = fieldsToUpdate.includes('dailyHours') ? newValues.dailyCyclingHours : plan.planSummary.dailyCyclingHours;
-        const updatedCalories = fieldsToUpdate.includes('dailyCalories') ? newValues.dailyCalorieGoal : plan.planSummary.dailyCalorieGoal;
-        
-        // Update pending sessions
-        newPlan.dailySessions.forEach((session, index) => {
-          if (session.status === 'pending') {
-            session.plannedHours = updatedHours;
-            session.plannedCalories = updatedCalories;
-          }
-        });
-        
-        newPlan.planSummary.dailyCyclingHours = updatedHours;
-        newPlan.planSummary.dailyCalorieGoal = updatedCalories;
-      }
     }
 
     // Merge completed sessions back into new plan
@@ -2253,10 +2249,11 @@ export const updatePlanSelectively = async (req, res) => {
             { from: oldValues.targetWeight, to: newValues.targetWeight } : null,
           timeline: fieldsToUpdate.includes('timeline') ? 
             { from: oldValues.timelineWeeks, to: newValues.timelineWeeks } : null,
-          dailyHours: fieldsToUpdate.includes('dailyHours') ? 
-            { from: oldValues.dailyHours, to: newValues.dailyCyclingHours } : null,
-          dailyCalories: fieldsToUpdate.includes('dailyCalories') ? 
-            { from: oldValues.dailyCalories, to: newValues.dailyCalorieGoal } : null
+          activityLevel: fieldsToUpdate.includes('activityLevel') ? 
+            { from: oldValues.activityLevel, to: newValues.activityLevel } : null,
+          // These are now calculated, not user-provided
+          calculatedDailyHours: newPlan.planSummary.dailyCyclingHours,
+          calculatedDailyCalories: newPlan.planSummary.dailyCalorieGoal
         }
       }
     });
