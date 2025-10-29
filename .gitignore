@@ -16,6 +16,11 @@ yarn-error.log*
 .env.production.local
 .env.production
 
+# Firebase service account keys (SECURITY - NEVER COMMIT!)
+config/*.json
+*firebase-adminsdk*.json
+serviceAccountKey.json
+
 # Logs
 logs/
 *.log
