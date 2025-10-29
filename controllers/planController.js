@@ -2190,19 +2190,65 @@ export const updatePlanSelectively = async (req, res) => {
     // Regenerate the plan with updated parameters
     // This will automatically use the new activityLevel from user profile
     // and recalculate dailyCyclingHours and dailyCalorieGoal
-    const newPlan = await generateCyclingPlan(userId, goal._id);
+    let planData;
+    try {
+      planData = await generateCyclingPlan(userId, goal._id);
+    } catch (error) {
+      // Handle validation errors from plan generation
+      if (error.message.includes('Daily cycling hours below 45 minutes')) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid plan parameters',
+          message: 'The combination of activity level, target weight, and timeline results in less than 45 minutes of daily cycling, which is below the healthy minimum. Please adjust your timeline to be longer or choose a more active activity level.',
+          validationError: {
+            field: 'activityLevel/timeline',
+            reason: 'cycling_hours_too_low',
+            minRequired: '0.75 hours (45 minutes)',
+            suggestion: 'Increase timeline or select a higher activity level'
+          }
+        });
+      }
+      if (error.message.includes('Daily cycling hours exceed 3 hours')) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid plan parameters',
+          message: 'The combination of activity level, target weight, and timeline requires more than 3 hours of daily cycling, which exceeds safe limits. Please adjust your timeline to be longer.',
+          validationError: {
+            field: 'timeline',
+            reason: 'cycling_hours_too_high',
+            maxAllowed: '3 hours',
+            suggestion: 'Increase timeline to reduce daily cycling requirement'
+          }
+        });
+      }
+      if (error.message.includes('Daily calorie goal exceeds 1000 kcal')) {
+        return res.status(400).json({
+          success: false,
+          error: 'Invalid plan parameters',
+          message: 'The daily calorie deficit exceeds 1000 kcal, which is unsafe. Please extend your timeline.',
+          validationError: {
+            field: 'timeline',
+            reason: 'deficit_too_high',
+            maxAllowed: '1000 kcal/day',
+            suggestion: 'Increase timeline to reduce daily deficit'
+          }
+        });
+      }
+      // Re-throw if it's not a validation error
+      throw error;
+    }
 
-    if (!newPlan) {
+    if (!planData) {
       return errorResponse(res, 500, 'Failed to regenerate plan with new parameters');
     }
 
-    // Merge completed sessions back into new plan
+    // Merge completed sessions back into plan data
     completedSessions.forEach(completedSession => {
       const sessionDate = new Date(completedSession.date);
       sessionDate.setHours(0, 0, 0, 0);
       
       // Find matching session in new plan
-      const matchingSessionIndex = newPlan.dailySessions.findIndex(s => {
+      const matchingSessionIndex = planData.dailySessions.findIndex(s => {
         const sDate = new Date(s.date);
         sDate.setHours(0, 0, 0, 0);
         return sDate.getTime() === sessionDate.getTime();
@@ -2210,25 +2256,35 @@ export const updatePlanSelectively = async (req, res) => {
 
       if (matchingSessionIndex !== -1) {
         // Replace with completed session
-        newPlan.dailySessions[matchingSessionIndex] = completedSession;
+        planData.dailySessions[matchingSessionIndex] = completedSession;
       } else {
         // Add completed session to beginning (in case timeline shortened)
-        newPlan.dailySessions.unshift(completedSession);
+        planData.dailySessions.unshift(completedSession);
       }
     });
 
     // Sort sessions by date
-    newPlan.dailySessions.sort((a, b) => new Date(a.date) - new Date(b.date));
+    planData.dailySessions.sort((a, b) => new Date(a.date) - new Date(b.date));
 
     // Add adjustment history
-    newPlan.adjustmentHistory = newPlan.adjustmentHistory || [];
-    newPlan.adjustmentHistory.push({
+    planData.adjustmentHistory = plan.adjustmentHistory || [];
+    planData.adjustmentHistory.push({
       date: new Date(),
       reason: 'manual_adjustment',
       fieldsChanged: fieldsToUpdate,
       oldValues: oldValues,
       newValues: newValues,
       userChoiceReason: 'Selective plan update by user'
+    });
+
+    // Deactivate old plan and create new one
+    plan.isActive = false;
+    await plan.save();
+
+    // Create new plan document
+    const newPlan = new CyclingPlan({
+      ...planData,
+      isActive: true
     });
 
     await newPlan.save();
