@@ -9,7 +9,9 @@ import {
   emergencyCatchUp
 } from '../services/calorieService.js';
 import {
-  calculateEnhancedGoalPlan
+  calculateEnhancedGoalPlan,
+  calculateBMR,
+  calculateTDEE
 } from '../services/tdeeService.js';
 import { 
   checkAndAdjustPlan, 
@@ -2064,17 +2066,16 @@ export const previewPlanUpdate = async (req, res) => {
       const currentActivityLevel = user?.profile?.activityLevel || 'moderate';
       const newActivityLevel = newValues.activityLevel;
       
-      // Calculate TDEE impact
-      const tdeeService = require('../services/tdeeService');
-      const bmr = tdeeService.calculateBMR(
+      // Calculate TDEE impact using imported functions
+      const bmr = calculateBMR(
         goal.currentWeight,
         user?.profile?.height || 170,
         user?.profile?.age || 30,
         user?.profile?.gender || 'male'
       );
       
-      const currentTDEE = tdeeService.calculateTDEE(bmr, currentActivityLevel);
-      const newTDEE = tdeeService.calculateTDEE(bmr, newActivityLevel);
+      const currentTDEE = calculateTDEE(bmr, currentActivityLevel);
+      const newTDEE = calculateTDEE(bmr, newActivityLevel);
       
       impact.changes.activityLevel = {
         current: currentActivityLevel,
