@@ -211,38 +211,22 @@ Reply to: ${email}
       `,
     };
 
-    try {
-      // Send email
-      const info = await transporter.sendMail(mailOptions);
-      emailSent = true;
+    // Temporarily disable email for capstone demo - focus on database storage
+    emailSent = false;
+    emailError = 'Email notifications disabled for demo - all messages saved to database';
 
-      // Update database record with email success
-      contactRecord.emailSent = true;
-      contactRecord.emailSentAt = new Date();
-      await contactRecord.save();
+    // Update database record
+    contactRecord.emailSent = false;
+    contactRecord.emailError = emailError;
+    await contactRecord.save();
 
-      logger.info('📧 Contact form email sent successfully', {
-        contactId: contactRecord._id,
-        messageId: info.messageId,
-        from: email,
-        subject: subject,
-        timestamp: new Date().toISOString()
-      });
-    } catch (emailErr) {
-      emailSent = false;
-      emailError = emailErr.message;
-
-      // Update database record with email error
-      contactRecord.emailSent = false;
-      contactRecord.emailError = emailErr.message;
-      await contactRecord.save();
-
-      logger.error('❌ Error sending email, but contact saved to database', {
-        contactId: contactRecord._id,
-        error: emailErr.message,
-        from: email
-      });
-    }
+    logger.info('✅ Contact form saved to database (email disabled for demo)', {
+      contactId: contactRecord._id,
+      from: email,
+      subject: subject,
+      category: contactRecord.category,
+      timestamp: new Date().toISOString()
+    });
 
     // Always respond with success since we saved to database
     // Even if email fails, the message is still recorded
