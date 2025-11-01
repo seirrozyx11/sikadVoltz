@@ -2,6 +2,7 @@ import express from 'express';
 import nodemailer from 'nodemailer';
 import logger from '../utils/logger.js';
 import rateLimit from 'express-rate-limit';
+import Contact from '../models/Contact.js';
 
 const router = express.Router();
 
@@ -22,6 +23,8 @@ const contactLimiter = rateLimit({
  * Send contact form email to SikadVoltz support
  */
 router.post('/send', contactLimiter, async (req, res) => {
+  let contactRecord = null;
+  
   try {
     const { name, email, subject, message } = req.body;
 
@@ -49,6 +52,25 @@ router.post('/send', contactLimiter, async (req, res) => {
         error: 'Message must be at least 10 characters long'
       });
     }
+
+    // 1. FIRST: Save to database
+    contactRecord = new Contact({
+      name: name.trim(),
+      email: email.trim().toLowerCase(),
+      subject: subject.trim(),
+      message: message.trim(),
+      ipAddress: req.ip || req.connection.remoteAddress,
+      userAgent: req.get('User-Agent'),
+      // Auto-categorize based on subject keywords
+      category: _categorizeMessage(subject, message)
+    });
+
+    await contactRecord.save();
+    logger.info(`Contact form submitted: ${contactRecord._id} from ${email}`);
+
+    // 2. SECOND: Send email notification
+    let emailSent = false;
+    let emailError = null;
 
     // Configure email transporter
     const transporter = nodemailer.createTransport({
@@ -189,39 +211,70 @@ Reply to: ${email}
       `,
     };
 
-    // Send email
-    const info = await transporter.sendMail(mailOptions);
+    try {
+      // Send email
+      const info = await transporter.sendMail(mailOptions);
+      emailSent = true;
 
-    logger.info('📧 Contact form email sent successfully', {
-      messageId: info.messageId,
-      from: email,
-      subject: subject,
-      timestamp: new Date().toISOString()
-    });
+      // Update database record with email success
+      contactRecord.emailSent = true;
+      contactRecord.emailSentAt = new Date();
+      await contactRecord.save();
 
+      logger.info('📧 Contact form email sent successfully', {
+        contactId: contactRecord._id,
+        messageId: info.messageId,
+        from: email,
+        subject: subject,
+        timestamp: new Date().toISOString()
+      });
+    } catch (emailErr) {
+      emailSent = false;
+      emailError = emailErr.message;
+
+      // Update database record with email error
+      contactRecord.emailSent = false;
+      contactRecord.emailError = emailErr.message;
+      await contactRecord.save();
+
+      logger.error('❌ Error sending email, but contact saved to database', {
+        contactId: contactRecord._id,
+        error: emailErr.message,
+        from: email
+      });
+    }
+
+    // Always respond with success since we saved to database
+    // Even if email fails, the message is still recorded
     res.json({
       success: true,
-      message: 'Your message has been sent successfully! We\'ll get back to you within 24-48 hours.',
-      messageId: info.messageId
+      message: emailSent 
+        ? 'Your message has been sent successfully! We\'ll get back to you within 24-48 hours.'
+        : 'Your message has been received and saved! We\'ll get back to you within 24-48 hours.',
+      contactId: contactRecord._id,
+      emailSent: emailSent,
+      timestamp: contactRecord.createdAt
     });
 
   } catch (error) {
-    logger.error('❌ Error sending contact form email:', {
+    logger.error('❌ Error processing contact form:', {
       error: error.message,
       stack: error.stack
     });
 
-    // Check for specific email errors
-    if (error.code === 'EAUTH') {
+    // If this is a database error and no contact record was created
+    if (!contactRecord) {
       return res.status(500).json({
         success: false,
-        error: 'Email service authentication failed. Please contact the administrator.'
+        error: 'Failed to save your message. Please try again later or email us directly at sikadvoltz.app@gmail.com'
       });
     }
 
+    // If contact was saved but there was another error
     res.status(500).json({
       success: false,
-      error: 'Failed to send message. Please try again later or email us directly at sikadvoltz.app@gmail.com'
+      error: 'Your message was saved but there was an issue processing it. We\'ll still get back to you within 24-48 hours.',
+      contactId: contactRecord._id
     });
   }
 });
@@ -266,5 +319,159 @@ router.get('/test', async (req, res) => {
     });
   }
 });
+
+/**
+ * GET /api/contact/admin/list
+ * Get all contact messages for admin (requires authentication in production)
+ */
+router.get('/admin/list', async (req, res) => {
+  try {
+    const { page = 1, limit = 20, status, category } = req.query;
+    
+    // Build query
+    const query = {};
+    if (status) query.status = status;
+    if (category) query.category = category;
+    
+    // Get paginated results
+    const contacts = await Contact.find(query)
+      .sort({ createdAt: -1 })
+      .limit(parseInt(limit))
+      .skip((parseInt(page) - 1) * parseInt(limit))
+      .select('name email subject status category emailSent createdAt timeAgo');
+    
+    // Get total count
+    const total = await Contact.countDocuments(query);
+    
+    // Get stats
+    const stats = await Contact.getStats();
+    
+    res.json({
+      success: true,
+      data: {
+        contacts,
+        pagination: {
+          page: parseInt(page),
+          limit: parseInt(limit),
+          total,
+          pages: Math.ceil(total / parseInt(limit))
+        },
+        stats
+      }
+    });
+    
+  } catch (error) {
+    logger.error('Error fetching contact list:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch contact messages'
+    });
+  }
+});
+
+/**
+ * GET /api/contact/admin/:id
+ * Get specific contact message details
+ */
+router.get('/admin/:id', async (req, res) => {
+  try {
+    const contact = await Contact.findById(req.params.id)
+      .populate('respondedBy', 'name email');
+    
+    if (!contact) {
+      return res.status(404).json({
+        success: false,
+        error: 'Contact message not found'
+      });
+    }
+    
+    // Mark as read if it's new
+    if (contact.status === 'new') {
+      await contact.markAsRead();
+    }
+    
+    res.json({
+      success: true,
+      data: contact
+    });
+    
+  } catch (error) {
+    logger.error('Error fetching contact details:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to fetch contact details'
+    });
+  }
+});
+
+/**
+ * PATCH /api/contact/admin/:id/status
+ * Update contact message status
+ */
+router.patch('/admin/:id/status', async (req, res) => {
+  try {
+    const { status, adminNotes } = req.body;
+    
+    const contact = await Contact.findById(req.params.id);
+    if (!contact) {
+      return res.status(404).json({
+        success: false,
+        error: 'Contact message not found'
+      });
+    }
+    
+    contact.status = status;
+    if (adminNotes) contact.adminNotes = adminNotes;
+    
+    await contact.save();
+    
+    res.json({
+      success: true,
+      message: 'Contact status updated successfully',
+      data: contact
+    });
+    
+  } catch (error) {
+    logger.error('Error updating contact status:', error);
+    res.status(500).json({
+      success: false,
+      error: 'Failed to update contact status'
+    });
+  }
+});
+
+/**
+ * Helper function to categorize messages based on keywords
+ */
+function _categorizeMessage(subject, message) {
+  const content = `${subject} ${message}`.toLowerCase();
+  
+  // Bug keywords
+  if (content.includes('bug') || content.includes('error') || content.includes('crash') || 
+      content.includes('broken') || content.includes('not working') || content.includes('issue')) {
+    return 'bug_report';
+  }
+  
+  // Feature request keywords
+  if (content.includes('feature') || content.includes('add') || content.includes('request') || 
+      content.includes('suggestion') || content.includes('improve') || content.includes('enhancement')) {
+    return 'feature_request';
+  }
+  
+  // Technical support keywords
+  if (content.includes('help') || content.includes('support') || content.includes('how to') || 
+      content.includes('tutorial') || content.includes('setup') || content.includes('install')) {
+    return 'technical_support';
+  }
+  
+  // Feedback keywords
+  if (content.includes('feedback') || content.includes('review') || content.includes('opinion') || 
+      content.includes('love') || content.includes('hate') || content.includes('like') || 
+      content.includes('dislike')) {
+    return 'feedback';
+  }
+  
+  return 'general_inquiry';
+}
 
 export default router;
