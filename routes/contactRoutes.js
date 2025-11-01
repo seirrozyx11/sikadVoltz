@@ -51,7 +51,7 @@ router.post('/send', contactLimiter, async (req, res) => {
     }
 
     // Configure email transporter
-    const transporter = nodemailer.createTransporter({
+    const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
         user: process.env.EMAIL_USER || process.env.EMAIL_FROM || 'sikadvoltz.app@gmail.com',
@@ -239,7 +239,7 @@ router.get('/test', async (req, res) => {
   }
 
   try {
-    const transporter = nodemailer.createTransporter({
+    const transporter = nodemailer.createTransport({
       service: 'gmail',
       auth: {
         user: process.env.EMAIL_USER || process.env.EMAIL_FROM || 'sikadvoltz.app@gmail.com',
