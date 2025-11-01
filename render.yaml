@@ -1,0 +1,59 @@
+# Render Configuration for Ultra-Secure SikadVoltz Backend
+# Using Google's Distroless Node.js Image for Maximum Security
+
+services:
+  - type: web
+    name: sikadvoltz-backend-secure
+    env: node
+    plan: starter
+    buildCommand: docker build -f Dockerfile.distroless -t sikadvoltz-backend .
+    startCommand: node index.js
+    envVars:
+      - key: NODE_ENV
+        value: production
+      - key: PORT
+        value: 10000
+      - key: MONGODB_URI
+        fromDatabase:
+          name: sikadvoltz-db
+          property: connectionString
+      - key: REDIS_URL
+        sync: false  # Set manually in Render dashboard for security
+      - key: JWT_SECRET
+        generateValue: true
+      - key: BCRYPT_ROUNDS
+        value: 12
+      - key: SESSION_SECRET
+        generateValue: true
+      - key: CORS_ORIGIN
+        value: https://sikadvoltz-frontend.onrender.com
+      - key: API_VERSION
+        value: v1
+      - key: RATE_LIMIT_WINDOW_MS
+        value: 900000
+      - key: RATE_LIMIT_MAX_REQUESTS
+        value: 100
+    
+    # Ultra-Secure Docker Configuration
+    dockerfilePath: ./Dockerfile.distroless
+    dockerContext: .
+    
+    # Health Check Configuration
+    healthCheckPath: /api/v1/health
+    
+    # Auto-Deploy Settings
+    autoDeploy: true
+    branch: main
+
+databases:
+  - name: sikadvoltz-db
+    databaseName: sikadvoltz
+    user: sikadvoltz_user
+    plan: free
+
+# Security Headers (handled by application)
+# - Helmet.js for comprehensive security headers
+# - Rate limiting with Redis
+# - JWT authentication
+# - Input validation and sanitization
+# - CORS protection

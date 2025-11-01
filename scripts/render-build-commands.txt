@@ -1,0 +1,14 @@
+# Render Build Commands for Ultra-Secure Deployment
+
+# Option 1: Direct Docker Build (Recommended)
+docker build -f Dockerfile.distroless -t sikadvoltz-backend .
+
+# Option 2: With explicit context
+docker build -f ./Dockerfile.distroless -t sikadvoltz-backend-secure .
+
+# Option 3: With build arguments (if needed)
+docker build -f Dockerfile.distroless --build-arg NODE_ENV=production -t sikadvoltz-backend .
+
+# Verification Commands (for local testing)
+# docker run --rm -p 3000:3000 --env-file .env sikadvoltz-backend
+# docker inspect sikadvoltz-backend | grep -i "distroless\|security"
