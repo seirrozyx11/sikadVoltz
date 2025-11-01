@@ -1,4 +1,4 @@
-import { WebSocketServer } from 'ws';
+import { WebSocketServer, WebSocket } from 'ws';
 import jwt from 'jsonwebtoken';
 import logger from '../utils/logger.js';
 import User from '../models/User.js'; // For user status tracking
@@ -9,11 +9,36 @@ class WebSocketService {
     this.clients = new Map(); // userId -> Set of WebSocket connections
     this.setupHandlers();
     this.setupServer(server);
+    this.startHeartbeat();
+  }
+
+  // 🔥 FIX: Heartbeat to keep connections alive
+  startHeartbeat() {
+    this.heartbeatInterval = setInterval(() => {
+      this.wss.clients.forEach((ws) => {
+        if (ws.isAlive === false) {
+          logger.warn('WebSocket connection terminated (no pong received)');
+          return ws.terminate();
+        }
+        
+        ws.isAlive = false;
+        ws.ping();
+      });
+    }, 30000); // Ping every 30 seconds
   }
 
   setupServer(server) {
     // Handle HTTP server upgrade to WebSocket
     server.on('upgrade', (request, socket, head) => {
+      // 🔥 FIX: Only handle /ws path for notification WebSocket
+      const url = new URL(request.url, `http://${request.headers.host}`);
+      if (url.pathname !== '/ws') {
+        // Let other handlers deal with non-/ws upgrades
+        return;
+      }
+      
+      logger.info(`WebSocket upgrade request for path: ${url.pathname}`);
+      
       // Extract token from query params
       const token = this.extractToken(request);
       
@@ -26,11 +51,14 @@ class WebSocketService {
       // Verify JWT token
       jwt.verify(token, process.env.JWT_SECRET || 'fallbacksecret', (err, decoded) => {
         if (err) {
+          logger.warn(`WebSocket auth failed: ${err.message}`);
           socket.write('HTTP/1.1 401 Unauthorized\r\n\r\n');
           socket.destroy();
           return;
         }
 
+        logger.info(`WebSocket auth successful for user: ${decoded.userId}`);
+        
         this.wss.handleUpgrade(request, socket, head, (ws) => {
           this.wss.emit('connection', ws, request, decoded.userId);
         });
@@ -45,7 +73,20 @@ class WebSocketService {
 
   setupHandlers() {
     this.wss.on('connection', async (ws, request, userId) => {
-      logger.info(`New WebSocket connection for user ${userId}`);
+      logger.info(`✅ New WebSocket connection established for user ${userId}`);
+      
+      // 🔥 FIX: Set up ping/pong to keep connection alive
+      ws.isAlive = true;
+      ws.on('pong', () => {
+        ws.isAlive = true;
+      });
+      
+      // Send initial connection confirmation
+      ws.send(JSON.stringify({
+        type: 'connected',
+        message: 'WebSocket connection established',
+        timestamp: new Date().toISOString()
+      }));
       
       // DUAL-STRATEGY: Set user status to ONLINE when WebSocket connects
       try {
