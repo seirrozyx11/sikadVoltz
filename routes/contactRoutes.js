@@ -54,14 +54,14 @@ router.post('/send', contactLimiter, async (req, res) => {
     const transporter = nodemailer.createTransporter({
       service: 'gmail',
       auth: {
-        user: process.env.EMAIL_USER || 'sikadvoltz.app@gmail.com',
-        pass: process.env.EMAIL_PASSWORD || process.env.EMAIL_APP_PASSWORD,
+        user: process.env.EMAIL_USER || process.env.EMAIL_FROM || 'sikadvoltz.app@gmail.com',
+        pass: process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS || process.env.EMAIL_APP_PASSWORD,
       },
     });
 
     // Email content
     const mailOptions = {
-      from: process.env.EMAIL_USER || 'sikadvoltz.app@gmail.com',
+      from: process.env.EMAIL_USER || process.env.EMAIL_FROM || 'sikadvoltz.app@gmail.com',
       to: 'sikadvoltz.app@gmail.com',
       replyTo: email,
       subject: `[SikadVoltz Contact] ${subject}`,
@@ -242,8 +242,8 @@ router.get('/test', async (req, res) => {
     const transporter = nodemailer.createTransporter({
       service: 'gmail',
       auth: {
-        user: process.env.EMAIL_USER || 'sikadvoltz.app@gmail.com',
-        pass: process.env.EMAIL_PASSWORD || process.env.EMAIL_APP_PASSWORD,
+        user: process.env.EMAIL_USER || process.env.EMAIL_FROM || 'sikadvoltz.app@gmail.com',
+        pass: process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS || process.env.EMAIL_APP_PASSWORD,
       },
     });
 
@@ -254,8 +254,8 @@ router.get('/test', async (req, res) => {
       message: 'Email service is configured correctly',
       config: {
         service: 'gmail',
-        user: process.env.EMAIL_USER || 'sikadvoltz.app@gmail.com',
-        passwordConfigured: !!(process.env.EMAIL_PASSWORD || process.env.EMAIL_APP_PASSWORD)
+        user: process.env.EMAIL_USER || process.env.EMAIL_FROM || 'sikadvoltz.app@gmail.com',
+        passwordConfigured: !!(process.env.EMAIL_PASSWORD || process.env.EMAIL_PASS || process.env.EMAIL_APP_PASSWORD)
       }
     });
   } catch (error) {
